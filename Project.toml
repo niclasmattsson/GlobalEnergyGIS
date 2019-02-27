@@ -1,0 +1,12 @@
+name = "GlobalEnergyGIS"
+uuid = "31bfc850-377e-11e9-327a-adf9289f3a6c"
+authors = ["niclasmattsson <33093224+niclasmattsson@users.noreply.github.com>"]
+version = "0.1.0"
+
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+ImageFiltering = "6a3955dd-da59-5b1f-98d4-e7296123deb5"
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+MAT = "23992714-dd62-5051-b70f-ba57cb901cac"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
