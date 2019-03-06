@@ -84,3 +84,78 @@ function diskfilterkernel(rad)
 	sgrid[crad+1,crad+1] = min(sgrid[crad+1,crad+1], 1)
 	h = centered(sgrid/sum(sgrid))
 end
+
+
+meandrop(x; dims=dims) = dropdims(mean(x, dims=dims), dims=dims)
+
+shifthalfcell(data, kernel=centered([.25 .25; .25 .25])) = imfilter(data, kernel)
+
+function shiftallcells!(windCF)
+    yearlength = size(windCF, 1)
+    updateprogress = Progress(yearlength, 1)
+    kernel = centered([.25 .25; .25 .25])
+    for i=1:yearlength
+        windCF[i,:,:] = shifthalfcell(windCF[i,:,:], kernel)
+        next!(updateprogress)
+    end
+end
+
+function h5read_fast(filename::String, varname::String)
+    h5open(filename, "r") do file
+        return read_fast(file[varname], Float32)
+    end
+end
+
+function read_fast(dset::HDF5.HDF5Dataset, T::DataType)
+    filetype = HDF5.datatype(dset) # packed layout on disk
+    memtype_id = HDF5.h5t_get_native_type(filetype.id) # padded layout in memory
+    @assert sizeof(T) == HDF5.h5t_get_size(memtype_id) "Type sizes don't match!"
+    out = Array{T, length(size(dset))}(undef, size(dset))
+    HDF5.h5d_read(dset.id, memtype_id, HDF5.H5S_ALL, HDF5.H5S_ALL, HDF5.H5P_DEFAULT, out)
+    HDF5.h5t_close(memtype_id)
+    out
+end
+
+
+
+# lat0 = filterrange(getlats(bboxglobal, 32/9, false), bboxsmall[:,1])[1:end-1]
+# lon0 = filterrange(getlons(bboxglobal, 32/9, false), bboxsmall[:,2])[1:end-1]
+# latrangesmall = getlats(bboxsmall, 32/9, true)
+# lonrangesmall = getlons(bboxsmall, 32/9, true)
+
+
+# @btime posting2cell($meanwind, $lat0, $lon0, $latrangesmall, $lonrangesmall);
+# meanwind2 = posting2cell(meanwind, lat0, lon0, latrangesmall, lonrangesmall)
+# convertallpostings!(windCF, lat0, lon0, latrangesmall, lonrangesmall)
+
+#=
+function convertallpostings!(windCF, lat0, lon0, lat, lon)
+    yearlength = size(windCF, 1)
+    updateprogress = Progress(yearlength, 1)
+    for i=1:yearlength
+        windCF[i,:,:] = posting2cell(windCF[i,:,:], lat0, lon0, lat, lon)
+        next!(updateprogress)
+    end
+end
+
+function posting2cell(data, lat0, lon0, lat, lon)
+    # I thought these should both be reversed to do the shift in the right direction,
+    # but I get the same result as the Matlab code without the reverses. Also, the
+    # spatial correlation with the wind atlas seems better without reverses.
+    interp = interpolate((lat0, lon0), data, Gridded(Linear()))       # reverse(data, dims=1)
+    extrap = extrapolate(interp, Line())
+    testxy(x,y) = y >= lat0[1] && y <= lat0[end] && x >= lon0[1] && x <= lon0[end]
+    return [testxy(x,y) ? interp(y,x) : extrap(y,x) for y in lat, x in lon]     # reverse(lat)
+end
+
+function posting2cell_slower1(data, lat0, lon0, lat, lon)
+    interp = interpolate((lat0, lon0), data, Gridded(Linear()))       # reverse(data, dims=1)
+    extrap = extrapolate(interp, Line())
+    return [extrap(y,x) for y in lat, x in lon]                                 # reverse(lat)
+end
+
+function posting2cell_slower2(data, lat0, lon0, lat, lon)
+    interp = LinearInterpolation((lat0, lon0), data, extrapolation_bc = Line())       # reverse(data, dims=1)
+    return [interp(y,x) for y in lat, x in lon]                                 # reverse(lat)
+end
+=#
