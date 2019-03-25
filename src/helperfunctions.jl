@@ -116,6 +116,32 @@ function read_fast(dset::HDF5.HDF5Dataset, T::DataType)
     out
 end
 
+# timemem-1.0 gdal_translate -r mode -tr 0.1 0.1 -co COMPRESS=LZW gadm.tif gadmsmall.tif
+
+# function resample_majority(x::AbstractArray, scale::Tuple{Int,Int})
+# 	nrows, ncols = size(x).÷scale
+# 	target = similar(x, (nrows, ncols))
+# 	vals = span(x)
+# 	for c = 1:ncols
+# 		srccols = (c-1)*scale[2]+1:c*scale[2]
+# 		for r = 1:nrows
+# 			srcrows = (r-1)*scale[1]+1:r*scale[1]
+# 			count = counts(x[srcrows,srccols], vals)
+# 			mx, ndx = findmax(count)
+# 			target[r,c] = vals[ndx]
+# 		end
+# 	end
+# 	return target
+# end
+
+# function mostcommonelement(x::AbstractArray)
+# 	vals = span(x)
+# 	count = counts(x, vals)
+# 	mx, ndx = findmax(count)
+# 	vals[ndx]
+# end
+
+
 
 
 # lat0 = filterrange(getlats(bboxglobal, 32/9, false), bboxsmall[:,1])[1:end-1]
