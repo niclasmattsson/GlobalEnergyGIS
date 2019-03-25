@@ -2,8 +2,7 @@ import GDAL
 using ArchGDAL
 const AG = ArchGDAL
 
-export rasterize, readraster, rasterize_GADM, GADM, makeregions, eurasia38, makeoffshoreregions,
-        rasterize_protected, makeprotected
+export rasterize, readraster, saveTIFF, GADM, makeregions, eurasia38, makeoffshoreregions, makeprotected, makelandcover
         # Node, findchild, printnode, print_tree, Leaves
 
 function rasterize_AG(infile::String, outfile::String, options::Vector{<:AbstractString})
@@ -38,8 +37,39 @@ end
 function readraster(infile::String)
     ArchGDAL.registerdrivers() do
         ArchGDAL.read(infile) do dataset
+            # display(ArchGDAL.getproj(dataset))
+            # display(ArchGDAL.getgeotransform(dataset))
+            # display(ArchGDAL.importEPSG(4326))
             dropdims(ArchGDAL.read(dataset), dims=3)
         end
+    end
+end
+
+function saveTIFF(x::AbstractArray, filename::String)
+    wkt_string = "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433],AUTHORITY[\"EPSG\",\"4326\"]]"
+    ArchGDAL.registerdrivers() do
+        width, height = size(x)
+        res = 360/width
+        raster = AG.unsafe_create(
+            filename,
+            AG.getdriver("GTiff"),
+            width = width,
+            height = height,
+            nbands = 1,
+            dtype = eltype(x),
+            options = ["COMPRESS=LZW"]
+        )
+        ## assign the projection and transformation parameters
+        AG.setgeotransform!(raster, [-180, res, 0, 90, 0, -res])
+        AG.setproj!(raster, wkt_string)
+        
+        ## write the raster    
+        AG.write!(
+            raster,
+            x,      # image to "burn" into the raster
+            1,      # update band 1
+        )
+        AG.destroy(raster)
     end
 end
 
@@ -199,6 +229,8 @@ eurasia38 = [
 
 
 
+# ArchGDAL tutorial: http://www.acgeospatial.co.uk/julia-prt3/
+
 # rasterize_AG("C:/Stuff/Datasets/gadm36/gadm36.shp", "testtest.tif", "-a ID_0 -ts 4000 2000 -ot Byte")
 # shapefile2tif("C:/Stuff/Datasets/gadm36/gadm36.shp", "Europe", "ID_0", 4300, [-11, 34, 32, 72], ')
 
@@ -213,11 +245,12 @@ eurasia38 = [
 
 # timemem-1.0 gdal_translate -r mode -tr 0.1 0.1 -co COMPRESS=LZW gadm.tif gadmsmall.tif
 
+
 function rasterize_protected()
     println("Rasterizing global shapefile (10+ minute run time)...")
     shapefile = "C:/Stuff/Datasets/WDPA - Protected areas/WDPA_Feb2019-shapefile-polygons.shp"
     sql = "select FID from \"WDPA_Feb2019-shapefile-polygons\""
-    outfile = "protected.tif"
+    outfile = "protected_raster.tif"
     options = "-a FID -a_nodata -1 -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
     @time run(` gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile` )
 
@@ -232,12 +265,86 @@ function makeprotected()
     protectedfields = readdlm("protectedfields.csv", ',', header=true)[1]
     IUCNcodes = ["Ia", "Ib", "II", "III", "IV", "V", "VI", "Not Reported", "Not Applicable", "Not Assigned"]
     IUCNlookup = Dict(c => i for (i,c) in enumerate(IUCNcodes))
-    protected0 = readraster("protected.tif")
+    protected0 = readraster("protected_raster.tif")
 
     println("Converting indexes to protected area types...")
-    protected = similar(protected0)
+    protected = similar(protected0, UInt8)
     for (i, p) in enumerate(protected0)
         protected[i] = p == -1 ? 0 : IUCNlookup[protectedfields[p+1,2]]
     end
-    return protected
+
+    println("Saving protected area dataset...")
+    saveTIFF(protected, "protected.tif")
 end
+
+
+function resample(infile::String, outfile::String, options::Vector{<:AbstractString})
+    @time run(` gdal_translate $options -co COMPRESS=LZW $infile $outfile` )
+end
+
+function downscale_landcover()
+    println("Downscaling landcover dataset...")
+    infile = "C:/Stuff/GET.GIS/datasets/landcover/Landcover - USGS MODIS.tif"
+    options = "-r mode -ot Byte -tr 0.01 0.01"
+    resample(infile, "landcover.tif", split(options, ' '))
+end
+
+function getlandcover()
+    landcover = readraster("landcover.tif")
+    landtypes = [
+        "Barren", "Snow/Ice", "Cropland/Natural", "Urban", "Croplands",
+        "Permanent Wetlands", "Grasslands", "Savannas", "Woody Savannas", "Open Shrublands",
+        "Closed Shrublands", "Mixed Forests", "Deciduous Broadleaf Forests", "Deciduous Needleleaf Forests", "Evergreen Broadleaf Forests",
+        "Evergreen Needleleaf Forests", "Water"
+    ]
+    # landcolors = 1/255 * [
+    #     190 190 190; 255 218 209; 144 144 0; 255 0 0; 255 255 0;
+    #     40 136 213; 255 192 107; 255 228 18; 182 231 140; 255 236 163;
+    #     216 118 118; 55 200 133; 104 229 104; 123 204 6; 77 167 86;
+    #     0 100 0; 190 247 255
+    # ]
+    return landcover, landtypes
+end
+
+function upscale_topography()
+    println("Upscaling topography dataset...")
+    infile = "C:/Stuff/GET.GIS/datasets/topography/ETOPO1_Ice_c_geotiff.tif"
+    options = "-r cubicspline -tr 0.01 0.01"
+    resample(infile, "topography.tif", split(options, ' '))
+end
+
+gettopography() = readraster("topography.tif")
+
+function downscale_population(year)
+    println("Reading population dataset...")
+    filename = "D:/datasets/population/Gao SSP2_1km/ssp2_total_$year.nc4"
+    pop = ncread(filename, "Band1")
+    lat = ncread(filename, "lat")
+    res = 0.5/60    # source resolution 0.5 arcminutes
+
+    println("Padding and saving intermediate dataset...")
+    skiptop = round(Int, (90-(lat[end]+res/2)) / res)
+    skipbottom = round(Int, (lat[1]-res/2-(-90)) / res)
+    pop = pop'
+    pop[pop.<0] .= 0
+    lons = size(pop,2)
+    # the factor (.01/res)^2 is needed to conserve total population
+    pop = collect([zeros(Float32,skiptop,lons); reverse(pop, dims=1)*(.01/res)^2; zeros(Float32,skipbottom,lons)]')
+    temptiff = tempname()
+    saveTIFF(pop, temptiff)
+
+    println("Downscaling population dataset...")
+    options = "-r cubicspline -tr 0.01 0.01"
+    resample(temptiff, "population.tif", split(options, ' '))
+    rm(temptiff)
+end
+
+getpopulation() = readraster("population.tif")
+
+# grid12 + electrification
+# windatlas
+# turbine curves
+# SSP
+# GDP (maybe)
+# makehydro
+
