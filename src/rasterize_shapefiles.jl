@@ -212,3 +212,32 @@ eurasia38 = [
 # rasterize("C:/Stuff/Datasets/gadm36/gadm36.shp", "C:/Users/niclas/Downloads/globtest3.tif", split("-a ID_0 -ot Byte -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"))
 
 # timemem-1.0 gdal_translate -r mode -tr 0.1 0.1 -co COMPRESS=LZW gadm.tif gadmsmall.tif
+
+function rasterize_protected()
+    println("Rasterizing global shapefile (10+ minute run time)...")
+    shapefile = "C:/Stuff/Datasets/WDPA - Protected areas/WDPA_Feb2019-shapefile-polygons.shp"
+    sql = "select FID from \"WDPA_Feb2019-shapefile-polygons\""
+    outfile = "protected.tif"
+    options = "-a FID -a_nodata -1 -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
+    @time run(` gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile` )
+
+    println("Creating .csv file for WDPA index and name lookup...")
+    sql = "select FID,IUCN_CAT from \"WDPA_Feb2019-shapefile-polygons\""
+    outfile = "protectedfields.csv"
+    @time run(` ogr2ogr -f CSV $outfile -sql $sql $shapefile` )
+end
+
+function makeprotected()
+    println("Reading protected area rasters...")
+    protectedfields = readdlm("protectedfields.csv", ',', header=true)[1]
+    IUCNcodes = ["Ia", "Ib", "II", "III", "IV", "V", "VI", "Not Reported", "Not Applicable", "Not Assigned"]
+    IUCNlookup = Dict(c => i for (i,c) in enumerate(IUCNcodes))
+    protected0 = readraster("protected.tif")
+
+    println("Converting indexes to protected area types...")
+    protected = similar(protected0)
+    for (i, p) in enumerate(protected0)
+        protected[i] = p == -1 ? 0 : IUCNlookup[protectedfields[p+1,2]]
+    end
+    return protected
+end
