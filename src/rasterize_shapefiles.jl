@@ -2,7 +2,8 @@ import GDAL
 using ArchGDAL
 const AG = ArchGDAL
 
-export rasterize_CLI, readraster, globalGADMtiff, GADM, makeregions, eurasia38, makeoffshoreregions
+export rasterize, readraster, rasterize_GADM, GADM, makeregions, eurasia38, makeoffshoreregions,
+        rasterize_protected, makeprotected
         # Node, findchild, printnode, print_tree, Leaves
 
 function rasterize_AG(infile::String, outfile::String, options::Vector{<:AbstractString})
@@ -17,13 +18,6 @@ function rasterize_AG(infile::String, outfile::String, options::Vector{<:Abstrac
     end
 end
 
-# uses the command line version instead (gdal_rasterize)
-# significantly faster for some reason, also give a simple progress indication
-function rasterize_CLI(infile::String, outfile::String, options::Vector{<:AbstractString})
-    GDAL_BINPATH = joinpath(dirname(pathof(GDAL)), "../deps/usr/bin")
-    run(` gdal_rasterize $options $infile $outfile` )
-end
-
 # works (creates the TIFF and saves it) but then crashes
 # registerdrivers() should soon be unnecessary, see https://github.com/yeesian/ArchGDAL.jl/pull/76
 function rasterize_AG2(infile::String, outfile::String, options::Vector{<:AbstractString})
@@ -34,6 +28,13 @@ function rasterize_AG2(infile::String, outfile::String, options::Vector{<:Abstra
     end
 end
 
+# uses the command line version instead (gdal_rasterize)
+# significantly faster for some reason, also give a simple progress indication
+function rasterize(infile::String, outfile::String, options::Vector{<:AbstractString})
+    GDAL_BINPATH = joinpath(dirname(pathof(GDAL)), "../deps/usr/bin")
+    run(` gdal_rasterize $options $infile $outfile` )
+end
+
 function readraster(infile::String)
     ArchGDAL.registerdrivers() do
         ArchGDAL.read(infile) do dataset
@@ -42,13 +43,13 @@ function readraster(infile::String)
     end
 end
 
-function globalGADMtiff()
+function rasterize_GADM()
     println("Rasterizing global shapefile...")
     shapefile = "C:/Stuff/Datasets/gadm36/gadm36.shp"
     outfile = "gadm.tif"
     options = "-a UID -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
     # options = "-a UID -ot Int32 -tr 0.02 0.02 -te -180 -90 180 90 -co COMPRESS=LZW"
-    @time rasterize_CLI(shapefile, outfile, split(options, ' '))
+    @time rasterize(shapefile, outfile, split(options, ' '))
  
     println("Creating .csv file for regional index and name lookup...")
     sql = "select uid,name_0,name_1,name_2 from gadm36"
@@ -208,6 +209,6 @@ eurasia38 = [
 
 # run(` gdal_rasterize -a UID -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW C:/Stuff/Datasets/gadm36/gadm36.shp C:/Users/niclas/Downloads/globtest.tif` )
 # rasterize_AG("C:/Stuff/Datasets/gadm36/gadm36.shp", "C:/Users/niclas/Downloads/globtest3.tif", split("-a ID_0 -ot Byte -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"))
-# rasterize_CLI("C:/Stuff/Datasets/gadm36/gadm36.shp", "C:/Users/niclas/Downloads/globtest3.tif", split("-a ID_0 -ot Byte -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"))
+# rasterize("C:/Stuff/Datasets/gadm36/gadm36.shp", "C:/Users/niclas/Downloads/globtest3.tif", split("-a ID_0 -ot Byte -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"))
 
 # timemem-1.0 gdal_translate -r mode -tr 0.1 0.1 -co COMPRESS=LZW gadm.tif gadmsmall.tif
