@@ -42,20 +42,6 @@ function readraster(infile::String)
     end
 end
 
-function shapefile2tif(shapefile::String, outfile::String, layer::String, width::Int, bbox::Vector{<:Real}, options::String)
-	GDAL_BINPATH = joinpath(dirname(pathof(GDAL)), "../deps/usr/bin")
-	bboxstr = join(bbox, " ")
-	height = round(Int, width*(bbox[4]-bbox[2])/(bbox[3]-bbox[1]))
-    path = mkpath(joinpath(tempdir(), "temp_shapefiles"))
-    cmd = `$GDAL_BINPATH/ogr2ogr -lco ENCODING=UTF-8 -clipsrc $bbox $path/$outfile.shp $shapefile`
-    # println("$bboxstr $tempfile $shapefile")
-    # dump(cmd)
-    println("Clipping shapefile to bounding box...")
-	run(cmd)
-    println("Rasterizing clipped shapefile...")
-	rasterize_AG("$path/$outfile.shp", "$outfile.tif", split("-a $layer -ts $height $width -ot Byte"))
-end
-
 function globalGADMtiff()
     println("Rasterizing global shapefile...")
     shapefile = "C:/Stuff/Datasets/gadm36/gadm36.shp"
@@ -71,25 +57,6 @@ function globalGADMtiff()
     @time run(` ogr2ogr -f CSV $outfile -sql $sql $shapefile` )
 end
 
-function read_gadmfields()
-    gadmfields = readdlm("gadmfields.csv", ',', header=true)[1]
-    gadm = readraster("gadm.tif")
-    # getmax(x) = maximum([isempty(e) ? typemin(Int64) : e for e in x])
-    # ncountries = getmax(g[:,2])
-    gadmregions = Dict(0 => unique(g[:,3]), 1 => unique(g[:,5]), 2 => unique(g[:,7]), 3 => g[:,1])
-    gadmregionindex = Dict(level => Dict(gadmregions[level][i] => i for i=1:length(gadmregions[level])) for level=0:3)
-    index = Dict{Int,Int64}()
-    id_multiplier = Dict(0 => 10^(6+5+4), 1 => 10^(6+5), 2 => 10^6, 3 => 1)
-    for row in eachrow(gadmfields)
-        index::Int64 = 0
-        for level = 0:3
-            column = level == 3 ? 1 : 3 + level*2
-            index += id_multiplier[level] * gadmregionindex[level][row[column]]
-        end
-
-    end
-end
-
 function makeregions(regiondefinitionarray)
     println("Reading GADM rasters...")
     gadmfields = readdlm("gadmfields.csv", ',', header=true)[1]
@@ -102,12 +69,11 @@ function makeregions(regiondefinitionarray)
     regiondefinitions = [isa(regdef, GADM) ? (regdef,) : regdef for regdef in regiondefinitionarray[:,2]]
 
     println("Making region index matrix...")
-    return regiondictloop(gadm, subregionnames, regiondefinitions)
+    return makeregions_main(gadm, subregionnames, regiondefinitions)
 end
 
-makeoffshoreregions(regions) = regions[feature_transform(region.>0)]
-
-function regionloop(gadm, subregionnames, regiondefinitions)
+function makeregions_main(gadm, subregionnames, regiondefinitions)
+    regionlookup = build_inverseregionlookup(regiondefinitions)
     sz = size(gadm)
     region = zeros(Int16, sz)
     updateprogress = Progress(prod(sz), 1)
@@ -115,183 +81,24 @@ function regionloop(gadm, subregionnames, regiondefinitions)
         next!(updateprogress)
         g_uid == 0 && continue
         reg0, reg1, reg2 = subregionnames[g_uid,:]
-        region[i] = regionlookup(regiondefinitions, reg0, reg1, reg2)
+        region[i] = lookup_regionnames(regionlookup, reg0, reg1, reg2)
     end
     return region
 end
 
-function regiontreeloop(gadm, subregionnames, regiondefinitions)
-    regiontree = buildregiontree(regiondefinitions)
-    sz = size(gadm)
-    region = zeros(Int16, sz)
-    updateprogress = Progress(prod(sz), 1)
-    for (i, g_uid) in enumerate(gadm)
-        next!(updateprogress)
-        g_uid == 0 && continue
-        reg0, reg1, reg2 = subregionnames[g_uid,:]
-        region[i] = regiontreelookup(regiontree, reg0, reg1, reg2)
-    end
-    return region
-end
-
-function regiondictloop(gadm, subregionnames, regiondefinitions)
-    regiondict = buildregiondict(regiondefinitions)
-    sz = size(gadm)
-    region = zeros(Int16, sz)
-    updateprogress = Progress(prod(sz), 1)
-    for (i, g_uid) in enumerate(gadm)
-        next!(updateprogress)
-        g_uid == 0 && continue
-        reg0, reg1, reg2 = subregionnames[g_uid,:]
-        region[i] = regiondictlookup(regiondict, reg0, reg1, reg2)
-    end
-    return region
-end
-
-# function regiondictloop_threads(gadm, subregionnames, regiondefinitions)
-#     regiondict = buildregiondict(regiondefinitions)
-#     sz = size(gadm)
-#     region = [zeros(Int16, sz) for i = 1:Threads.nthreads()]
-#     updateprogress = Progress(prod(sz), 1)
-#     Threads.@threads for i = 1:prod(sz)
-#         next!(updateprogress)
-#         g_uid = gadm[i]
-#         g_uid == 0 && continue
-#         reg0, reg1, reg2 = subregionnames[g_uid,:]
-#         region[Threads.threadid()][i] = regiondictlookup(regiondefinitions, reg0, reg1, reg2)
-#     end
-#     return maximum(region, dims=3)
-# end
-
-# function regionloop2(gadm, subregionnames, regiondefinitions)
-#     sz = size(gadm)
-#     region = [zeros(Int16, sz) for i = 1:Threads.nthreads()]
-#     updateprogress = Progress(prod(sz), 1)
-#     Threads.@threads for i = 1:prod(sz)
-#         next!(updateprogress)
-#         g_uid = gadm[i]
-#         g_uid == 0 && continue
-#         reg0, reg1, reg2 = subregionnames[g_uid,:]
-#         region[Threads.threadid()][i] = regionlookup(regiondefinitions, reg0, reg1, reg2)
-#     end
-#     return maximum(region, dims=3)
-# end
-
-# function testtest()
-#     lookup = rand(10)
-#     rmat = rand(1:10, (5,6))
-#     Threads.@threads for r in rmat
-#         # r == 0 && continue
-#         val = lookup[r]
-#     end
-#     return lookup, rmat
-# end
-
-function makeregions_faster(regiondefinitionarray)
-    println("Reading GADM rasters...")
-    gadmfields = readdlm("gadmfields.csv", ',', header=true)[1]
-    imax = maximum(gadmfields[:,1])
-    subregionnames = Dict(level => unique(gadmfields[:, level+2]) for level = 0:2)
-    subregionindexes = Dict(level => Dict(subregionnames[level][i] => i for i=1:length(subregionnames[level])) for level = 0:2)
-
-    subregioncodes = zeros(Int,imax,3)
-    for i=1:imax, j=1:3
-        subregioncodes[gadmfields[i,1],j] = subregionindexes[j-1][gadmfields[i,j+1]]
-    end
-    gadm = readraster("gadm.tif")
-
-    regionnames = regiondefinitionarray[:,1]
-    regiondefinitions = [isa(regdef, GADM) ? (regdef,) : regdef for regdef in regiondefinitionarray[:,2]]
-    regiondefinitioncodes = [Tuple(
-        GADM([subregionindexes[length(regdef.parentregions)-1][r] for r in regdef.parentregions],
-            Tuple(subregionindexes[length(regdef.parentregions)][t] for t in regdef.subregionnames))
-                                for regdef in regiondefinitions[reg]) for reg = 1:length(regiondefinitions)]
-
-    println("Making region index matrix...")
-    return regiondictloop(gadm, subregioncodes, regiondefinitioncodes)
-end
-
-# regiontreelookup(rootnode, reg0, reg1, reg2)
-function regiontreelookup(node, reglist...)
-    isempty(reglist) && return node.regionindex
-    child = findfirst(x -> x.name == reglist[1], node.children)
-    child == nothing ? node.regionindex : regiontreelookup(node.children[child], reglist[2:end]...)
-end
-
-function regionlookup(regiondefinitions, reg0, reg1, reg2)
-    for reg = 1:length(regiondefinitions)
-        for regdef in regiondefinitions[reg]
-            parentregions, subregionnames = regdef.parentregions, regdef.subregionnames
-            level = length(parentregions)
-            level == 0 && reg0 in subregionnames && return reg
-            level == 1 && reg0 == parentregions[1] && reg1 in subregionnames && return reg
-            level == 2 && reg0 == parentregions[1] && reg1 == parentregions[2] && reg2 in subregionnames && return reg
-        end
-    end
-    return 0
-end
-
-function regiondictlookup(regiondict, reg0, reg1, reg2)
-    v = get(regiondict, (reg0, "*", "*"), 0)
-    # v = get(regiondict, (reg0, 0, 0), 0)
+# Integer version (commented out) is somewhat faster but less clear
+function lookup_regionnames(regionlookup, reg0, reg1, reg2)
+    v = get(regionlookup, (reg0, "*", "*"), 0)
+    # v = get(regionlookup, (reg0, 0, 0), 0)
     v > 0 && return v
-    v = get(regiondict, (reg0, reg1, "*"), 0)
-    # v = get(regiondict, (reg0, reg1, 0), 0)
+    v = get(regionlookup, (reg0, reg1, "*"), 0)
+    # v = get(regionlookup, (reg0, reg1, 0), 0)
     v > 0 && return v
-    return get(regiondict, (reg0, reg1, reg2), 0)
+    return get(regionlookup, (reg0, reg1, reg2), 0)
 end
 
-# struct Node{T}
-#     name::T
-#     regionindex::Int64
-#     children::Vector{Node{T}}
-# end
-# Node(name::T, regionindex::Int64) where T = Node(name, regionindex, Node{T}[])
-
-# import AbstractTrees: children, printnode, print_tree, Leaves
-# children(n::Node) = n.children
-# inchildren(s, n::Node) = any(c -> (c.name == s), n.children)
-# function findchild(s, n::Node)
-#     index = findfirst(c -> (c.name == s), n.children)
-#     if index == nothing
-#         return nothing
-#     else
-#         return n.children[index]
-#     end
-# end
-
-# function insertparentregions(tree, parentregions)
-#     isempty(parentregions) && return tree
-#     parent = findchild(parentregions[1], tree)
-#     if parent == nothing
-#         parent = Node(parentregions[1], 0)
-#         push!(tree.children, parent)
-#     end
-#     insertparentregions(parent, parentregions[2:end])
-# end
-
-# function buildregiontree(regiondefinitions)
-#     lookuptype = eltype(regiondefinitions[1][1].parentregions)
-#     if lookuptype == String
-#         tree = Node("root", 0)
-#     elseif lookuptype == Int
-#         tree = Node(0, 0)
-#     else
-#         error("Unexpected type $lookuptype")
-#     end
-#     for reg = 1:length(regiondefinitions)
-#         for regdef in regiondefinitions[reg]
-#             parentregions, subregionnames = regdef.parentregions, regdef.subregionnames
-#             parent = insertparentregions(tree, parentregions)
-#             for s in subregionnames
-#                 push!(parent.children, Node(s, reg))
-#             end
-#         end
-#     end
-#     return tree
-# end
-
-function buildregiondict(regiondefinitions)
+# Integer version (commented out) is somewhat faster but less clear
+function build_inverseregionlookup(regiondefinitions)
     d = Dict{Tuple{String,String,String}, Int}()
     # d = Dict{Tuple{Int,Int,Int}, Int}()
     for reg = 1:length(regiondefinitions)
@@ -309,14 +116,10 @@ function buildregiondict(regiondefinitions)
     return d
 end
 
-# const gadmfields = read_gadmfields()
-
-# function regionlookup(regiondict)
-#     regionnames = keys(regiondict)
-#     inversedict = Dict()
-#     lookupfunction = (r0,r1,r2) -> lookup(inversedict, r0, r1, r2)
-#     return regionnames, lookupfunction
-# end
+function makeoffshoreregions(regions)
+    println("Making offshore region index matrix...")
+    regions[feature_transform(regions.>0)]
+end
 
 struct GADM{T}
     parentregions::Vector{T}

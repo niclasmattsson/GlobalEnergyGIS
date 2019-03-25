@@ -2,7 +2,7 @@ module GlobalEnergyGIS
 
 export GISwind, GISsolar
 
-using MAT, HDF5, ProgressMeter, Interpolations, BenchmarkTools, Images, Statistics, DelimitedFiles, Dates, StatsBase
+using MAT, HDF5, ProgressMeter, Interpolations, BenchmarkTools, Images, Statistics, DelimitedFiles, Dates
 
 include("rasterize_shapefiles.jl")
 include("helperfunctions.jl")
