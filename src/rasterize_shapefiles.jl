@@ -2,7 +2,8 @@ import GDAL
 using ArchGDAL
 const AG = ArchGDAL
 
-export rasterize, readraster, saveTIFF, GADM, makeregions, eurasia38, makeoffshoreregions, makeprotected, makelandcover
+export rasterize, readraster, saveTIFF, GADM, makeregions, eurasia38, makeoffshoreregions, makeprotected, makelandcover,
+        getpopulation, createGDP, creategridaccess
         # Node, findchild, printnode, print_tree, Leaves
 
 function rasterize_AG(infile::String, outfile::String, options::Vector{<:AbstractString})
@@ -34,22 +35,46 @@ function rasterize(infile::String, outfile::String, options::Vector{<:AbstractSt
     run(` gdal_rasterize $options $infile $outfile` )
 end
 
-function readraster(infile::String)
+function getextent(geotransform::Vector{Float64}, rastersize::Tuple{Int,Int})
+    @assert length(geotransform) == 6 "A GeoTransform vector must have 6 elements."
+    left, xres, _, top, _, yres = geotransform
+    width, height = rastersize
+    bottom, right = top+yres*height, left+xres*width
+    return [left, bottom, right, top]
+end
+
+function readraster(infile::String, extentflag::Symbol)
+    local raster, geotransform
     ArchGDAL.registerdrivers() do
-        ArchGDAL.read(infile) do dataset
+        raster = ArchGDAL.read(infile) do dataset
             # display(ArchGDAL.getproj(dataset))
-            # display(ArchGDAL.getgeotransform(dataset))
-            # display(ArchGDAL.importEPSG(4326))
+            geotransform = ArchGDAL.getgeotransform(dataset)
             dropdims(ArchGDAL.read(dataset), dims=3)
         end
     end
+    coordextent = getextent(geotransform, size(raster))
+    if extentflag == :adjust_raster_for_extent
+        left, bottom, right, top = coordextent
+        xres, yres = geotransform[2], geotransform[6]
+        newwidth, newheight = round.(Int, (360/xres, -180/yres))
+        xindexes = 1+round(Int, (left-(-180))/xres):newwidth-round(Int, (right-180)/xres)
+        yindexes = 1+round(Int, (top-90)/yres):newheight+round(Int, (bottom-(-90))/yres)
+        adjusted = zeros(eltype(raster), (newwidth, newheight))
+        adjusted[xindexes, yindexes] = raster
+        return adjusted, coordextent
+    else
+        return raster, coordextent
+    end
 end
 
-function saveTIFF(x::AbstractArray, filename::String)
+readraster(infile::String) = readraster(infile, :none)[1]
+
+function saveTIFF(x::AbstractMatrix, filename::String, extent::Vector{Float64})
     wkt_string = "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433],AUTHORITY[\"EPSG\",\"4326\"]]"
     ArchGDAL.registerdrivers() do
         width, height = size(x)
-        res = 360/width
+        xres = (extent[3]-extent[1])/width
+        yres = (extent[4]-extent[2])/height
         raster = AG.unsafe_create(
             filename,
             AG.getdriver("GTiff"),
@@ -60,7 +85,7 @@ function saveTIFF(x::AbstractArray, filename::String)
             options = ["COMPRESS=LZW"]
         )
         ## assign the projection and transformation parameters
-        AG.setgeotransform!(raster, [-180, res, 0, 90, 0, -res])
+        AG.setgeotransform!(raster, [extent[1], xres, 0, extent[4], 0, -yres])
         AG.setproj!(raster, wkt_string)
         
         ## write the raster    
@@ -71,7 +96,10 @@ function saveTIFF(x::AbstractArray, filename::String)
         )
         AG.destroy(raster)
     end
+    nothing
 end
+
+saveTIFF(x::AbstractMatrix, filename::String) = saveTIFF(x, filename, [-180.0, -90.0, 180.0, 90.0])
 
 function rasterize_GADM()
     println("Rasterizing global shapefile...")
@@ -315,31 +343,94 @@ end
 
 gettopography() = readraster("topography.tif")
 
-function downscale_population(year)
+function downscale_population(scen, year)
+    scen = lowercase(scen)
     println("Reading population dataset...")
-    filename = "D:/datasets/population/Gao SSP2_1km/ssp2_total_$year.nc4"
-    pop = ncread(filename, "Band1")
+    filename = "D:/datasets/population/Gao SSP 1km/$(scen)_total_$year.nc4"
+    pop = Float32.(ncread(filename, "Band1"))
+
     lat = ncread(filename, "lat")
     res = 0.5/60    # source resolution 0.5 arcminutes
 
     println("Padding and saving intermediate dataset...")
     skiptop = round(Int, (90-(lat[end]+res/2)) / res)
     skipbottom = round(Int, (lat[1]-res/2-(-90)) / res)
-    pop = pop'
     pop[pop.<0] .= 0
-    lons = size(pop,2)
+    nlons = size(pop,1)
+    println(eltype(pop)," ",sum(pop))
     # the factor (.01/res)^2 is needed to conserve total population
-    pop = collect([zeros(Float32,skiptop,lons); reverse(pop, dims=1)*(.01/res)^2; zeros(Float32,skipbottom,lons)]')
+    pop = [zeros(Float32,nlons,skiptop) reverse(pop, dims=2)*Float32((.01/res)^2) zeros(Float32,nlons,skipbottom)]
+    println(eltype(pop)," ",sum(pop))
     temptiff = tempname()
     saveTIFF(pop, temptiff)
 
     println("Downscaling population dataset...")
     options = "-r cubicspline -tr 0.01 0.01"
-    resample(temptiff, "population.tif", split(options, ' '))
+    resample(temptiff, "population_$(scen)_$year.tif", split(options, ' '))
     rm(temptiff)
 end
 
-getpopulation() = readraster("population.tif")
+getpopulation(scen, year) = readraster("population_$(scen)_$year.tif")
+
+function createGDP(scen, year)
+    scen = lowercase(scen)
+    println("Reading low resolution population and GDP datasets...")
+    pop, extent = readraster("C:/Stuff/Datasets/Population & GDP/Murakami & Yamagata/pop_$(scen)_$year.tif", :getextent) # million people
+    gdp = readraster("C:/Stuff/Datasets/Population & GDP/Murakami & Yamagata/gdp_$(scen)_$year.tif")    # billion USD(2005), PPP
+
+    # Convert to USD 2010 using US consumer price index (CPI-U). CPI-U 2005: 195.3, CPI-U 2010: 218.056 
+    # https://www.usinflationcalculator.com/inflation/consumer-price-index-and-annual-percent-changes-from-1913-to-2008/
+    tempfile = tempname()
+    gdp_per_capita = gdp./pop * 218.056/195.3 * 1000    # new unit: USD(2010)/person, PPP
+    gdp_per_capita[pop.<=0] .= 0    # non land cells have pop & gdp set to -infinity, set to zero instead 
+    saveTIFF(gdp_per_capita, tempfile, extent)
+
+    # println("Upscaling to high resolution and saving...")
+    # options = "-r average -tr 0.01 0.01"
+    # resample(tempfile, "gdp_per_capita_$(scen)_$year.tif", split(options, ' '))
+    # rm(tempfile)
+
+    @time gdphigh = upscale_lowres_gdp_per_capita(tempfile, scen, year)     # unit: USD(2010)/grid cell, PPP
+    rm(tempfile)
+    println("Saving high resolution GDP...")
+    @time saveTIFF(gdphigh, "gdp_$(scen)_$year.tif")
+end
+
+function upscale_lowres_gdp_per_capita(tempfile, scen, year)
+    println("Create high resolution GDP set using high resolution population and low resolution GDP per capita...")
+    gpclow, extent = readraster(tempfile, :adjust_raster_for_extent)
+    pop = getpopulation(scen, year)
+    gdphigh = similar(pop, Float32)
+
+    nrows, ncols = size(gpclow)
+    sizemult = size(pop,1) ÷ nrows
+
+    for c = 1:ncols
+        cols = (c-1)*sizemult .+ (1:sizemult)
+        for r = 1:nrows
+            gpc = gpclow[r,c]
+            rows = (r-1)*sizemult .+ (1:sizemult)
+            gdphigh[rows,cols] = gpc * pop[rows,cols]
+        end
+    end
+    return gdphigh
+end
+
+function creategridaccess(scen, year)
+    println("Create high resolution GDP set using high resolution population and low resolution GDP per capita...")
+    gdp = readraster("gdp_$(scen)_$year.tif")
+    res = 360/size(gdp,1)
+
+    disk = diskfilterkernel(1/6/res)                            # filter radius = 1/6 degrees
+    gridaccess = Float32.(imfilter(gdp .> 100_000, disk))       # 
+    gridaccess[gridaccess.<1e-6] .= 0                           # force small values to zero to reduce dataset size
+    saveTIFF(gridaccess, "gridaccess_$(scen)_$year.tif")
+
+    # better:
+    # loop through countries, index all pixels into vector, sort by GDP, use electrification to assign grid access
+end
+
+
 
 # grid12 + electrification
 # windatlas
@@ -347,4 +438,4 @@ getpopulation() = readraster("population.tif")
 # SSP
 # GDP (maybe)
 # makehydro
-
+# listregions
