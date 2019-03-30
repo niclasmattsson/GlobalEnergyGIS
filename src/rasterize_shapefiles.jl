@@ -3,7 +3,7 @@ using ArchGDAL
 const AG = ArchGDAL
 
 export rasterize, readraster, saveTIFF, GADM, makeregions, eurasia38, makeoffshoreregions, makeprotected, makelandcover,
-        getpopulation, createGDP, creategridaccess
+        getpopulation, createGDP, creategridaccess, getwindatlas
         # Node, findchild, printnode, print_tree, Leaves
 
 function rasterize_AG(infile::String, outfile::String, options::Vector{<:AbstractString})
@@ -43,17 +43,17 @@ function getextent(geotransform::Vector{Float64}, rastersize::Tuple{Int,Int})
     return [left, bottom, right, top]
 end
 
-function readraster(infile::String, extentflag::Symbol)
+function readraster(infile::String, extentflag::Symbol, dim::Int=1)
     local raster, geotransform
     ArchGDAL.registerdrivers() do
         raster = ArchGDAL.read(infile) do dataset
             # display(ArchGDAL.getproj(dataset))
             geotransform = ArchGDAL.getgeotransform(dataset)
-            dropdims(ArchGDAL.read(dataset), dims=3)
+            ArchGDAL.read(dataset)[:,:,dim]
         end
     end
     coordextent = getextent(geotransform, size(raster))
-    if extentflag == :adjust_raster_for_extent
+    if extentflag == :extend_to_full_globe
         left, bottom, right, top = coordextent
         xres, yres = geotransform[2], geotransform[6]
         newwidth, newheight = round.(Int, (360/xres, -180/yres))
@@ -62,12 +62,12 @@ function readraster(infile::String, extentflag::Symbol)
         adjusted = zeros(eltype(raster), (newwidth, newheight))
         adjusted[xindexes, yindexes] = raster
         return adjusted, coordextent
-    else
+    else    # extentflag == :getextent
         return raster, coordextent
     end
 end
 
-readraster(infile::String) = readraster(infile, :none)[1]
+readraster(infile::String, dim::Int=1) = readraster(infile, :none, dim)[1]
 
 function saveTIFF(x::AbstractMatrix, filename::String, extent::Vector{Float64})
     wkt_string = "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433],AUTHORITY[\"EPSG\",\"4326\"]]"
@@ -297,6 +297,8 @@ function makeprotected()
 
     println("Converting indexes to protected area types...")
     protected = similar(protected0, UInt8)
+    # maybe replace loop with:  map!(p -> p == -1 ? 0 : IUCNlookup[protectedfields[p+1,2], protected, protected0)
+    # alternatively             map!(p -> ifelse(p == -1, 0, IUCNlookup[protectedfields[p+1,2]), protected, protected0)
     for (i, p) in enumerate(protected0)
         protected[i] = p == -1 ? 0 : IUCNlookup[protectedfields[p+1,2]]
     end
@@ -355,7 +357,7 @@ function downscale_population(scen, year)
     println("Padding and saving intermediate dataset...")
     skiptop = round(Int, (90-(lat[end]+res/2)) / res)
     skipbottom = round(Int, (lat[1]-res/2-(-90)) / res)
-    pop[pop.<0] .= 0
+    max!(pop, 0)
     nlons = size(pop,1)
     println(eltype(pop)," ",sum(pop))
     # the factor (.01/res)^2 is needed to conserve total population
@@ -382,7 +384,7 @@ function createGDP(scen, year)
     # https://www.usinflationcalculator.com/inflation/consumer-price-index-and-annual-percent-changes-from-1913-to-2008/
     tempfile = tempname()
     gdp_per_capita = gdp./pop * 218.056/195.3 * 1000    # new unit: USD(2010)/person, PPP
-    gdp_per_capita[pop.<=0] .= 0    # non land cells have pop & gdp set to -infinity, set to zero instead 
+    gdp_per_capita[pop.<=0] .= 0    # non land cells have pop & gdp set to -infinity, set to zero instead
     saveTIFF(gdp_per_capita, tempfile, extent)
 
     # println("Upscaling to high resolution and saving...")
@@ -398,7 +400,7 @@ end
 
 function upscale_lowres_gdp_per_capita(tempfile, scen, year)
     println("Create high resolution GDP set using high resolution population and low resolution GDP per capita...")
-    gpclow, extent = readraster(tempfile, :adjust_raster_for_extent)
+    gpclow, extent = readraster(tempfile, :extend_to_full_globe)
     pop = getpopulation(scen, year)
     gdphigh = similar(pop, Float32)
 
@@ -421,21 +423,25 @@ function creategridaccess(scen, year)
     gdp = readraster("gdp_$(scen)_$year.tif")
     res = 360/size(gdp,1)
 
-    disk = diskfilterkernel(1/6/res)                            # filter radius = 1/6 degrees
-    gridaccess = Float32.(imfilter(gdp .> 100_000, disk))       # 
-    gridaccess[gridaccess.<1e-6] .= 0                           # force small values to zero to reduce dataset size
+    disk = diskfilterkernel(1/6/res)                        # filter radius = 1/6 degrees
+    gridaccess = Float32.(imfilter(gdp .> 100_000, disk))   # only "high" income cells included (100 kUSD/cell), cell size = 1x1 km          
+    selfmap!(x -> ifelse(x<1e-6, 0, x), gridaccess)         # force small values to zero to reduce dataset size
     saveTIFF(gridaccess, "gridaccess_$(scen)_$year.tif")
 
     # better:
     # loop through countries, index all pixels into vector, sort by GDP, use electrification to assign grid access
 end
 
+function getwindatlas()
+    # filename = "D:/datasets/Global Wind Atlas v2.3/global_ws.tif"     # v2.3 (lon extent [-180.3, 180.3], strangely)
+    filename = "C:/Stuff/GET.GIS/datasets/Global Wind Atlas/Global Wind Atlas - 100m mean wind speed.tif"   # v1.0
+    windatlas = readraster(filename, :extend_to_full_globe)[1]
+    clamp!(windatlas, 0, 25)
+end
 
 
 # grid12 + electrification
-# windatlas
 # turbine curves
 # SSP
-# GDP (maybe)
 # makehydro
 # listregions

@@ -116,6 +116,16 @@ function read_fast(dset::HDF5.HDF5Dataset, T::DataType)
     out
 end
 
+function max!(x::AbstractArray, val)
+    @inbounds for i in eachindex(x)
+        x[i] = max(x[i], val)
+    end
+	x
+end
+
+selfmap!(f,x) = map!(f,x,x)
+
+
 # timemem-1.0 gdal_translate -r mode -tr 0.1 0.1 -co COMPRESS=LZW gadm.tif gadmsmall.tif
 
 # function resample_majority(x::AbstractArray, scale::Tuple{Int,Int})
