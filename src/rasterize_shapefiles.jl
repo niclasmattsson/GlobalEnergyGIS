@@ -2,8 +2,8 @@ import GDAL
 using ArchGDAL
 const AG = ArchGDAL
 
-export rasterize, readraster, saveTIFF, GADM, makeregions, eurasia38, makeoffshoreregions, makeprotected, makelandcover,
-        getpopulation, createGDP, creategridaccess, getwindatlas
+export rasterize, readraster, saveTIFF, GADM, makeregions, eurasia38, makeoffshoreregions, makeprotected, savelandcover,
+        getpopulation, createGDP, creategridaccess, getwindatlas, saveregions, loadregions
         # Node, findchild, printnode, print_tree, Leaves
 
 function rasterize_AG(infile::String, outfile::String, options::Vector{<:AbstractString})
@@ -114,6 +114,19 @@ function rasterize_GADM()
     # sql = "select uid,id_0,name_0,id_1,name_1,id_2,name_2 from gadm36"
     outfile = "gadmfields.csv"
     @time run(` ogr2ogr -f CSV $outfile -sql $sql $shapefile` )
+end
+
+function saveregions()
+    regions = makeregions(eurasia38)
+    offshoreregions = makeoffshoreregions(regions)
+    println("Saving regions and offshoreregions...")
+    JLD.save("regions.jld", "regions", regions, "offshoreregions", offshoreregions, compress=true)
+end
+
+function loadregions()
+    jldopen("regions.jld", "r") do file
+        return read(file, "regions"), read(file, "offshoreregions")
+    end
 end
 
 function makeregions(regiondefinitionarray)
@@ -304,7 +317,7 @@ function makeprotected()
     end
 
     println("Saving protected area dataset...")
-    saveTIFF(protected, "protected.tif")
+    JLD.save("protected.jld", "protected", protected, compress=true)
 end
 
 
@@ -319,7 +332,8 @@ function downscale_landcover()
     resample(infile, "landcover.tif", split(options, ' '))
 end
 
-function getlandcover()
+function savelandcover()
+    println("Reading landcover dataset (TIFF)...")
     landcover = readraster("landcover.tif")
     landtypes = [
         "Barren", "Snow/Ice", "Cropland/Natural", "Urban", "Croplands",
@@ -327,13 +341,14 @@ function getlandcover()
         "Closed Shrublands", "Mixed Forests", "Deciduous Broadleaf Forests", "Deciduous Needleleaf Forests", "Evergreen Broadleaf Forests",
         "Evergreen Needleleaf Forests", "Water"
     ]
-    # landcolors = 1/255 * [
-    #     190 190 190; 255 218 209; 144 144 0; 255 0 0; 255 255 0;
-    #     40 136 213; 255 192 107; 255 228 18; 182 231 140; 255 236 163;
-    #     216 118 118; 55 200 133; 104 229 104; 123 204 6; 77 167 86;
-    #     0 100 0; 190 247 255
-    # ]
-    return landcover, landtypes
+    landcolors = 1/255 * [
+        190 190 190; 255 218 209; 144 144 0; 255 0 0; 255 255 0;
+        40 136 213; 255 192 107; 255 228 18; 182 231 140; 255 236 163;
+        216 118 118; 55 200 133; 104 229 104; 123 204 6; 77 167 86;
+        0 100 0; 190 247 255
+    ]
+    println("Saving landcover dataset...")
+    JLD.save("landcover.jld", "landcover", landcover, "landtypes", landtypes, "landcolors", landcolors, compress=true)
 end
 
 function upscale_topography()
@@ -341,9 +356,13 @@ function upscale_topography()
     infile = "C:/Stuff/GET.GIS/datasets/topography/ETOPO1_Ice_c_geotiff.tif"
     options = "-r cubicspline -tr 0.01 0.01"
     resample(infile, "topography.tif", split(options, ' '))
+    topography = readraster("topography.tif")
+    println("Saving topography dataset...")
+    JLD.save("topography.jld", "topography", topography, compress=true)
+    rm("topography.tif")
 end
 
-gettopography() = readraster("topography.tif")
+# gettopography() = readraster("topography.tif")
 
 function downscale_population(scen, year)
     scen = lowercase(scen)
@@ -359,20 +378,25 @@ function downscale_population(scen, year)
     skipbottom = round(Int, (lat[1]-res/2-(-90)) / res)
     max!(pop, 0)
     nlons = size(pop,1)
-    println(eltype(pop)," ",sum(pop))
     # the factor (.01/res)^2 is needed to conserve total population
     pop = [zeros(Float32,nlons,skiptop) reverse(pop, dims=2)*Float32((.01/res)^2) zeros(Float32,nlons,skipbottom)]
-    println(eltype(pop)," ",sum(pop))
-    temptiff = tempname()
+    temptiff = "$(tempname()).tif"
+    temptiff2 = "$(tempname()).tif"
     saveTIFF(pop, temptiff)
 
     println("Downscaling population dataset...")
     options = "-r cubicspline -tr 0.01 0.01"
-    resample(temptiff, "population_$(scen)_$year.tif", split(options, ' '))
+    resample(temptiff, temptiff2, split(options, ' '))
+    newpop = readraster(temptiff2)
+
+    println("Saving population dataset...")
+    JLD.save("population_$(scen)_$year.jld", "population", newpop, compress=true)
+
     rm(temptiff)
+    rm(temptiff2)
 end
 
-getpopulation(scen, year) = readraster("population_$(scen)_$year.tif")
+getpopulation(scen, year) = JLD.load("population_$(scen)_$year.jld", "population")
 
 function createGDP(scen, year)
     scen = lowercase(scen)
@@ -395,7 +419,7 @@ function createGDP(scen, year)
     @time gdphigh = upscale_lowres_gdp_per_capita(tempfile, scen, year)     # unit: USD(2010)/grid cell, PPP
     rm(tempfile)
     println("Saving high resolution GDP...")
-    @time saveTIFF(gdphigh, "gdp_$(scen)_$year.tif")
+    JLD.save("gdp_$(scen)_$year.jld", "gdp", gdphigh, compress=true)
 end
 
 function upscale_lowres_gdp_per_capita(tempfile, scen, year)
@@ -419,14 +443,15 @@ function upscale_lowres_gdp_per_capita(tempfile, scen, year)
 end
 
 function creategridaccess(scen, year)
-    println("Create high resolution GDP set using high resolution population and low resolution GDP per capita...")
-    gdp = readraster("gdp_$(scen)_$year.tif")
+    println("Estimate high resolution grid access dataset by filtering gridded GDP...")
+    gdp = JLD.load("gdp_$(scen)_$year.jld", "gdp")
     res = 360/size(gdp,1)
 
     disk = diskfilterkernel(1/6/res)                        # filter radius = 1/6 degrees
     gridaccess = Float32.(imfilter(gdp .> 100_000, disk))   # only "high" income cells included (100 kUSD/cell), cell size = 1x1 km          
     selfmap!(x -> ifelse(x<1e-6, 0, x), gridaccess)         # force small values to zero to reduce dataset size
-    saveTIFF(gridaccess, "gridaccess_$(scen)_$year.tif")
+    println("Saving high resolution grid access...")
+    JLD.save("gridaccess_$(scen)_$year.jld", "gridaccess", gridaccess, compress=true)
 
     # better:
     # loop through countries, index all pixels into vector, sort by GDP, use electrification to assign grid access
