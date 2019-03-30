@@ -1,6 +1,6 @@
 function GISwind()
 
-    GISREGION = "Europe10"     # 'global', 'europe8/10/12/15/17', 'china6', 'eurochine14', 'eurasia38/21' or 'mena'
+    GISREGION = "Eurasia38"     # 'global', 'europe8/10/12/15/17', 'china6', 'eurochine14', 'eurasia38/21' or 'mena'
 
     ONSHORE_DENSITY = 5        # about 30# of existing farms have at least 5 W/m2, will become more common
     OFFSHORE_DENSITY = 8       # varies a lot in existing parks (4-18 W/m2)
@@ -19,6 +19,7 @@ function GISwind()
     EXCLUDE_LANDTYPES = [0, 11, 13]         # Not water, wetlands or urban. See table below. (But wind power over forests is coming ....)
     PROTECTED_CODES = [3, 4, 5, 6, 7, 8]    # These IUCN codes are regarded as protected areas. See table below.
 
+    SCENARIO = "ssp2_2050"
     ERA_YEAR = 2016                    # which year of the ERA Interim time series to use 
     RESCALE_ERA_TO_WIND_ATLAS = true   # Rescale the ERA Interim time series to fit annual wind speed averages from the Global Wind Atlas.
     SHOW_FIGURES = 0                   # 0, 1 or 2. Show no figures, a few, or all figures.
@@ -81,45 +82,19 @@ function GISwind()
     latrange, lonrange = bbox2ranges(bbox, 12)
     latrangesmall, lonrangesmall = bbox2ranges(bboxsmall, 32/9)
 
-    matlabvars = matread("C:/Stuff/NewGIS/testregions_$(GISREGION)_12.mat")
-    regionlist = Symbol.(vec(matlabvars["regionlist"]))
-    numreg = length(regionlist)
-    regions = matlabvars["regions"][latrange,lonrange]
-    regions[regions .== numreg+1] .= 0
-    # R = matlabvars["R"]
+    println("\nReading auxiliary datasets...")
 
-    matlabvars = matread("C:/Stuff/NewGIS/offshoreregions_$(GISREGION)_12.mat")
-    offshoreregions = matlabvars["offshoreregions"][latrange,lonrange]
-    offshoreregions[offshoreregions .== numreg+1] .= 0
+    regions, offshoreregions, regionlist = loadregions(GISREGION)
+    regions = regions[latrange,lonrange]
+    offshoreregions = offshoreregions[latrange,lonrange]
 
-    matlabvars = matread("C:/Stuff/NewGIS/testregions_$(GISREGION)_3.5556.mat")
-    smallregions = matlabvars["regions"][latrangesmall,lonrangesmall]
-    smallregions[smallregions .== numreg+1] .= 0
-
-    matlabvars = matread("C:/Stuff/NewGIS/offshoreregions_$(GISREGION)_3.5556.mat")
-    smalloffshoreregions = matlabvars["offshoreregions"][latrangesmall,lonrangesmall]
-    smalloffshoreregions[smalloffshoreregions .== numreg+1] .= 0
-
-    matlabvars = matread("C:/Stuff/NewGIS/testgrid12.mat")
-    gridaccess = matlabvars["gridaccess"][latrange,lonrange]
-
-    matlabvars = matread("C:/Stuff/NewGIS/testpop12.mat")
-    pop = matlabvars["pop"][latrange,lonrange]
-
-    matlabvars = matread("C:/Stuff/NewGIS/testtopo12.mat")
-    topo = matlabvars["topo"][latrange,lonrange]
-
-    matlabvars = matread("C:/Stuff/NewGIS/testland12.mat")
-    land = matlabvars["land"][latrange,lonrange]
-
-    matlabvars = matread("C:/Stuff/NewGIS/testprotected12.mat")
-    protected = matlabvars["protected"][latrange,lonrange]
-
-    path = joinpath(dirname(@__FILE__), "..")
-    file = h5open("C:/Stuff/NewGIS/windatlas.h5", "r")
-    windatlas = read(file, "windatlas5min")[latrange,lonrange]
-    windatlassmall = imresize(windatlas, size(smallregions))
-    close(file)
+    # path = joinpath(dirname(@__FILE__), "..")
+    gridaccess = JLD.load("gridaccess_$(SCENARIO).jld", "gridaccess")[latrange,lonrange]
+    pop = JLD.load("population_$(SCENARIO).jld", "population")[latrange,lonrange]
+    topo = JLD.load("topography.jld", "topography")[latrange,lonrange]
+    land = JLD.load("landcover.jld", "landcover")[latrange,lonrange]
+    protected = JLD.load("protected.jld", "protected")[latrange,lonrange]
+    windatlas = getwindatlas()[latrange,lonrange]
 
     lats = getlats(bboxglobal, 12, true)[latrange]
     pixelarea = (2*6371*pi/(360*60/5))^2        # area in km2 of 5 min pixel at equator

@@ -116,16 +116,19 @@ function rasterize_GADM()
     @time run(` ogr2ogr -f CSV $outfile -sql $sql $shapefile` )
 end
 
-function saveregions()
-    regions = makeregions(eurasia38)
+function saveregions(regionname, regiondefinitionarray)
+    regions = makeregions(regiondefinitionarray)
     offshoreregions = makeoffshoreregions(regions)
+    regionlist = Symbol.(regiondefinitionarray[:,1])
+    bbox = getbbox(regions)
     println("Saving regions and offshoreregions...")
-    JLD.save("regions.jld", "regions", regions, "offshoreregions", offshoreregions, compress=true)
+    JLD.save("regions_$regionname.jld", "regions", regions, "offshoreregions", offshoreregions,
+                "regionlist", regionlist, compress=true)
 end
 
-function loadregions()
-    jldopen("regions.jld", "r") do file
-        return read(file, "regions"), read(file, "offshoreregions")
+function loadregions(regionname)
+    jldopen("regions_$regionname.jld", "r") do file
+        return read(file, "regions"), read(file, "offshoreregions"), read(file, "regionlist")
     end
 end
 
