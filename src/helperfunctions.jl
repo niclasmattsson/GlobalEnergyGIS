@@ -125,6 +125,61 @@ end
 
 selfmap!(f,x) = map!(f,x,x)
 
+# Automatically detect the "bounding box" of nonzero data in a matrix.
+# Returns a tuple of indexes of the box containing data, (lon,lat) or (row,col).
+function getbbox(regions::AbstractMatrix, padding=0)
+    data = regions .> 0
+    lonrange = dataindexes(vec(any(data, dims=2)), padding)     # all longitudes with region data
+    latrange = dataindexes(vec(any(data, dims=1)), padding)     # all latitudes with region data
+    return lonrange, latrange
+end
+
+# Given a vector of Bool indicating nonzero data along longitudes (or latitudes),
+# return a vector of indexes indicating the area where there is data. Do this by
+# eliminating the longest contiguous sequence of zero data, considering wraparound.
+# Optionally add some padding elements to the data area.
+function dataindexes(londata::AbstractVector, padding=0)
+    len = length(londata)
+    seq = longest_circular_sequence(londata, false) # first & last indexes of the longest contiguous sequence of nonregion elements  
+    first, last = seq[2]+1, seq[1]-1                # the rest are region elements (including "holes" in the sequence)
+    last = last >= first ? last : last + len        # make sure last > first so the loop below works
+    return [mod1(i,len) for i = first-padding:last+padding]   # lon indexes of region elements
+end
+
+# Return the start and end indexes of the longest contiguous sequence of v such that v[i] == x,
+# allowing the sequence to wrap around the end. 
+function longest_circular_sequence(v::AbstractVector, x)
+    longest = Int[]
+    current = Int[]
+    haswrapped = false
+    i = 1
+    len = length(v)
+    sequencelength(seq) = isempty(seq) ? 0 : mod(seq[2]-seq[1], len) + 1
+    while true
+        if v[i] == x
+            if isempty(current)
+                current = [i,i]
+            else
+                current[2] = i
+            end
+        else
+            longest = sequencelength(current) > sequencelength(longest) ? current : longest
+            haswrapped && return longest
+            current = Int[]
+        end
+        if !haswrapped && i==len
+            haswrapped = true
+            i = 1
+            sequencelength(current) == len && return current
+        else
+            i += 1
+        end
+    end
+end
+
+
+
+
 
 # timemem-1.0 gdal_translate -r mode -tr 0.1 0.1 -co COMPRESS=LZW gadm.tif gadmsmall.tif
 

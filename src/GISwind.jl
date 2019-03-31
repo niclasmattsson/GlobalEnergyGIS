@@ -69,36 +69,37 @@ function GISwind()
     #    9      'V'                 'Protected Landscape/Seascape'   
     #    10     'VI'                'Managed Resource Protected Area'
 
-    bboxglobal = [-90 -180; 90 180]
-    if GISREGION == "MENA"
-        bbox = [10 -15; 45 70]
-    elseif GISREGION[1:6] == "Europe"
-        bbox = [34 -11; 72 32]
-    else
-        bbox = bboxglobal
-    end
-    # bbox = bboxglobal
-    bboxsmall = roundbbox(bbox, 32/9)
-    latrange, lonrange = bbox2ranges(bbox, 12)
-    latrangesmall, lonrangesmall = bbox2ranges(bboxsmall, 32/9)
 
     println("\nReading auxiliary datasets...")
 
+    # bboxglobal = [-90 -180; 90 180]
+    # if GISREGION == "MENA"
+    #     bbox = [10 -15; 45 70]
+    # elseif GISREGION[1:6] == "Europe"
+    #     bbox = [34 -11; 72 32]
+    # else
+    #     bbox = bboxglobal
+    # end
+    # latrange, lonrange = bbox2ranges(bbox, 12)
+
+    res = 0.01
+    rasterdensity = round(Int, 1/res)   # pixels per degree
+
     regions, offshoreregions, regionlist = loadregions(GISREGION)
-    regions = regions[latrange,lonrange]
-    offshoreregions = offshoreregions[latrange,lonrange]
+    lonrange, latrange = getbbox(regions, rasterdensity)  # get indexes of the bounding box containing region data with 1 degree of padding
+    regions = regions[lonrange,latrange]
+    offshoreregions = offshoreregions[lonrange,latrange]
 
     # path = joinpath(dirname(@__FILE__), "..")
-    gridaccess = JLD.load("gridaccess_$(SCENARIO).jld", "gridaccess")[latrange,lonrange]
-    pop = JLD.load("population_$(SCENARIO).jld", "population")[latrange,lonrange]
-    topo = JLD.load("topography.jld", "topography")[latrange,lonrange]
-    land = JLD.load("landcover.jld", "landcover")[latrange,lonrange]
-    protected = JLD.load("protected.jld", "protected")[latrange,lonrange]
-    windatlas = getwindatlas()[latrange,lonrange]
+    gridaccess = JLD.load("gridaccess_$(SCENARIO).jld", "gridaccess")[lonrange,latrange]
+    pop = JLD.load("population_$(SCENARIO).jld", "population")[lonrange,latrange]
+    topo = JLD.load("topography.jld", "topography")[lonrange,latrange]
+    land = JLD.load("landcover.jld", "landcover")[lonrange,latrange]
+    protected = JLD.load("protected.jld", "protected")[lonrange,latrange]
+    windatlas = getwindatlas()[lonrange,latrange]
 
-    lats = getlats(bboxglobal, 12, true)[latrange]
-    pixelarea = (2*6371*pi/(360*60/5))^2        # area in km2 of 5 min pixel at equator
-    areamatkm = cosd.(lats) * pixelarea         # area of a 5 min grid cell in km2
+    lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
+    cellarea = cosd.(lats) * (2*6371*pi/(360/res))^2    # area of a grid cell in km2
 
     yearlength = 8760 + 24*leapyear(ERA_YEAR)
 
@@ -199,7 +200,7 @@ function GISwind()
     for i = 1:nlats
         for j = 1:nlons
             reg = regions[i,j]
-            area = areamatkm[i]
+            area = cellarea[i]
             class = onshoreclass[i,j]
             offreg = offshoreregions[i,j]
             offclass = offshoreclass[i,j]
