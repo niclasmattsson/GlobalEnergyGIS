@@ -188,12 +188,6 @@ git-tree-sha1 = "b8045033701c3b10bf2324d7203404be7aef88ba"
 uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
 version = "0.5.3"
 
-[[Formatting]]
-deps = ["Compat"]
-git-tree-sha1 = "289003271ce9c8194c1ce56a3c433f1c51841125"
-uuid = "59287772-0a20-5a39-b81b-1366585eb4c0"
-version = "0.3.5"
-
 [[GDAL]]
 deps = ["BinaryProvider", "Libdl", "Test"]
 git-tree-sha1 = "b278de54946a86b5a9b8292f3e7fe92f0d5e50ef"
@@ -400,17 +394,17 @@ version = "0.4.0"
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
+[[NCDatasets]]
+deps = ["BinDeps", "Compat", "CondaBinDeps", "Dates", "Libdl", "Missings", "Printf", "Random", "Test"]
+git-tree-sha1 = "dcd91ad28a764bdfb0ac9e5efb4b9292198bfc69"
+uuid = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
+version = "0.8.0"
+
 [[NaNMath]]
 deps = ["Compat"]
 git-tree-sha1 = "ce3b85e484a5d4c71dd5316215069311135fa9f2"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "0.3.2"
-
-[[NetCDF]]
-deps = ["BinDeps", "CondaBinDeps", "Formatting", "Libdl", "Random", "Test"]
-git-tree-sha1 = "0cf8e9276c5c426e43dad43863a4e86d6ce62c17"
-uuid = "30363a11-5582-574a-97bb-aa9a979735b9"
-version = "0.7.2"
 
 [[OffsetArrays]]
 deps = ["DelimitedFiles", "Test"]

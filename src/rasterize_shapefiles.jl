@@ -3,7 +3,7 @@ using ArchGDAL
 const AG = ArchGDAL
 
 export rasterize, readraster, saveTIFF, GADM, makeregions, eurasia38, makeoffshoreregions, makeprotected, savelandcover,
-        getpopulation, createGDP, creategridaccess, getwindatlas, saveregions, loadregions
+        getpopulation, createGDP, creategridaccess, getwindatlas, saveregions, loadregions, read3draster
         # Node, findchild, printnode, print_tree, Leaves
 
 function rasterize_AG(infile::String, outfile::String, options::Vector{<:AbstractString})
@@ -41,6 +41,14 @@ function getextent(geotransform::Vector{Float64}, rastersize::Tuple{Int,Int})
     width, height = rastersize
     bottom, right = top+yres*height, left+xres*width
     return [left, bottom, right, top]
+end
+
+function read3draster(infile::String)
+    ArchGDAL.registerdrivers() do
+        ArchGDAL.read(infile) do dataset
+            ArchGDAL.read(dataset)
+        end
+    end
 end
 
 function readraster(infile::String, extentflag::Symbol, dim::Int=1)
@@ -371,15 +379,15 @@ function downscale_population(scen, year)
     scen = lowercase(scen)
     println("Reading population dataset...")
     filename = "D:/datasets/population/Gao SSP 1km/$(scen)_total_$year.nc4"
-    pop = Float32.(ncread(filename, "Band1"))
+    dataset = Dataset(filename)
+    pop = replace(dataset["Band1"][:,:], missing => Float32(0))
 
-    lat = ncread(filename, "lat")
+    lat = dataset["lat"][:]
     res = 0.5/60    # source resolution 0.5 arcminutes
 
     println("Padding and saving intermediate dataset...")
     skiptop = round(Int, (90-(lat[end]+res/2)) / res)
     skipbottom = round(Int, (lat[1]-res/2-(-90)) / res)
-    max!(pop, 0)
     nlons = size(pop,1)
     # the factor (.01/res)^2 is needed to conserve total population
     pop = [zeros(Float32,nlons,skiptop) reverse(pop, dims=2)*Float32((.01/res)^2) zeros(Float32,nlons,skipbottom)]
