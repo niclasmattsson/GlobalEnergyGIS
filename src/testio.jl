@@ -1,4 +1,40 @@
-export testread, testread2, testread3, testread4, testh5write, testh5read, testread6, testread7, testread5b, testread6b
+export testread, testread2, testread3, testread4, testh5write, testh5read, testread6, testread7, testread5b, testread6b,
+        makewindspeed, makewindCF
+
+function makewindCF()
+    @time windCF = h5read("D:/datasets/era5/era5windCF2016.h5","windCF")    # 200+ seconds
+    h5open("D:/windCF.h5", "w") do file                                     # 760+ seconds
+        group = file["/"]
+        @time group["windCF", "compress", 3] = windCF
+    end
+    h5open("D:/windCFblosc.h5", "w") do file                                # 155 seconds
+        group = file["/"]
+        @time group["windCF", "blosc", 3] = windCF
+    end
+    h5open("D:/windCFdeflate.h5", "w") do file                              # 575 seconds
+        group = file["/"]
+        @time group["windCF", "shuffle", (), "deflate", 3] = windCF
+    end
+    # @time JLD.save("D:/windCF.jld", "windCF", windCF, compress=true);     # 150 seconds
+end    
+
+function makewindspeed()
+    @time wind = h5read("D:/datasets/era5/era5wind2016.h5","wind")          # 195 seconds
+    @time JLD.save("D:/windspeed.jld", "wind", wind, compress=true);        # 150 seconds
+    h5open("D:/windspeedblosc.h5", "w") do file                             # 191 seconds
+        group = file["/"]
+        @time group["wind", "blosc", 3] = wind
+    end
+    h5open("D:/windspeed.h5", "w") do file                                  # 820 seconds
+        group = file["/"]
+        @time group["wind", "compress", 3] = wind
+    end
+    h5open("D:/windspeeddeflate.h5", "w") do file                           # 450 seconds
+        group = file["/"]
+        @time group["wind", "shuffle", (), "deflate", 3] = wind
+    end
+    nothing
+end   
 
 function testread()
     filename = "D:/datasets/era5/era5windCF2016.h5"
