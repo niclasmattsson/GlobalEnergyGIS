@@ -1,19 +1,33 @@
 using PyCall
 
-export era5download
+export era5download, cds_id
+
+function cds_id(uid::Int, api_key::String)
+    filename = joinpath(homedir(), ".cdsapirc")
+    isfile(filename) && error("$filename already exists, no changes made. Please check its contents manually.")
+    open(filename, "w") do file
+        write(file, "url: https://cds.climate.copernicus.eu/api/v2\n")
+        write(file, "key: $uid:$api_key\n")
+        println("Credentials written to $filename.")
+    end
+end
 
 function era5download(year)
-    for dataset in ["wind", "solar"], month = 1:12, day in [("01","15"), ("16","31")]        # ["wind", "solar"]
+    for dataset in ["wind", "solar"], month = 1:12, monthhalf = 1:2       # ["wind", "solar"]
         if dataset == "wind"
-            var1 = "100m_u_component_of_wind"
-            var2 = "100m_v_component_of_wind"
+            var1, var2 = "100m_u_component_of_wind", "100m_v_component_of_wind"
         else
-            var1 = "surface_solar_radiation_downwards"
-            var2 = "total_sky_direct_solar_radiation_at_surface"
-        end            
+            var1, var2 = "surface_solar_radiation_downwards", "total_sky_direct_solar_radiation_at_surface"
+        end
+        if monthhalf == 1
+            firstday, lastday = "01", "15"
+        else
+            firstday = "16"
+            lastday = Dates.daysinmonth(Date("$year-$month"))
+        end
         monthstr = lpad(month,2,'0')
-        date = "$year-$monthstr-$(day[1])/$year-$monthstr-$(day[2])"
-        outfile = "D:/testera5/$dataset$year-$monthstr$(day[1])-$monthstr$(day[2]).nc"
+        date = "$year-$monthstr-$firstday/$year-$monthstr-$lastday"
+        outfile = "D:/testera5/$dataset$year-$monthstr$firstday-$monthstr$lastday.nc"
 
         py"""
         import cdsapi
