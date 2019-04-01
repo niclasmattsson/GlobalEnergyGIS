@@ -11,5 +11,6 @@ include("makewindera5.jl")
 include("GISwind.jl")
 include("GISsolar.jl")
 include("era5download.jl")
+include("testio.jl")
 
 end
