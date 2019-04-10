@@ -125,22 +125,61 @@ end
 
 selfmap!(f,x) = map!(f,x,x)
 
+function rowcol2lonlat(rowcol::Tuple{Int,Int}, res)
+    row, col = rowcol
+    @assert 1 <= row <= 360/res
+    @assert 1 <= col <= 180/res
+    lon = (row - 0.5) * res - 180
+    lat = 90 - (col - 0.5) * res
+    return lon, lat
+end
+
+function lonlat2rowcol(lonlat::Tuple{<:Real,<:Real}, res)
+    lon, lat = lonlat
+    @assert -90 <= lat <= 90
+    row = floor(Int, mod(180+lon, 360) / res) + 1
+    col = floor(Int, min(180-res/2, 90-lat) / res) + 1
+    return row, col
+end
+
+# convert indexes of datasets with 0.01 degree resolution to indexes of ERA5 resolution (0.28125 degrees)
+function eraranges(lonrange, latrange)
+    topleft = rowcol2lonlat((lonrange[1],latrange[1]), 0.01)
+    bottomright = rowcol2lonlat((lonrange[end],latrange[end]), 0.01)
+    row1, col1 = lonlat2rowcol(topleft, 0.28125)
+    row2, col2 = lonlat2rowcol(bottomright, 0.28125)
+    eralonranges = row2 >= row1 ? [row1:row2] : [row1:1280, 1:row2] 
+    eralatrange = col1:col2
+    return eralonranges, eralatrange
+end
+
 # Automatically detect the "bounding box" of nonzero data in a matrix.
 # Returns a tuple of indexes of the box containing data, (lon,lat) or (row,col).
-function getbbox(regions::AbstractMatrix, padding=0)
+function getbboxranges(regions::AbstractMatrix, padding=0)
     data = regions .> 0
-    lonrange = dataindexes(vec(any(data, dims=2)), padding)     # all longitudes with region data
-    latrange = dataindexes(vec(any(data, dims=1)), padding)     # all latitudes with region data
+    lonrange = dataindexes_lon(vec(any(data, dims=2)), padding)     # all longitudes with region data
+    latrange = dataindexes_lat(vec(any(data, dims=1)), padding)     # all latitudes with region data
     return lonrange, latrange
 end
 
-# Given a vector of Bool indicating nonzero data along longitudes (or latitudes),
-# return a vector of indexes indicating the area where there is data. Do this by
-# eliminating the longest contiguous sequence of zero data, considering wraparound.
-# Optionally add some padding elements to the data area.
-function dataindexes(londata::AbstractVector, padding=0)
+# Given a vector of Bool indicating nonzero data along latitudes, return a range
+# of indexes indicating the area where there is data.
+# Optionally add some padding elements to the data area (to ensure that there is
+# some offshore territory around the regions).
+function dataindexes_lat(latdata::AbstractVector, padding=0)
+    len = length(latdata)
+    first, last = extrema(findall(latdata))         # first & last indexes of the data region
+    return max(1, first-padding):min(len, last+padding)   # lat indexes of region elements
+end
+
+# Given a vector of Bool indicating nonzero data along longitudes, return a vector
+# of indexes indicating the area where there is data. Do this by eliminating the
+# longest contiguous sequence of zero data, considering wraparound (at lon=180).
+# Optionally add some padding elements to the data area (to ensure that there is
+# some offshore territory around the regions).
+function dataindexes_lon(londata::AbstractVector, padding=0)
     len = length(londata)
-    seq = longest_circular_sequence(londata, false) # first & last indexes of the longest contiguous sequence of nonregion elements  
+    seq = longest_circular_sequence(londata, false) # first & last indexes of the longest contiguous sequence of NONregion elements  
     first, last = seq[2]+1, seq[1]-1                # the rest are region elements (including "holes" in the sequence)
     last = last >= first ? last : last + len        # make sure last > first so the loop below works
     return [mod1(i,len) for i = first-padding:last+padding]   # lon indexes of region elements

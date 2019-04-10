@@ -86,7 +86,10 @@ function GISwind()
     rasterdensity = round(Int, 1/res)   # pixels per degree
 
     regions, offshoreregions, regionlist = loadregions(GISREGION)
-    lonrange, latrange = getbbox(regions, rasterdensity)  # get indexes of the bounding box containing region data with 1 degree of padding
+
+    # get indexes of the bounding box containing region data with 1 degree of padding
+    lonrange, latrange = getbboxranges(regions, rasterdensity)
+    eralonranges, eralatrange = eraranges(lonrange, latrange)
     regions = regions[lonrange,latrange]
     offshoreregions = offshoreregions[lonrange,latrange]
 
@@ -99,26 +102,31 @@ function GISwind()
     windatlas = getwindatlas()[lonrange,latrange]
 
     lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
+    lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
     cellarea = cosd.(lats) * (2*6371*pi/(360/res))^2    # area of a grid cell in km2
 
     yearlength = 8760 + 24*leapyear(ERA_YEAR)
 
     println("\nReading ERA5 wind capacity factor timeseries...\n")
 
-    CFtype = RESCALE_ERA_TO_WIND_ATLAS ? "RCF" : "CF"
-    filename = "D:/datasets/era5/era5wind$CFtype$ERA_YEAR.h5"
-    dataset = "wind$CFtype"
-    if bbox == bboxglobal
-        @time windCF = h5read_fast(filename, dataset)
+    filename = "D:/era5wind$ERA_YEAR.h5"
+
+    if false # bbox == bboxglobal
+        @time windCF = h5read_fast(filename, "wind")
     else
-        @time windCF = h5read(filename, dataset, (1:yearlength, latrangesmall, lonrangesmall))
+        @time meanwind, windCF = h5open("D:/era5wind2018.h5", "r") do file
+            if length(eralonranges) == 1
+                file["meanwind"][eralonranges[1], eralatrange],
+                file["wind"][eralonranges[1], eralatrange, :]
+            else
+                [file["meanwind"][eralonranges[1], eralatrange]; file["meanwind"][eralonranges[2], eralatrange]],
+                [file["wind"][eralonranges[1], eralatrange, :]; file["wind"][eralonranges[2], eralatrange, :]]
+            end
+        end
     end
-    meanwind = h5read("D:/datasets/era5/era5wind$ERA_YEAR.h5", "meanwind", (latrangesmall, lonrangesmall))
 
-    println("\nInterpolating ERA5 posting data to cell data...\n")
+return meanwind, windCF
 
-    meanwind = shifthalfcell(meanwind)
-    shiftallcells!(windCF)
 
 
 
