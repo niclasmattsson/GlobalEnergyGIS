@@ -1,6 +1,6 @@
 function GISwind()
 
-    GISREGION = "Eurasia38"     # 'global', 'europe8/10/12/15/17', 'china6', 'eurochine14', 'eurasia38/21' or 'mena'
+    GISREGION = "Europe8"     # 'global', 'europe8/10/12/15/17', 'china6', 'eurochine14', 'eurasia38/21' or 'mena'
 
     ONSHORE_DENSITY = 5        # about 30# of existing farms have at least 5 W/m2, will become more common
     OFFSHORE_DENSITY = 8       # varies a lot in existing parks (4-18 W/m2)
@@ -87,9 +87,10 @@ function GISwind()
 
     regions, offshoreregions, regionlist = loadregions(GISREGION)
 
-    # get indexes of the bounding box containing region data with 1 degree of padding
+    # get indexes of the bounding box containing onshore region data with 1 degree of padding
     lonrange, latrange = getbboxranges(regions, rasterdensity)
     eralonranges, eralatrange = eraranges(lonrange, latrange)
+
     regions = regions[lonrange,latrange]
     offshoreregions = offshoreregions[lonrange,latrange]
 
@@ -125,7 +126,7 @@ function GISwind()
         end
     end
 
-return meanwind, windCF
+return meanwind, windCF, regions, offshoreregions
 
 
 
