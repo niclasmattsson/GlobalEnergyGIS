@@ -110,19 +110,13 @@ function GISwind()
 
     println("\nReading ERA5 wind capacity factor timeseries...\n")
 
-    filename = "D:/era5wind$ERA_YEAR.h5"
-
-    if false # bbox == bboxglobal
-        @time windCF = h5read_fast(filename, "wind")
-    else
-        @time meanwind, windCF = h5open("D:/era5wind2018.h5", "r") do file
-            if length(eralonranges) == 1
-                file["meanwind"][eralonranges[1], eralatrange],
-                file["wind"][eralonranges[1], eralatrange, :]
-            else
-                [file["meanwind"][eralonranges[1], eralatrange]; file["meanwind"][eralonranges[2], eralatrange]],
-                [file["wind"][eralonranges[1], eralatrange, :]; file["wind"][eralonranges[2], eralatrange, :]]
-            end
+    @time meanwind, windCF = h5open("D:/era5wind$ERA_YEAR.h5", "r") do file
+        if length(eralonranges) == 1
+            file["meanwind"][eralonranges[1], eralatrange],
+            file["wind"][eralonranges[1], eralatrange, :]
+        else
+            [file["meanwind"][eralonranges[1], eralatrange]; file["meanwind"][eralonranges[2], eralatrange]],
+            [file["wind"][eralonranges[1], eralatrange, :]; file["wind"][eralonranges[2], eralatrange, :]]
         end
     end
 

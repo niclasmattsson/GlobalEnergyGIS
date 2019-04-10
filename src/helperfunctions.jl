@@ -100,22 +100,6 @@ function shiftallcells!(windCF)
     end
 end
 
-function h5read_fast(filename::String, varname::String)
-    h5open(filename, "r") do file
-        return read_fast(file[varname], Float32)
-    end
-end
-
-function read_fast(dset::HDF5.HDF5Dataset, T::DataType)
-    filetype = HDF5.datatype(dset) # packed layout on disk
-    memtype_id = HDF5.h5t_get_native_type(filetype.id) # padded layout in memory
-    @assert sizeof(T) == HDF5.h5t_get_size(memtype_id) "Type sizes don't match!"
-    out = Array{T, length(size(dset))}(undef, size(dset))
-    HDF5.h5d_read(dset.id, memtype_id, HDF5.H5S_ALL, HDF5.H5S_ALL, HDF5.H5P_DEFAULT, out)
-    HDF5.h5t_close(memtype_id)
-    out
-end
-
 function max!(x::AbstractArray, val)
     @inbounds for i in eachindex(x)
         x[i] = max(x[i], val)
