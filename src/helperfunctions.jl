@@ -87,6 +87,7 @@ end
 
 
 meandrop(x; dims=dims) = dropdims(mean(x, dims=dims), dims=dims)
+sumdrop(x; dims=dims) = dropdims(sum(x, dims=dims), dims=dims)
 
 shifthalfcell(data, kernel=centered([.25 .25; .25 .25])) = imfilter(data, kernel)
 
@@ -109,21 +110,22 @@ end
 
 selfmap!(f,x) = map!(f,x,x)
 
+row2lon(row::Int, res) = (row - 0.5) * res - 180
+col2lat(col::Int, res) = 90 - (col - 0.5) * res
+lon2row(lon::Real, res) = floor(Int, mod(180+lon, 360) / res) + 1
+lat2col(lat::Real, res) = floor(Int, min(180-res/2, 90-lat) / res) + 1
+
 function rowcol2lonlat(rowcol::Tuple{Int,Int}, res)
     row, col = rowcol
     @assert 1 <= row <= 360/res
     @assert 1 <= col <= 180/res
-    lon = (row - 0.5) * res - 180
-    lat = 90 - (col - 0.5) * res
-    return lon, lat
+    return row2lon(row,res), col2lat(col,res)
 end
 
 function lonlat2rowcol(lonlat::Tuple{<:Real,<:Real}, res)
     lon, lat = lonlat
     @assert -90 <= lat <= 90
-    row = floor(Int, mod(180+lon, 360) / res) + 1
-    col = floor(Int, min(180-res/2, 90-lat) / res) + 1
-    return row, col
+    return lon2row(lon,res), lat2col(lat, res)
 end
 
 # convert indexes of datasets with 0.01 degree resolution to indexes of ERA5 resolution (0.28125 degrees)
@@ -135,6 +137,21 @@ function eraranges(lonrange, latrange)
     eralonranges = row2 >= row1 ? [row1:row2] : [row1:1280, 1:row2] 
     eralatrange = col1:col2
     return eralonranges, eralatrange
+end
+
+function eraindexlookup(lons, lats, eralonranges, eralatrange)
+    eralonrange = length(eralonranges) == 1 ? eralonranges[1] : [eralonranges[1]; eralonranges[2]]
+    lonindexlookup = zeros(Int,1280)
+    latindexlookup = zeros(Int,640)
+    for (i,r) in enumerate(eralonrange)
+        lonindexlookup[r] = i
+    end
+    for (i,r) in enumerate(eralatrange)
+        latindexlookup[r] = i
+    end
+    eralonindexes = lonindexlookup[lon2row.(lons,0.28125)]
+    eralatindexes = latindexlookup[lat2col.(lats,0.28125)]
+    return eralonindexes, eralatindexes
 end
 
 # Automatically detect the "bounding box" of nonzero data in a matrix.
