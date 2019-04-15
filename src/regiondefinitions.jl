@@ -1,4 +1,10 @@
-export europe8, eurasia38
+export europe8, eurasia38, scand3, eurasia21
+
+const scand3 = [
+    "SWE"   GADM("Sweden")
+    "NOR"   GADM("Norway")
+    "FIN"   GADM("Finland")
+]
 
 const europe8 = [
     # Europe: "NOR","FRA","GER","UK","MED","BAL","SPA","CEN"
@@ -79,3 +85,5 @@ const eurasia38 = [
     "MON"    GADM("Mongolia")
     "JKR"    GADM("Japan","South Korea","North Korea")
 ]
+
+const eurasia21 = eurasia38[[1:10; 14:15; 25:27; 31:36], :]
