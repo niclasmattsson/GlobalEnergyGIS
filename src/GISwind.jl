@@ -1,6 +1,5 @@
-function GISwind()
-
-    GISREGION = "Europe8"     # 'global', 'europe8/10/12/15/17', 'china6', 'eurochine14', 'eurasia38/21' or 'mena'
+function GISwind(GISREGION="Europe8")
+    # GISREGION = "Europe8"     # 'global', 'europe8/10/12/15/17', 'china6', 'eurochine14', 'eurasia38/21' or 'mena'
 
     ONSHORE_DENSITY = 5        # about 30# of existing farms have at least 5 W/m2, will become more common
     OFFSHORE_DENSITY = 8       # varies a lot in existing parks (4-18 W/m2)
@@ -110,15 +109,15 @@ function GISwind()
 
     yearlength = 8760 + 24*leapyear(ERA_YEAR)
 
-    println("Reading ERA5 wind capacity factor timeseries...")
+    println("Reading ERA5 wind speeds and calculating capacity factors...")
 
-    @time meanwind, wind = h5open("D:/era5wind$ERA_YEAR.h5", "r") do file
+    @time meanwind, windCF = h5open("D:/era5wind$ERA_YEAR.h5", "r") do file
         if length(eralonranges) == 1
             file["meanwind"][eralonranges[1], eralatrange],
-            file["wind"][eralonranges[1], eralatrange, :]
+            speed2capacityfactor.(file["wind"][eralonranges[1], eralatrange, :])
         else
             [file["meanwind"][eralonranges[1], eralatrange]; file["meanwind"][eralonranges[2], eralatrange]],
-            [file["wind"][eralonranges[1], eralatrange, :]; file["wind"][eralonranges[2], eralatrange, :]]
+            speed2capacityfactor.([file["wind"][eralonranges[1], eralatrange, :]; file["wind"][eralonranges[2], eralatrange, :]])
         end
     end
 
@@ -212,7 +211,7 @@ function GISwind()
 
     CFtime_windonshoreA, CFtime_windonshoreB, CFtime_windoffshore =
         # CF_windonshoreA_global, CF_windonshoreB_global, CF_windoffshore_global, CF_wind_time_agg
-        calc_capacityfactors(wind, numreg, nclasses, regions, offshoreregions, onshoreclass, offshoreclass,
+        calc_capacityfactors(windCF, numreg, nclasses, regions, offshoreregions, onshoreclass, offshoreclass,
                 eralonindexes, eralatindexes, mask_onshoreA, mask_onshoreB, mask_offshore)
 
 
@@ -249,10 +248,10 @@ function speed2capacityfactor(windspeed)
     return (1-frac).*windparkcurve[fw+1] + frac.*windparkcurve[ceil(Int, windspeed)+1]
 end
 
-function calc_capacityfactors(wind, numreg, nclasses, regions, offshoreregions, onshoreclass, offshoreclass,
+function calc_capacityfactors(windCF, numreg, nclasses, regions, offshoreregions, onshoreclass, offshoreclass,
                 eralonindexes, eralatindexes, mask_onshoreA, mask_onshoreB, mask_offshore)
     nlons, nlats = size(regions)
-    yearlength = size(wind,3)
+    yearlength = size(windCF,3)
 
     CFtime_windonshoreA = zeros(yearlength,numreg,nclasses)
     CFtime_windonshoreB = zeros(yearlength,numreg,nclasses)
@@ -271,13 +270,13 @@ function calc_capacityfactors(wind, numreg, nclasses, regions, offshoreregions, 
             eralon, eralat = eralonindexes[i], eralatindexes[j]
             # can't use elseif here, probably some overlap in the masks
             if reg > 0 && class > 0 && mask_onshoreA[i,j] > 0
-                CFtime_windonshoreA[:,reg,class] += speed2capacityfactor.(wind[eralon, eralat, :])
+                CFtime_windonshoreA[:,reg,class] += windCF[eralon, eralat, :]
                 count_onshoreA[reg,class] += 1
             elseif reg > 0 && class > 0 && mask_onshoreB[i,j] > 0
-                CFtime_windonshoreB[:,reg,class] += speed2capacityfactor.(wind[eralon, eralat, :])
+                CFtime_windonshoreB[:,reg,class] += windCF[eralon, eralat, :]
                 count_onshoreB[reg,class] += 1
             elseif offreg > 0 && offclass > 0 && mask_offshore[i,j] > 0
-                CFtime_windoffshore[:,offreg,offclass] += speed2capacityfactor.(wind[eralon, eralat, :])
+                CFtime_windoffshore[:,offreg,offclass] += windCF[eralon, eralat, :]
                 count_offshore[offreg,offclass] += 1
             end
         end
