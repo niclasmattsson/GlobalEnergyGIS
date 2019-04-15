@@ -1,12 +1,14 @@
 export makewindera5
 
-# Can optionally filter out cells that are zero in the Global Wind Atlas to save disk space.
-function makewindera5(year=2018, filter_windatlas_cells=true)
+# Can optionally zero cells that are zero in the Global Wind Atlas to save a lot of disk space.
+function makewindera5(year=2018, windatlas_only=true)
     hours = 24*Dates.daysinyear(year)
     gridsize = (1280,640)
 
     filename = "D:/era5wind$year.h5"
     isfile(filename) && error("File $filename exists in $(pwd()), please delete or rename manually.")
+
+    windatlas = imresize(getwindatlas(), gridsize)
 
     println("Creating HDF5 file:  $filename")
     h5open(filename, "w") do file 
@@ -18,7 +20,6 @@ function makewindera5(year=2018, filter_windatlas_cells=true)
         hour = 1
 
         for month = 1:12, monthhalf = 1:2
-            var1, var2 = "100m_u_component_of_wind", "100m_v_component_of_wind"
             if monthhalf == 1
                 firstday, lastday = "01", "15"
             else
@@ -35,7 +36,7 @@ function makewindera5(year=2018, filter_windatlas_cells=true)
             v100 = ncdataset["v100"][:,:,:]
 
             println("Calculating absolute speed...")
-            wind = replace(sqrt.(u100.^2 + v100.^2), missing => 0.0)
+            wind = replace(sqrt.(u100.^2 + v100.^2), missing => 0.0) .* (windatlas .> 0)
 
             totalwind = totalwind + sum(wind, dims=3)
             len = size(wind,3)
@@ -46,4 +47,5 @@ function makewindera5(year=2018, filter_windatlas_cells=true)
         println("\nWriting meanwind to $filename...")
         dataset_meanwind[:,:] = totalwind/hours
     end
+    nothing
 end
