@@ -177,42 +177,16 @@ function GISwind(GISREGION="Europe8")
 
 
 
-    println("Calculating GW potential in wind classes...")
-
-    nlons = size(regions,1)
-    nlats = size(regions,2)
-    numreg = length(regionlist)
-
-    capacity_onshoreA = zeros(numreg,nclasses)
-    capacity_onshoreB = zeros(numreg,nclasses)
-    capacity_offshore = zeros(numreg,nclasses)
-
-    for j = 1:nlats
-        for i = 1:nlons
-            reg = regions[i,j]
-            area = cellarea[j]
-            class = onshoreclass[i,j]
-            offreg = offshoreregions[i,j]
-            offclass = offshoreclass[i,j]
-            if reg > 0 && class > 0 && mask_onshoreA[i,j] > 0
-                capacity_onshoreA[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
-            elseif reg > 0 && class > 0 && mask_onshoreB[i,j] > 0
-                capacity_onshoreB[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
-            elseif offreg > 0 && offclass > 0 && mask_offshore[i,j] > 0
-                capacity_offshore[offreg,offclass] += 1/1000 * OFFSHORE_DENSITY * AREA_OFFSHORE * area
-            end
-        end
-    end
 
 
-
-    println("Calculating regional and global capacity factors of wind classes and representative timeseries...")
+    println("Calculating GW potential and hourly capacity factors for each region and wind class...")
     println("Interpolate ERA5 wind speeds later (maybe 4x runtime).")
 
-    CFtime_windonshoreA, CFtime_windonshoreB, CFtime_windoffshore =
+    CFtime_windonshoreA, CFtime_windonshoreB, CFtime_windoffshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore =
         # CF_windonshoreA_global, CF_windonshoreB_global, CF_windoffshore_global, CF_wind_time_agg
-        calc_capacityfactors(windCF, numreg, nclasses, regions, offshoreregions, onshoreclass, offshoreclass,
-                eralonindexes, eralatindexes, mask_onshoreA, mask_onshoreB, mask_offshore)
+        calc_wind_vars(windCF, regionlist, nclasses, regions, cellarea, offshoreregions, onshoreclass, offshoreclass,
+                eralonindexes, eralatindexes, mask_onshoreA, mask_onshoreB, mask_offshore,
+                ONSHORE_DENSITY, AREA_ONSHORE, OFFSHORE_DENSITY, AREA_OFFSHORE)
 
 
 
@@ -248,11 +222,16 @@ function speed2capacityfactor(windspeed)
     return (1-frac).*windparkcurve[fw+1] + frac.*windparkcurve[ceil(Int, windspeed)+1]
 end
 
-function calc_capacityfactors(windCF, numreg, nclasses, regions, offshoreregions, onshoreclass, offshoreclass,
-                eralonindexes, eralatindexes, mask_onshoreA, mask_onshoreB, mask_offshore)
+function calc_wind_vars(windCF, regionlist, nclasses, regions, cellarea, offshoreregions, onshoreclass, offshoreclass,
+                eralonindexes, eralatindexes, mask_onshoreA, mask_onshoreB, mask_offshore,
+                ONSHORE_DENSITY, AREA_ONSHORE, OFFSHORE_DENSITY, AREA_OFFSHORE)
+    numreg = length(regionlist)
     nlons, nlats = size(regions)
     yearlength = size(windCF,3)
 
+    capacity_onshoreA = zeros(numreg,nclasses)
+    capacity_onshoreB = zeros(numreg,nclasses)
+    capacity_offshore = zeros(numreg,nclasses)
     CFtime_windonshoreA = zeros(yearlength,numreg,nclasses)
     CFtime_windonshoreB = zeros(yearlength,numreg,nclasses)
     CFtime_windoffshore = zeros(yearlength,numreg,nclasses)
@@ -264,18 +243,22 @@ function calc_capacityfactors(windCF, numreg, nclasses, regions, offshoreregions
     for j = 1:nlats
         for i = 1:nlons
             reg = regions[i,j]
+            area = cellarea[j]
             class = onshoreclass[i,j]
             offreg = offshoreregions[i,j]
             offclass = offshoreclass[i,j]
             eralon, eralat = eralonindexes[i], eralatindexes[j]
             # can't use elseif here, probably some overlap in the masks
             if reg > 0 && class > 0 && mask_onshoreA[i,j] > 0
+                capacity_onshoreA[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
                 CFtime_windonshoreA[:,reg,class] += windCF[eralon, eralat, :]
                 count_onshoreA[reg,class] += 1
             elseif reg > 0 && class > 0 && mask_onshoreB[i,j] > 0
+                capacity_onshoreB[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
                 CFtime_windonshoreB[:,reg,class] += windCF[eralon, eralat, :]
                 count_onshoreB[reg,class] += 1
             elseif offreg > 0 && offclass > 0 && mask_offshore[i,j] > 0
+                capacity_offshore[offreg,offclass] += 1/1000 * OFFSHORE_DENSITY * AREA_OFFSHORE * area
                 CFtime_windoffshore[:,offreg,offclass] += windCF[eralon, eralat, :]
                 count_offshore[offreg,offclass] += 1
             end
@@ -309,6 +292,7 @@ function calc_capacityfactors(windCF, numreg, nclasses, regions, offshoreregions
     # CF_windonshoreB_global = meandrop(CFtime_windonshoreB_global, dims=1)
     # CF_windoffshore_global = meandrop(CFtime_windoffshore_global, dims=1)
 
-    return CFtime_windonshoreA, CFtime_windonshoreB, CFtime_windoffshore 
+    return CFtime_windonshoreA, CFtime_windonshoreB, CFtime_windoffshore,
+            capacity_onshoreA, capacity_onshoreB, capacity_offshore
             # CF_windonshoreA_global, CF_windonshoreB_global, CF_windoffshore_global, CF_wind_time_agg
 end
