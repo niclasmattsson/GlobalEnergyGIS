@@ -26,27 +26,32 @@ function era5download(year)
             lastday = Dates.daysinmonth(Date("$year-$month"))
         end
         monthstr = lpad(month,2,'0')
-        date = "$year-$monthstr-$firstday/$year-$monthstr-$lastday"
+        date1, date2 = "$year-$monthstr-$firstday", "$year-$monthstr-$lastday"
         outfile = "D:/testera5/$dataset$year-$monthstr$firstday-$monthstr$lastday.nc"
-
-        py"""
-        import cdsapi
-
-        c = cdsapi.Client()
-        c.retrieve(
-            'reanalysis-era5-single-levels',
-            {
-                'product_type': 'reanalysis',
-                'format': 'netcdf',
-                'variable': [$var1, $var2],
-                'grid': '0.28125/0.28125',
-                'area': '89.859375/-179.859375/-89.859375/179.859375',
-                'date': $date,
-                'time': '00/to/23/by/1'
-            },
-            $outfile)
-        """
+        request_era5_vars(outfile, [var1, var2], date1, date2)
     end
+end
+
+function request_era5_vars(outfile::String, vars::Vector{String}, firstdate::String, lastdate::String)
+    varstring = join(vars, ", ")
+    datestring = "$firstdate/$lastdate"
+    py"""
+    import cdsapi
+
+    c = cdsapi.Client()
+    c.retrieve(
+        'reanalysis-era5-single-levels',
+        {
+            'product_type': 'reanalysis',
+            'format': 'netcdf',
+            'variable': [$varstring],
+            'grid': '0.28125/0.28125',
+            'area': '89.859375/-179.859375/-89.859375/179.859375',
+            'date': $datestring,
+            'time': '00/to/23/by/1'
+        },
+        $outfile)
+    """
 end
 
 # For some reason the delivered NetCDF files are unreadable unless they are limited to 15-16 days each.
