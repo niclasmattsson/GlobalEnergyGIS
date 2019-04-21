@@ -156,7 +156,7 @@ end
 
 # Automatically detect the "bounding box" of nonzero data in a matrix.
 # Returns a tuple of indexes of the box containing data, (lon,lat) or (row,col).
-function getbboxranges(regions::AbstractMatrix, padding=0)
+function getbboxranges(regions::AbstractMatrix, padding::Int=0)
     data = regions .> 0
     lonrange = dataindexes_lon(vec(any(data, dims=2)), padding)     # all longitudes with region data
     latrange = dataindexes_lat(vec(any(data, dims=1)), padding)     # all latitudes with region data
@@ -167,7 +167,7 @@ end
 # of indexes indicating the area where there is data.
 # Optionally add some padding elements to the data area (to ensure that there is
 # some offshore territory around the regions).
-function dataindexes_lat(latdata::AbstractVector, padding=0)
+function dataindexes_lat(latdata::AbstractVector, padding::Int=0)
     len = length(latdata)
     first, last = extrema(findall(latdata))         # first & last indexes of the data region
     return max(1, first-padding):min(len, last+padding)   # lat indexes of region elements
@@ -178,7 +178,7 @@ end
 # longest contiguous sequence of zero data, considering wraparound (at lon=180).
 # Optionally add some padding elements to the data area (to ensure that there is
 # some offshore territory around the regions).
-function dataindexes_lon(londata::AbstractVector, padding=0)
+function dataindexes_lon(londata::AbstractVector, padding::Int=0)
     len = length(londata)
     seq = longest_circular_sequence(londata, false) # first & last indexes of the longest contiguous sequence of NONregion elements  
     first, last = seq[2]+1, seq[1]-1                # the rest are region elements (including "holes" in the sequence)

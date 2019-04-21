@@ -81,20 +81,24 @@ function GISwind(GISREGION="Europe8")
     # end
     # latrange, lonrange = bbox2ranges(bbox, 12)
 
-    res = 0.01
-    erares = 0.28125
-    rasterdensity = round(Int, 1/res)   # pixels per degree
+    res = 0.01          # degrees per pixel
+    erares = 0.28125    # degrees per pixel
 
     regions, offshoreregions, regionlist = loadregions(GISREGION)
 
     # get indexes of the bounding box containing onshore region data with 1 degree of padding
-    lonrange, latrange = getbboxranges(regions, rasterdensity)
+    lonrange, latrange = getbboxranges(regions, round(Int, 1/res))
 
     lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
     lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
-    cellarea = cosd.(lats) * (2*6371*pi/(360/res))^2    # area of a grid cell in km2   
+    cellarea = cosd.(lats) * (2*6371*pi/(360/res))^2    # area of a grid cell in km2
     eralonranges, eralatrange = eraranges(lonrange, latrange)
-    eralonindexes, eralatindexes = eraindexlookup(lons,lats,eralonranges, eralatrange)
+    lonmap = coordmap(36000, lonrange)
+    latmap = coordmap(18000, latrange)
+
+    eralonrange = length(eralonranges) == 1 ? eralonranges[1] : [eralonranges[1]; eralonranges[2]]
+    eralons = (-180+erares/2:erares:180-erares/2)[eralonrange]     # longitude values (pixel center)
+    eralats = (90-erares/2:-erares:-90+erares/2)[eralatrange]      # latitude values (pixel center)
 
     regions = regions[lonrange,latrange]
     offshoreregions = offshoreregions[lonrange,latrange]
@@ -185,7 +189,7 @@ function GISwind(GISREGION="Europe8")
     CFtime_windonshoreA, CFtime_windonshoreB, CFtime_windoffshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore =
         # CF_windonshoreA_global, CF_windonshoreB_global, CF_windoffshore_global, CF_wind_time_agg
         calc_wind_vars(windCF, regionlist, nclasses, regions, cellarea, offshoreregions, onshoreclass, offshoreclass,
-                eralonindexes, eralatindexes, mask_onshoreA, mask_onshoreB, mask_offshore,
+                mask_onshoreA, mask_onshoreB, mask_offshore, res, erares, eralons, eralats, lonmap, latmap,
                 ONSHORE_DENSITY, AREA_ONSHORE, OFFSHORE_DENSITY, AREA_OFFSHORE)
 
 
@@ -222,12 +226,20 @@ function speed2capacityfactor(windspeed)
     return (1-frac).*windparkcurve[fw+1] + frac.*windparkcurve[ceil(Int, windspeed)+1]
 end
 
+function coordmap(len::Int, croprange)
+    coords = zeros(Int, len)
+    indexes = (1:len)[croprange]
+    for (i,n) = enumerate(indexes)
+        coords[n] = i
+    end
+    return coords
+end
+
 function calc_wind_vars(windCF, regionlist, nclasses, regions, cellarea, offshoreregions, onshoreclass, offshoreclass,
-                eralonindexes, eralatindexes, mask_onshoreA, mask_onshoreB, mask_offshore,
+                mask_onshoreA, mask_onshoreB, mask_offshore, res, erares, eralons, eralats, lonmap, latmap,
                 ONSHORE_DENSITY, AREA_ONSHORE, OFFSHORE_DENSITY, AREA_OFFSHORE)
     numreg = length(regionlist)
-    nlons, nlats = size(regions)
-    yearlength = size(windCF,1)
+    yearlength, nlons, nlats = size(windCF)
 
     capacity_onshoreA = zeros(numreg,nclasses)
     capacity_onshoreB = zeros(numreg,nclasses)
@@ -241,26 +253,38 @@ function calc_wind_vars(windCF, regionlist, nclasses, regions, cellarea, offshor
 
     updateprogress = Progress(nlats, 1)
     for j = 1:nlats
+        eralat = eralats[j]
+        colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2+res/5, res)]
         for i = 1:nlons
-            reg = regions[i,j]
-            area = cellarea[j]
-            class = onshoreclass[i,j]
-            offreg = offshoreregions[i,j]
-            offclass = offshoreclass[i,j]
-            eralon, eralat = eralonindexes[i], eralatindexes[j]
-            # can't use elseif here, probably some overlap in the masks
-            if reg > 0 && class > 0 && mask_onshoreA[i,j] > 0
-                capacity_onshoreA[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
-                CFtime_windonshoreA[:,reg,class] += windCF[:, eralon, eralat]
-                count_onshoreA[reg,class] += 1
-            elseif reg > 0 && class > 0 && mask_onshoreB[i,j] > 0
-                capacity_onshoreB[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
-                CFtime_windonshoreB[:,reg,class] += windCF[:, eralon, eralat]
-                count_onshoreB[reg,class] += 1
-            elseif offreg > 0 && offclass > 0 && mask_offshore[i,j] > 0
-                capacity_offshore[offreg,offclass] += 1/1000 * OFFSHORE_DENSITY * AREA_OFFSHORE * area
-                CFtime_windoffshore[:,offreg,offclass] += windCF[:, eralon, eralat]
-                count_offshore[offreg,offclass] += 1
+            wind = windCF[:, i, j]
+            eralon = eralons[i]
+            # get all high resolution row and column indexes within this ERA5 cell         
+            rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2-res/5, res)]
+
+            for c in colrange, r in rowrange
+                if c == 0 || r == 0
+                    continue
+                end
+                reg = regions[r,c]
+                area = cellarea[c]
+                class = onshoreclass[r,c]
+                offreg = offshoreregions[r,c]
+                offclass = offshoreclass[r,c]
+                
+                # can't use elseif here, probably some overlap in the masks
+                if reg > 0 && class > 0 && mask_onshoreA[r,c] > 0
+                    capacity_onshoreA[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
+                    CFtime_windonshoreA[:,reg,class] += wind
+                    count_onshoreA[reg,class] += 1
+                elseif reg > 0 && class > 0 && mask_onshoreB[r,c] > 0
+                    capacity_onshoreB[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
+                    CFtime_windonshoreB[:,reg,class] += wind
+                    count_onshoreB[reg,class] += 1
+                elseif offreg > 0 && offclass > 0 && mask_offshore[r,c] > 0
+                    capacity_offshore[offreg,offclass] += 1/1000 * OFFSHORE_DENSITY * AREA_OFFSHORE * area
+                    CFtime_windoffshore[:,offreg,offclass] += wind
+                    count_offshore[offreg,offclass] += 1
+                end
             end
         end
         next!(updateprogress)
