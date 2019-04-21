@@ -111,13 +111,13 @@ function GISwind(GISREGION="Europe8")
 
     println("Reading ERA5 wind speeds and calculating capacity factors...")
 
-    @time meanwind, windCF = h5open("D:/era5wind$ERA_YEAR.h5", "r") do file
+    @time meanwind, windCF = h5open("D:/ALTera5wind$ERA_YEAR.h5", "r") do file
         if length(eralonranges) == 1
             file["meanwind"][eralonranges[1], eralatrange],
-            speed2capacityfactor.(file["wind"][eralonranges[1], eralatrange, :])
+            speed2capacityfactor.(file["wind"][:, eralonranges[1], eralatrange])
         else
             [file["meanwind"][eralonranges[1], eralatrange]; file["meanwind"][eralonranges[2], eralatrange]],
-            speed2capacityfactor.([file["wind"][eralonranges[1], eralatrange, :]; file["wind"][eralonranges[2], eralatrange, :]])
+            speed2capacityfactor.([file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]])
         end
     end
 
@@ -227,7 +227,7 @@ function calc_wind_vars(windCF, regionlist, nclasses, regions, cellarea, offshor
                 ONSHORE_DENSITY, AREA_ONSHORE, OFFSHORE_DENSITY, AREA_OFFSHORE)
     numreg = length(regionlist)
     nlons, nlats = size(regions)
-    yearlength = size(windCF,3)
+    yearlength = size(windCF,1)
 
     capacity_onshoreA = zeros(numreg,nclasses)
     capacity_onshoreB = zeros(numreg,nclasses)
@@ -251,15 +251,15 @@ function calc_wind_vars(windCF, regionlist, nclasses, regions, cellarea, offshor
             # can't use elseif here, probably some overlap in the masks
             if reg > 0 && class > 0 && mask_onshoreA[i,j] > 0
                 capacity_onshoreA[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
-                CFtime_windonshoreA[:,reg,class] += windCF[eralon, eralat, :]
+                CFtime_windonshoreA[:,reg,class] += windCF[:, eralon, eralat]
                 count_onshoreA[reg,class] += 1
             elseif reg > 0 && class > 0 && mask_onshoreB[i,j] > 0
                 capacity_onshoreB[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
-                CFtime_windonshoreB[:,reg,class] += windCF[eralon, eralat, :]
+                CFtime_windonshoreB[:,reg,class] += windCF[:, eralon, eralat]
                 count_onshoreB[reg,class] += 1
             elseif offreg > 0 && offclass > 0 && mask_offshore[i,j] > 0
                 capacity_offshore[offreg,offclass] += 1/1000 * OFFSHORE_DENSITY * AREA_OFFSHORE * area
-                CFtime_windoffshore[:,offreg,offclass] += windCF[eralon, eralat, :]
+                CFtime_windoffshore[:,offreg,offclass] += windCF[:, eralon, eralat]
                 count_offshore[offreg,offclass] += 1
             end
         end

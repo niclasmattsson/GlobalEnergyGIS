@@ -5,15 +5,15 @@ function makewindera5(year=2018, windatlas_only=true)
     hours = 24*Dates.daysinyear(year)
     gridsize = (1280,640)
 
-    filename = "D:/era5wind$year.h5"
+    filename = "D:/ALTera5wind$year.h5"
     isfile(filename) && error("File $filename exists in $(pwd()), please delete or rename manually.")
 
-    windatlas = imresize(getwindatlas(), gridsize)
+    windatlas = reshape(imresize(getwindatlas(), gridsize), (1,gridsize...))
 
     println("Creating HDF5 file:  $filename")
     h5open(filename, "w") do file 
         group = file["/"]
-        dataset_wind = d_create(group, "wind", datatype(Float32), dataspace(gridsize...,hours), "chunk", (gridsize...,5), "blosc", 3)
+        dataset_wind = d_create(group, "wind", datatype(Float32), dataspace(hours,gridsize...), "chunk", (hours,16,16), "blosc", 3)
         dataset_meanwind = d_create(group, "meanwind", datatype(Float32), dataspace(gridsize...), "chunk", gridsize, "blosc", 3)
 
         totalwind = zeros(gridsize)
@@ -32,16 +32,16 @@ function makewindera5(year=2018, windatlas_only=true)
 
             println("\nReading wind components from $erafile...")
             ncdataset = Dataset(erafile)
-            u100 = ncdataset["u100"][:,:,:]
-            v100 = ncdataset["v100"][:,:,:]
+            u100 = permutedims(ncdataset["u100"][:,:,:], [3,1,2])
+            v100 = permutedims(ncdataset["v100"][:,:,:], [3,1,2])
 
             println("Calculating absolute speed...")
             wind = replace(sqrt.(u100.^2 + v100.^2), missing => 0.0) .* (windatlas .> 0)
 
-            totalwind = totalwind + sum(wind, dims=3)
-            len = size(wind,3)
+            totalwind = totalwind + sumdrop(wind, dims=1)
+            len = size(wind,1)
             println("Writing to $filename...")
-            dataset_wind[:,:,hour:hour+len-1] = wind
+            dataset_wind[hour:hour+len-1,:,:] = wind
             hour += len
         end
         println("\nWriting meanwind to $filename...")
