@@ -5,7 +5,7 @@ function makewindera5(year=2018, windatlas_only=true)
     hours = 24*Dates.daysinyear(year)
     gridsize = (1280,640)
 
-    filename = "D:/ALTera5wind$year.h5"
+    filename = "D:/era5wind$year.h5"
     isfile(filename) && error("File $filename exists in $(pwd()), please delete or rename manually.")
 
     windatlas = reshape(imresize(getwindatlas(), gridsize), (1,gridsize...))

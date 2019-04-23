@@ -1,42 +1,31 @@
-function GISwind(GISREGION="Europe8")
-    # GISREGION = "Europe8"     # 'global', 'europe8/10/12/15/17', 'china6', 'eurochine14', 'eurasia38/21' or 'mena'
+windoptions() = Dict(
+    :gisregion => "Europe8",            # "Europe8", "Eurasia38", "Scand3"
 
-    ONSHORE_DENSITY = 5        # about 30# of existing farms have at least 5 W/m2, will become more common
-    OFFSHORE_DENSITY = 8       # varies a lot in existing parks (4-18 W/m2)
-    AREA_ONSHORE = .05         # area available for onshore wind power after the masks have been applied
-    AREA_OFFSHORE = .33        # area available for offshore wind power after the masks have been applied
+    :onshore_density => 5,              # about 30% of existing farms have at least 5 W/m2, will become more common
+    :offshore_density => 8,             # varies a lot in existing parks (4-18 W/m2)
+                                        # For reference: 10D x 5D spacing of 3 MW turbines (with 1D = 100m) is approximately 6 MW/km2 = 6 W/m2
+    :area_onshore => .05,               # area available for onshore wind power after the masks have been applied
+    :area_offshore => .33,              # area available for offshore wind power after the masks have been applied
 
-    #AVAILABILITY = 1          # now included in the turbine power curve (all code for this has been removed)
+    :distance_elec_access => 150,       # max distance to grid [km] (for wind classes of category B and offshore)
+    :persons_per_km2 => 75,             # not too crowded, max X persons/km2
+    :max_depth => 40,                   # max depth for offshore wind [m]
+    :min_shore_distance => 5,           # minimum distance to shore for offshore wind [km]
+    :exclude_landtypes => [0,11,13],    # exclude water, wetlands and urban areas. See codes in table below.
+    :protected_codes => [3,4,5,6,7,8],  # IUCN codes to be excluded as protected areas. See codes in table below.
 
-    # For reference:  10D x 5D spacing of 3 MW turbines (with 1D = 100m) is approximately 6 MW/km2 = 6 W/m2
+    :scenario => "ssp2_2050",           # default scenario for population and grid access datasets
+    :era_year => 2018,                  # which year of the ERA Interim time series to use 
+    :rescale_to_wind_atlas => true,     # rescale the ERA5 time series to fit annual wind speed averages from the Global Wind Atlas
 
-    # (The datasets have a 5 minute resolution, i.e. each pixel is approximately 9.3 km at the equator.)
-    ELEC_ACCESS_PIXELS = 16    # Access to electricity < 16*9.3 km = 150 km  (for wind classes of category B and offshore)
-    PERSONS_PER_KM2 = 75       # Not too crowded, max x persons/km2
-    MAX_DEPTH = 40             # max depth for offshore wind
-    MIN_PIXELS_TO_SHORE = 1    # minimum distance to shore for offshore wind > 1*9.3 km
-    EXCLUDE_LANDTYPES = [0, 11, 13]         # Not water, wetlands or urban. See table below. (But wind power over forests is coming ....)
-    PROTECTED_CODES = [3, 4, 5, 6, 7, 8]    # These IUCN codes are regarded as protected areas. See table below.
+    :res => 0.01,                       # resolution of auxiliary datasets [degrees per pixel]
+    :erares => 0.28125,                 # resolution of ERA5 datasets [degrees per pixel]
 
-    SCENARIO = "ssp2_2050"
-    ERA_YEAR = 2018                    # which year of the ERA Interim time series to use 
-    RESCALE_ERA_TO_WIND_ATLAS = true   # Rescale the ERA Interim time series to fit annual wind speed averages from the Global Wind Atlas.
-    SHOW_FIGURES = 0                   # 0, 1 or 2. Show no figures, a few, or all figures.
-
-    #ONSHORECLASSES_min = 0:0.25:12.25
-    #ONSHORECLASSES_max = 0.25:0.25:12.5
-    ONSHORECLASSES_min = [2, 5, 6, 7, 8]
-    ONSHORECLASSES_max = [5, 6, 7, 8, 99]
-    ##ONSHORECLASSES_min = [4 5 6 7 8]
-    ##ONSHORECLASSES_max = [5 6 7 8 99]
-
-    #OFFSHORECLASSES_min = 0:0.25:12.25
-    #OFFSHORECLASSES_max = 0.25:0.25:12.5
-    OFFSHORECLASSES_min = [3, 6, 7, 8, 9]
-    OFFSHORECLASSES_max = [6, 7, 8, 9, 99]
-    ##OFFSHORECLASSES_min = [5 6 7 8 9]
-    ##OFFSHORECLASSES_max = [6 7 8 9 99]
-
+    :onshoreclasses_min => [2,5,6,7,8],     # lower bound on annual onshore wind speeds for class X    [0:0.25:12.25]
+    :onshoreclasses_max => [5,6,7,8,99],    # upper bound on annual onshore wind speeds for class X    [0.25:0.25:12.5]
+    :offshoreclasses_min => [3,6,7,8,9],    # lower bound on annual offshore wind speeds for class X
+    :offshoreclasses_max => [6,7,8,9,99],   # upper bound on annual offshore wind speeds for class X
+)
     # Land types
     #     0      'Water'                       
     #     1      'Evergreen Needleleaf Forests'
@@ -68,138 +57,85 @@ function GISwind(GISREGION="Europe8")
     #    9      'V'                 'Protected Landscape/Seascape'   
     #    10     'VI'                'Managed Resource Protected Area'
 
+mutable struct WindOptions
+    gisregion               ::String
+    onshore_density         ::Float64           # W/m2
+    offshore_density        ::Float64           # W/m2
+    area_onshore            ::Float64           # share [0-1]
+    area_offshore           ::Float64           # share [0-1]
+    distance_elec_access    ::Float64           # km
+    persons_per_km2         ::Float64           # persons/km2
+    max_depth               ::Float64           # m
+    min_shore_distance      ::Float64           # km
+    exclude_landtypes       ::Vector{Int}
+    protected_codes         ::Vector{Int}
+    scenario                ::String
+    era_year                ::Int
+    rescale_to_wind_atlas   ::Bool
+    res                     ::Float64           # degrees/pixel
+    erares                  ::Float64           # degrees/pixel
+    onshoreclasses_min      ::Vector{Float64}
+    onshoreclasses_max      ::Vector{Float64}
+    offshoreclasses_min     ::Vector{Float64}
+    offshoreclasses_max     ::Vector{Float64}
+end
 
-    println("\nReading auxiliary datasets...")
+WindOptions() = WindOptions("",0,0,0,0,0,0,0,0,[],[],"",0,false,0,0,[],[],[],[])
 
-    # bboxglobal = [-90 -180; 90 180]
-    # if GISREGION == "MENA"
-    #     bbox = [10 -15; 45 70]
-    # elseif GISREGION[1:6] == "Europe"
-    #     bbox = [34 -11; 72 32]
-    # else
-    #     bbox = bboxglobal
-    # end
-    # latrange, lonrange = bbox2ranges(bbox, 12)
+function WindOptions(d::Dict{Symbol,Any})
+    options = WindOptions()
+    for (key,val) in d
+        setproperty!(options, key, val)
+    end
+    return options
+end
 
-    res = 0.01          # degrees per pixel
-    erares = 0.28125    # degrees per pixel
+function GISwind(; optionlist...)
 
-    regions, offshoreregions, regionlist = loadregions(GISREGION)
+    options = WindOptions(merge(windoptions(), optionlist))
 
-    # get indexes of the bounding box containing onshore region data with 1 degree of padding
-    lonrange, latrange = getbboxranges(regions, round(Int, 1/res))
+    regions, offshoreregions, regionlist, gridaccess, pop, topo, land, protected, windatlas, meanwind, windspeed,
+        lonrange, latrange = read_datasets(options)
 
+    mask_onshoreA, mask_onshoreB, mask_offshore =
+        create_masks(options, regions, offshoreregions, gridaccess, pop, topo, land, protected, windatlas, meanwind, windspeed)
+
+    @unpack res, erares = options
     lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
     lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
-    cellarea = cosd.(lats) * (2*6371*pi/(360/res))^2    # area of a grid cell in km2
-    eralonranges, eralatrange = eraranges(lonrange, latrange)
-    lonmap = coordmap(36000, lonrange)      # map full longitude indexes to cropped indexes
-    latmap = coordmap(18000, latrange)      # ditto latitude
+    cellarea = cosd.(lats) * (2*6371*π/(360/res))^2     # area of a grid cell in km2
 
+    eralonranges, eralatrange = eraranges(lonrange, latrange)
     eralonrange = length(eralonranges) == 1 ? eralonranges[1] : [eralonranges[1]; eralonranges[2]]
     eralons = (-180+erares/2:erares:180-erares/2)[eralonrange]     # longitude values (pixel center)
     eralats = (90-erares/2:-erares:-90+erares/2)[eralatrange]      # latitude values (pixel center)
-
-    regions = regions[lonrange,latrange]
-    offshoreregions = offshoreregions[lonrange,latrange]
-
-    # path = joinpath(dirname(@__FILE__), "..")
-    gridaccess = JLD.load("gridaccess_$(SCENARIO).jld", "gridaccess")[lonrange,latrange]
-    pop = JLD.load("population_$(SCENARIO).jld", "population")[lonrange,latrange]
-    topo = JLD.load("topography.jld", "topography")[lonrange,latrange]
-    land = JLD.load("landcover.jld", "landcover")[lonrange,latrange]
-    protected = JLD.load("protected.jld", "protected")[lonrange,latrange]
-    windatlas = getwindatlas()[lonrange,latrange]
-
-    yearlength = 8760 + 24*leapyear(ERA_YEAR)
-
-    println("Reading ERA5 wind speeds and calculating capacity factors...")
-
-    @time meanwind, windspeed = h5open("D:/ALTera5wind$ERA_YEAR.h5", "r") do file
-        if length(eralonranges) == 1
-            file["meanwind"][eralonranges[1], eralatrange],
-            file["wind"][:, eralonranges[1], eralatrange]
-        else
-            [file["meanwind"][eralonranges[1], eralatrange]; file["meanwind"][eralonranges[2], eralatrange]],
-            [file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]]
-        end
-    end
-
-
-
-
-    println("Creating masks...")
-
-    goodland = (regions .> 0)
-    for i in EXCLUDE_LANDTYPES
-        goodland[land .== i] .= false
-    end
-    protected_area = zeros(Bool, size(protected))
-    for i in PROTECTED_CODES
-        protected_area[protected .== i] .= true
-    end
-
-    # Onshore wind A elec access within 9 km, hardcoded by data resolution
-    gridA = (gridaccess .> 0.1)
-
-    # Onshore wind B elec access > 9 km and < 9*ELEC_ACCESS_PIXELS km
-    disk = diskfilterkernel(ELEC_ACCESS_PIXELS)
-    gridB = (imfilter(gridaccess, disk) .> 0.1)
-
-    # Onshore wind A elec access within 2*9 km
-    # disk = diskfilterkernel(2)
-    # gridA = (imfilter(gridaccess, disk) .> 0.1)
-
-    # Onshore wind B elec access > 2*9 km and < 9*ELEC_ACCESS_PIXELS km
-    # disk = diskfilterkernel(ELEC_ACCESS_PIXELS)
-    # gridB = (imfilter(gridaccess, disk) .> 0.1)
-
-    println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
-    # all mask conditions
-    mask_onshoreA = gridA .& (pop .< PERSONS_PER_KM2) .& goodland .& .!protected_area
-    mask_onshoreB = (gridB .& .!gridA) .& (pop .< PERSONS_PER_KM2) .& goodland .& .!protected_area
-
-    # shoreline mask for offshore wind
-    disk2 = diskfilterkernel(MIN_PIXELS_TO_SHORE)
-    shore = (imfilter(regions .> 0, disk2) .> 0)
-
-    # Offshore wind elec access same as onshore B (elec access < 9*ELEC_ACCESS_PIXELS km)
-    # all mask conditions
-    mask_offshore = gridB .& .!shore .& (topo .> -MAX_DEPTH) .& (offshoreregions .> 0) .& .!protected_area
-
-
+    
+    lonmap = coordmap(round(Int, 360/res), lonrange)      # map full longitude indexes to cropped indexes
+    latmap = coordmap(round(Int, 180/res), latrange)      # ditto latitude
 
     println("Allocating pixels to classes using the Global Wind Atlas...")
     println("CHANGE TO CAPACITY FACTOR LATER!")
 
-    nclasses = length(ONSHORECLASSES_min)
+    @unpack onshoreclasses_min, onshoreclasses_max, offshoreclasses_min, offshoreclasses_max = options
+
+    nclasses = length(onshoreclasses_min)
     onshoreclass = zeros(UInt8, size(windatlas))
     offshoreclass = zeros(UInt8, size(windatlas))
     for c = 1:nclasses
-        onshoreclass[(windatlas .>= ONSHORECLASSES_min[c]) .& (windatlas .< ONSHORECLASSES_max[c])] .= c
-        offshoreclass[(windatlas .>= OFFSHORECLASSES_min[c]) .& (windatlas .< OFFSHORECLASSES_max[c])] .= c
+        onshoreclass[(windatlas .>= onshoreclasses_min[c]) .& (windatlas .< onshoreclasses_max[c])] .= c
+        offshoreclass[(windatlas .>= offshoreclasses_min[c]) .& (windatlas .< offshoreclasses_max[c])] .= c
     end
-
-
-
-
 
     println("Calculating GW potential and hourly capacity factors for each region and wind class...")
     println("Interpolate ERA5 wind speeds later (maybe 4x runtime).")
 
     CFtime_windonshoreA, CFtime_windonshoreB, CFtime_windoffshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore =
         # CF_windonshoreA_global, CF_windonshoreB_global, CF_windoffshore_global, CF_wind_time_agg
-        calc_wind_vars(windspeed, meanwind, windatlas, regionlist, nclasses, regions, cellarea, offshoreregions, onshoreclass, offshoreclass,
-                mask_onshoreA, mask_onshoreB, mask_offshore, res, erares, eralons, eralats, lonmap, latmap,
-                ONSHORE_DENSITY, AREA_ONSHORE, OFFSHORE_DENSITY, AREA_OFFSHORE, RESCALE_ERA_TO_WIND_ATLAS)
+        calc_wind_vars(options, windspeed, meanwind, windatlas, regions, offshoreregions, regionlist,
+                mask_onshoreA, mask_onshoreB, mask_offshore, cellarea, eralons, eralats, lonmap, latmap,
+                nclasses, onshoreclass, offshoreclass)
 
-
-
-    # firsttime1 = ncread(['D:/datasets/era5/era5wind' quartername(ERA_YEAR,1) '.nc'], 'time', 1, 1)
-    # firsttime2 = ncread(['D:/datasets/era5/era5solar' quartername(ERA_YEAR,1) '.nc'], 'time', 1, 1)
-    println("\n\nWind and solar ERA5 data not synced!!!!! Time diff 7 hours.")  #, [firsttime1 firsttime2])
-
-    matopen("GISdata_wind$(ERA_YEAR)_$GISREGION.mat", "w") do file
+    matopen("GISdata_wind$(options.era_year)_$(options.gisregion).mat", "w") do file
         write(file, "CFtime_windonshoreA", CFtime_windonshoreA)
         write(file, "CFtime_windonshoreB", CFtime_windonshoreB)
         write(file, "CFtime_windoffshore", CFtime_windoffshore)
@@ -209,6 +145,81 @@ function GISwind(GISREGION="Europe8")
     end
 
     return capacity_onshoreA, capacity_onshoreB, capacity_offshore
+end
+
+function read_datasets(options)
+    @unpack res, erares, gisregion, scenario, era_year = options
+
+    println("\nReading auxiliary datasets...")
+    regions, offshoreregions, regionlist = loadregions(gisregion)
+
+    # get indexes of the bounding box containing onshore region data with 1 degree of padding
+    lonrange, latrange = getbboxranges(regions, round(Int, 1/res))
+    eralonranges, eralatrange = eraranges(lonrange, latrange)
+
+    regions = regions[lonrange,latrange]
+    offshoreregions = offshoreregions[lonrange,latrange]
+
+    # path = joinpath(dirname(@__FILE__), "..")
+    gridaccess = JLD.load("gridaccess_$scenario.jld", "gridaccess")[lonrange,latrange]
+    pop = JLD.load("population_$scenario.jld", "population")[lonrange,latrange]
+    topo = JLD.load("topography.jld", "topography")[lonrange,latrange]
+    land = JLD.load("landcover.jld", "landcover")[lonrange,latrange]
+    protected = JLD.load("protected.jld", "protected")[lonrange,latrange]
+    windatlas = getwindatlas()[lonrange,latrange]
+
+    println("Reading ERA5 wind speeds and calculating capacity factors...")
+
+    @time meanwind, windspeed = h5open("D:/era5wind$era_year.h5", "r") do file
+        if length(eralonranges) == 1
+            file["meanwind"][eralonranges[1], eralatrange],
+            file["wind"][:, eralonranges[1], eralatrange]
+        else
+            [file["meanwind"][eralonranges[1], eralatrange]; file["meanwind"][eralonranges[2], eralatrange]],
+            [file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]]
+        end
+    end
+
+    return regions, offshoreregions, regionlist, gridaccess, pop, topo, land, protected, windatlas, meanwind, windspeed,
+            lonrange, latrange
+end
+
+function create_masks(options, regions, offshoreregions, gridaccess, pop, topo, land, protected, windatlas, meanwind, windspeed)
+    @unpack res, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2, min_shore_distance, max_depth = options
+
+    println("Creating masks...")
+
+    goodland = (regions .> 0)
+    for i in exclude_landtypes
+        goodland[land .== i] .= false
+    end
+    protected_area = zeros(Bool, size(protected))
+    for i in protected_codes
+        protected_area[protected .== i] .= true
+    end
+
+    # Pixels with electricity access for onshore wind A 
+    gridA = (gridaccess .> 0.1)
+
+    # Pixels with electricity access for onshore wind B and offshore wind
+    km_per_degree = π*2*6371/360
+    disk = diskfilterkernel(distance_elec_access/km_per_degree/res)
+    gridB = (imfilter(gridaccess, disk) .> 0.1)
+
+    println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
+
+    # all mask conditions
+    mask_onshoreA = gridA .& (pop .< persons_per_km2) .& goodland .& .!protected_area
+    mask_onshoreB = (gridB .& .!gridA) .& (pop .< persons_per_km2) .& goodland .& .!protected_area
+
+    # shoreline mask for offshore wind
+    disk = diskfilterkernel(min_shore_distance/km_per_degree/res)
+    shore = (imfilter(regions .> 0, disk) .> 0)
+
+    # all mask conditions
+    mask_offshore = gridB .& .!shore .& (topo .> -max_depth) .& (offshoreregions .> 0) .& .!protected_area
+
+    return mask_onshoreA, mask_onshoreB, mask_offshore
 end
 
 # 0 - 29 m/s
@@ -248,9 +259,12 @@ function coordmap(len::Int, croprange)
     return coords
 end
 
-function calc_wind_vars(windspeed, meanwind, windatlas, regionlist, nclasses, regions, cellarea, offshoreregions, onshoreclass, offshoreclass,
-                mask_onshoreA, mask_onshoreB, mask_offshore, res, erares, eralons, eralats, lonmap, latmap,
-                ONSHORE_DENSITY, AREA_ONSHORE, OFFSHORE_DENSITY, AREA_OFFSHORE, RESCALE_ERA_TO_WIND_ATLAS)
+function calc_wind_vars(options, windspeed, meanwind, windatlas, regions, offshoreregions, regionlist,
+                mask_onshoreA, mask_onshoreB, mask_offshore, cellarea, eralons, eralats, lonmap, latmap,
+                nclasses, onshoreclass, offshoreclass)
+
+    @unpack rescale_to_wind_atlas, res, erares, onshore_density, area_onshore, offshore_density, area_offshore = options
+
     numreg = length(regionlist)
     yearlength, nlons, nlats = size(windspeed)
 
@@ -263,7 +277,7 @@ function calc_wind_vars(windspeed, meanwind, windatlas, regionlist, nclasses, re
     count_onshoreA = zeros(Int,numreg,nclasses)
     count_onshoreB = zeros(Int,numreg,nclasses)
     count_offshore = zeros(Int,numreg,nclasses)
-    if RESCALE_ERA_TO_WIND_ATLAS
+    if rescale_to_wind_atlas
         println("\nRescaling ERA5 wind speeds to match annual wind speeds from the Global Wind Atlas.")
         println("This will increase run times by an order of magnitude (since GWA has very high spatial resolution).")
     end
@@ -277,7 +291,7 @@ function calc_wind_vars(windspeed, meanwind, windatlas, regionlist, nclasses, re
         colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2+res/5, res)]
         for i = 1:nlons
             meanwind[i,j] == 0 && continue
-            wind = RESCALE_ERA_TO_WIND_ATLAS ? windspeed[:, i, j] : speed2capacityfactor.(windspeed[:, i, j])
+            wind = rescale_to_wind_atlas ? windspeed[:, i, j] : speed2capacityfactor.(windspeed[:, i, j])
             eralon = eralons[i]
             # get all high resolution row and column indexes within this ERA5 cell         
             rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2-res/5, res)]
@@ -292,16 +306,16 @@ function calc_wind_vars(windspeed, meanwind, windatlas, regionlist, nclasses, re
                 
                 # can't use elseif here, probably some overlap in the masks
                 if reg > 0 && class > 0 && mask_onshoreA[r,c] > 0
-                    capacity_onshoreA[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
-                    incrementCF!(CFtime_windonshoreA[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], RESCALE_ERA_TO_WIND_ATLAS)
+                    capacity_onshoreA[reg,class] += 1/1000 * onshore_density * area_onshore * area
+                    incrementCF!(CFtime_windonshoreA[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
                     count_onshoreA[reg,class] += 1
                 elseif reg > 0 && class > 0 && mask_onshoreB[r,c] > 0
-                    capacity_onshoreB[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
-                    incrementCF!(CFtime_windonshoreB[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], RESCALE_ERA_TO_WIND_ATLAS)
+                    capacity_onshoreB[reg,class] += 1/1000 * onshore_density * area_onshore * area
+                    incrementCF!(CFtime_windonshoreB[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
                     count_onshoreB[reg,class] += 1
                 elseif offreg > 0 && offclass > 0 && mask_offshore[r,c] > 0
-                    capacity_offshore[offreg,offclass] += 1/1000 * OFFSHORE_DENSITY * AREA_OFFSHORE * area
-                    incrementCF!(CFtime_windoffshore[:,offreg,offclass], wind, windatlas[r,c] / meanwind[i,j], RESCALE_ERA_TO_WIND_ATLAS)
+                    capacity_offshore[offreg,offclass] += 1/1000 * offshore_density * area_offshore * area
+                    incrementCF!(CFtime_windoffshore[:,offreg,offclass], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
                     count_offshore[offreg,offclass] += 1
                 end
             end
@@ -309,33 +323,12 @@ function calc_wind_vars(windspeed, meanwind, windatlas, regionlist, nclasses, re
         next!(updateprogress)
     end
 
-    # CFtime_windonshoreA_global = sumdrop(CFtime_windonshoreA, dims=2)
-    # CFtime_windonshoreB_global = sumdrop(CFtime_windonshoreB, dims=2)
-    # CFtime_windoffshore_global = sumdrop(CFtime_windoffshore, dims=2)
-    # count_onshoreA_global = sumdrop(count_onshoreA, dims=1)
-    # count_onshoreB_global = sumdrop(count_onshoreB, dims=1)
-    # count_offshore_global = sumdrop(count_offshore, dims=1)
-    # CF_wind_time_agg = sumdrop(CFtime_windonshoreA[:,:,3:5], dims=3) + CFtime_windonshoreA[:,:,5]
-    # count_wind_agg = sumdrop(count_onshoreA[:,3:5], dims=2) + count_onshoreB[:,5]
-
     for y = 1:yearlength
         CFtime_windonshoreA[y,:,:] ./= count_onshoreA
         CFtime_windonshoreB[y,:,:] ./= count_onshoreB
         CFtime_windoffshore[y,:,:] ./= count_offshore
-        # CFtime_windonshoreA_global[y,:] ./= count_onshoreA_global
-        # CFtime_windonshoreB_global[y,:] ./= count_onshoreB_global
-        # CFtime_windoffshore_global[y,:] ./= count_offshore_global
-        # CF_wind_time_agg[y,:] ./= count_wind_agg
     end
-
-    # CF_windonshoreA = meandrop(CFtime_windonshoreA, dims=1)
-    # CF_windonshoreB = meandrop(CFtime_windonshoreB, dims=1)
-    # CF_windoffshore = meandrop(CFtime_windoffshore, dims=1)
-    # CF_windonshoreA_global = meandrop(CFtime_windonshoreA_global, dims=1)
-    # CF_windonshoreB_global = meandrop(CFtime_windonshoreB_global, dims=1)
-    # CF_windoffshore_global = meandrop(CFtime_windoffshore_global, dims=1)
 
     return CFtime_windonshoreA, CFtime_windonshoreB, CFtime_windoffshore,
             capacity_onshoreA, capacity_onshoreB, capacity_offshore
-            # CF_windonshoreA_global, CF_windonshoreB_global, CF_windoffshore_global, CF_wind_time_agg
 end
