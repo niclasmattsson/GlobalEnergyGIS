@@ -93,8 +93,8 @@ function GISwind(GISREGION="Europe8")
     lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
     cellarea = cosd.(lats) * (2*6371*pi/(360/res))^2    # area of a grid cell in km2
     eralonranges, eralatrange = eraranges(lonrange, latrange)
-    lonmap = coordmap(36000, lonrange)
-    latmap = coordmap(18000, latrange)
+    lonmap = coordmap(36000, lonrange)      # map full longitude indexes to cropped indexes
+    latmap = coordmap(18000, latrange)      # ditto latitude
 
     eralonrange = length(eralonranges) == 1 ? eralonranges[1] : [eralonranges[1]; eralonranges[2]]
     eralons = (-180+erares/2:erares:180-erares/2)[eralonrange]     # longitude values (pixel center)
@@ -115,13 +115,13 @@ function GISwind(GISREGION="Europe8")
 
     println("Reading ERA5 wind speeds and calculating capacity factors...")
 
-    @time meanwind, windCF = h5open("D:/ALTera5wind$ERA_YEAR.h5", "r") do file
+    @time meanwind, windspeed = h5open("D:/ALTera5wind$ERA_YEAR.h5", "r") do file
         if length(eralonranges) == 1
             file["meanwind"][eralonranges[1], eralatrange],
-            speed2capacityfactor.(file["wind"][:, eralonranges[1], eralatrange])
+            file["wind"][:, eralonranges[1], eralatrange]
         else
             [file["meanwind"][eralonranges[1], eralatrange]; file["meanwind"][eralonranges[2], eralatrange]],
-            speed2capacityfactor.([file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]])
+            [file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]]
         end
     end
 
@@ -170,6 +170,7 @@ function GISwind(GISREGION="Europe8")
 
 
     println("Allocating pixels to classes using the Global Wind Atlas...")
+    println("CHANGE TO CAPACITY FACTOR LATER!")
 
     nclasses = length(ONSHORECLASSES_min)
     onshoreclass = zeros(UInt8, size(windatlas))
@@ -188,9 +189,9 @@ function GISwind(GISREGION="Europe8")
 
     CFtime_windonshoreA, CFtime_windonshoreB, CFtime_windoffshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore =
         # CF_windonshoreA_global, CF_windonshoreB_global, CF_windoffshore_global, CF_wind_time_agg
-        calc_wind_vars(windCF, regionlist, nclasses, regions, cellarea, offshoreregions, onshoreclass, offshoreclass,
+        calc_wind_vars(windspeed, meanwind, windatlas, regionlist, nclasses, regions, cellarea, offshoreregions, onshoreclass, offshoreclass,
                 mask_onshoreA, mask_onshoreB, mask_offshore, res, erares, eralons, eralats, lonmap, latmap,
-                ONSHORE_DENSITY, AREA_ONSHORE, OFFSHORE_DENSITY, AREA_OFFSHORE)
+                ONSHORE_DENSITY, AREA_ONSHORE, OFFSHORE_DENSITY, AREA_OFFSHORE, RESCALE_ERA_TO_WIND_ATLAS)
 
 
 
@@ -226,6 +227,18 @@ function speed2capacityfactor(windspeed)
     return (1-frac).*windparkcurve[fw+1] + frac.*windparkcurve[ceil(Int, windspeed)+1]
 end
 
+function incrementCF!(cf::AbstractVector{<:AbstractFloat}, speed_or_cf::AbstractVector{<:AbstractFloat}, factor, rescale::Bool)
+    if rescale
+        @inbounds for i = 1:length(cf)
+            cf[i] += speed2capacityfactor(speed_or_cf[i]*factor)
+        end
+    else
+        @inbounds for i = 1:length(cf)
+            cf[i] += speed_or_cf[i]
+        end
+    end
+end
+
 function coordmap(len::Int, croprange)
     coords = zeros(Int, len)
     indexes = (1:len)[croprange]
@@ -235,11 +248,11 @@ function coordmap(len::Int, croprange)
     return coords
 end
 
-function calc_wind_vars(windCF, regionlist, nclasses, regions, cellarea, offshoreregions, onshoreclass, offshoreclass,
+function calc_wind_vars(windspeed, meanwind, windatlas, regionlist, nclasses, regions, cellarea, offshoreregions, onshoreclass, offshoreclass,
                 mask_onshoreA, mask_onshoreB, mask_offshore, res, erares, eralons, eralats, lonmap, latmap,
-                ONSHORE_DENSITY, AREA_ONSHORE, OFFSHORE_DENSITY, AREA_OFFSHORE)
+                ONSHORE_DENSITY, AREA_ONSHORE, OFFSHORE_DENSITY, AREA_OFFSHORE, RESCALE_ERA_TO_WIND_ATLAS)
     numreg = length(regionlist)
-    yearlength, nlons, nlats = size(windCF)
+    yearlength, nlons, nlats = size(windspeed)
 
     capacity_onshoreA = zeros(numreg,nclasses)
     capacity_onshoreB = zeros(numreg,nclasses)
@@ -250,21 +263,27 @@ function calc_wind_vars(windCF, regionlist, nclasses, regions, cellarea, offshor
     count_onshoreA = zeros(Int,numreg,nclasses)
     count_onshoreB = zeros(Int,numreg,nclasses)
     count_offshore = zeros(Int,numreg,nclasses)
+    if RESCALE_ERA_TO_WIND_ATLAS
+        println("\nRescaling ERA5 wind speeds to match annual wind speeds from the Global Wind Atlas.")
+        println("This will increase run times by an order of magnitude (since GWA has very high spatial resolution).")
+    end
 
+    # Run times vary wildly depending on geographical area (because of far offshore regions with mostly zero wind speeds).
+    # To improve the estimated time of completing the progress bar, iterate over latitudes in random order.
+    Random.seed!(0)
     updateprogress = Progress(nlats, 1)
-    for j = 1:nlats
+    @inbounds for j in randperm(nlats)
         eralat = eralats[j]
         colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2+res/5, res)]
         for i = 1:nlons
-            wind = windCF[:, i, j]
+            meanwind[i,j] == 0 && continue
+            wind = RESCALE_ERA_TO_WIND_ATLAS ? windspeed[:, i, j] : speed2capacityfactor.(windspeed[:, i, j])
             eralon = eralons[i]
             # get all high resolution row and column indexes within this ERA5 cell         
             rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2-res/5, res)]
 
             for c in colrange, r in rowrange
-                if c == 0 || r == 0
-                    continue
-                end
+                (c == 0 || r == 0) && continue
                 reg = regions[r,c]
                 area = cellarea[c]
                 class = onshoreclass[r,c]
@@ -274,15 +293,15 @@ function calc_wind_vars(windCF, regionlist, nclasses, regions, cellarea, offshor
                 # can't use elseif here, probably some overlap in the masks
                 if reg > 0 && class > 0 && mask_onshoreA[r,c] > 0
                     capacity_onshoreA[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
-                    CFtime_windonshoreA[:,reg,class] += wind
+                    incrementCF!(CFtime_windonshoreA[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], RESCALE_ERA_TO_WIND_ATLAS)
                     count_onshoreA[reg,class] += 1
                 elseif reg > 0 && class > 0 && mask_onshoreB[r,c] > 0
                     capacity_onshoreB[reg,class] += 1/1000 * ONSHORE_DENSITY * AREA_ONSHORE * area
-                    CFtime_windonshoreB[:,reg,class] += wind
+                    incrementCF!(CFtime_windonshoreB[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], RESCALE_ERA_TO_WIND_ATLAS)
                     count_onshoreB[reg,class] += 1
                 elseif offreg > 0 && offclass > 0 && mask_offshore[r,c] > 0
                     capacity_offshore[offreg,offclass] += 1/1000 * OFFSHORE_DENSITY * AREA_OFFSHORE * area
-                    CFtime_windoffshore[:,offreg,offclass] += wind
+                    incrementCF!(CFtime_windoffshore[:,offreg,offclass], wind, windatlas[r,c] / meanwind[i,j], RESCALE_ERA_TO_WIND_ATLAS)
                     count_offshore[offreg,offclass] += 1
                 end
             end
