@@ -129,12 +129,13 @@ function lonlat2rowcol(lonlat::Tuple{<:Real,<:Real}, res)
 end
 
 # convert indexes of datasets with 0.01 degree resolution to indexes of ERA5 resolution (0.28125 degrees)
-function eraranges(lonrange, latrange)
-    topleft = rowcol2lonlat((lonrange[1],latrange[1]), 0.01)
-    bottomright = rowcol2lonlat((lonrange[end],latrange[end]), 0.01)
-    row1, col1 = lonlat2rowcol(topleft, 0.28125)
-    row2, col2 = lonlat2rowcol(bottomright, 0.28125)
-    eralonranges = row2 >= row1 ? [row1:row2] : [row1:1280, 1:row2] 
+function eraranges(lonrange, latrange, res, erares)
+    topleft = rowcol2lonlat((lonrange[1],latrange[1]), res)
+    bottomright = rowcol2lonlat((lonrange[end],latrange[end]), res)
+    row1, col1 = lonlat2rowcol(topleft, erares)
+    row2, col2 = lonlat2rowcol(bottomright, erares)
+    nlons = round(Int, 360/erares)
+    eralonranges = row2 >= row1 ? [row1:row2] : [row1:nlons, 1:row2] 
     eralatrange = col1:col2
     return eralonranges, eralatrange
 end
