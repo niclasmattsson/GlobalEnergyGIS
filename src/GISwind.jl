@@ -100,16 +100,16 @@ function GISwind(; optionlist...)
     windatlas, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
 
     mask_onshoreA, mask_onshoreB, mask_offshore =
-        create_wind_masks(options, regions, offshoreregions, gridaccess, pop, topo, land, protected, windatlas, meanwind, windspeed)
+        create_wind_masks(options, regions, offshoreregions, gridaccess, pop, topo, land, protected)
 
-    CFtime_windonshoreA, CFtime_windonshoreB, CFtime_windoffshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore =
+    windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore =
         calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
                 mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
 
     matopen("GISdata_wind$(options.era_year)_$(options.gisregion).mat", "w") do file
-        write(file, "CFtime_windonshoreA", CFtime_windonshoreA)
-        write(file, "CFtime_windonshoreB", CFtime_windonshoreB)
-        write(file, "CFtime_windoffshore", CFtime_windoffshore)
+        write(file, "CFtime_windonshoreA", windCF_onshoreA)
+        write(file, "CFtime_windonshoreB", windCF_onshoreB)
+        write(file, "CFtime_windoffshore", windCF_offshore)
         write(file, "capacity_onshoreA", capacity_onshoreA)
         write(file, "capacity_onshoreB", capacity_onshoreB)
         write(file, "capacity_offshore", capacity_offshore)
@@ -159,7 +159,7 @@ function read_wind_datasets(options, lonrange, latrange)
     return windatlas, meanwind, windspeed
 end
 
-function create_wind_masks(options, regions, offshoreregions, gridaccess, pop, topo, land, protected, windatlas, meanwind, windspeed)
+function create_wind_masks(options, regions, offshoreregions, gridaccess, pop, topo, land, protected)
     @unpack res, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2, min_shore_distance, max_depth = options
 
     println("Creating masks...")
@@ -213,7 +213,7 @@ function speed2capacityfactor(windspeed)
     return (1-frac).*windparkcurve[fw+1] + frac.*windparkcurve[ceil(Int, windspeed)+1]
 end
 
-function incrementCF!(cf::AbstractVector{<:AbstractFloat}, speed_or_cf::AbstractVector{<:AbstractFloat}, factor, rescale::Bool)
+function increment_windCF!(cf::AbstractVector{<:AbstractFloat}, speed_or_cf::AbstractVector{<:AbstractFloat}, factor, rescale::Bool)
     if rescale
         @inbounds for i = 1:length(cf)
             cf[i] += speed2capacityfactor(speed_or_cf[i]*factor)
@@ -225,7 +225,7 @@ function incrementCF!(cf::AbstractVector{<:AbstractFloat}, speed_or_cf::Abstract
     end
 end
 
-function makeclasses(options, windatlas)
+function makewindclasses(options, windatlas)
     println("Allocating pixels to classes using the Global Wind Atlas...")
     println("CHANGE TO CAPACITY FACTOR LATER!")
 
@@ -275,7 +275,7 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
     println("Calculating GW potential and hourly capacity factors for each region and wind class...")
     println("Interpolate ERA5 wind speeds later (maybe 4x runtime).")
 
-    nclasses, onshoreclass, offshoreclass = makeclasses(options, windatlas)
+    nclasses, onshoreclass, offshoreclass = makewindclasses(options, windatlas)
     eralons, eralats, lonmap, latmap, cellarea = eralonlat(options, lonrange, latrange)
 
     @unpack rescale_to_wind_atlas, res, erares, onshore_density, area_onshore, offshore_density, area_offshore = options
@@ -286,9 +286,9 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
     capacity_onshoreA = zeros(numreg,nclasses)
     capacity_onshoreB = zeros(numreg,nclasses)
     capacity_offshore = zeros(numreg,nclasses)
-    CFtime_windonshoreA = zeros(yearlength,numreg,nclasses)
-    CFtime_windonshoreB = zeros(yearlength,numreg,nclasses)
-    CFtime_windoffshore = zeros(yearlength,numreg,nclasses)
+    windCF_onshoreA = zeros(yearlength,numreg,nclasses)
+    windCF_onshoreB = zeros(yearlength,numreg,nclasses)
+    windCF_offshore = zeros(yearlength,numreg,nclasses)
     count_onshoreA = zeros(Int,numreg,nclasses)
     count_onshoreB = zeros(Int,numreg,nclasses)
     count_offshore = zeros(Int,numreg,nclasses)
@@ -323,15 +323,15 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
                 # can't use elseif here, probably some overlap in the masks
                 if reg > 0 && class > 0 && mask_onshoreA[r,c] > 0
                     capacity_onshoreA[reg,class] += 1/1000 * onshore_density * area_onshore * area
-                    incrementCF!(CFtime_windonshoreA[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
+                    increment_windCF!(windCF_onshoreA[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
                     count_onshoreA[reg,class] += 1
                 elseif reg > 0 && class > 0 && mask_onshoreB[r,c] > 0
                     capacity_onshoreB[reg,class] += 1/1000 * onshore_density * area_onshore * area
-                    incrementCF!(CFtime_windonshoreB[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
+                    increment_windCF!(windCF_onshoreB[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
                     count_onshoreB[reg,class] += 1
                 elseif offreg > 0 && offclass > 0 && mask_offshore[r,c] > 0
                     capacity_offshore[offreg,offclass] += 1/1000 * offshore_density * area_offshore * area
-                    incrementCF!(CFtime_windoffshore[:,offreg,offclass], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
+                    increment_windCF!(windCF_offshore[:,offreg,offclass], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
                     count_offshore[offreg,offclass] += 1
                 end
             end
@@ -340,11 +340,10 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
     end
 
     for y = 1:yearlength
-        CFtime_windonshoreA[y,:,:] ./= count_onshoreA
-        CFtime_windonshoreB[y,:,:] ./= count_onshoreB
-        CFtime_windoffshore[y,:,:] ./= count_offshore
+        windCF_onshoreA[y,:,:] ./= count_onshoreA
+        windCF_onshoreB[y,:,:] ./= count_onshoreB
+        windCF_offshore[y,:,:] ./= count_offshore
     end
 
-    return CFtime_windonshoreA, CFtime_windonshoreB, CFtime_windoffshore,
-            capacity_onshoreA, capacity_onshoreB, capacity_offshore
+    return windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore
 end
