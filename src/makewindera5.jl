@@ -31,6 +31,7 @@ function makewindera5(year=2018, windatlas_only=true)
             erafile = "D:/testera5/wind$year-$monthstr$firstday-$monthstr$lastday.nc"
 
             println("\nReading wind components from $erafile...")
+            # Permute dimensions to get hours as dimension 1 (for efficient iteration in GISwind())
             ncdataset = Dataset(erafile)
             u100 = permutedims(ncdataset["u100"][:,:,:], [3,1,2])
             v100 = permutedims(ncdataset["v100"][:,:,:], [3,1,2])

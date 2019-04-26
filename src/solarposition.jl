@@ -201,8 +201,8 @@ function zenith_azimuth(latitude, sδ, cδ, sH, cH)
 	sϕ, cϕ = sind(latitude), cosd(latitude)
 	se0 = sϕ*sδ + cϕ*cδ*cH
 	azimuth = atan(sH, cH*sϕ - sδ*cϕ/cδ)	# azimuth = 0 towards south and positive direction towards west
-	zenith = π/2 - asin(se0) + 4.26e-5*sqrt(1-se0^2)  #cos(e0)
-	return zenith, azimuth
+	zenith = π/2 - asin(se0) + 4.26e-5*sqrt(1-se0^2)  # sqrt(1-se0^2) = cos(e0), but slightly faster
+	return zenith, azimuth		# radians
 end
 
 function zenith(latitude, sδ, cδ, sH, cH)
@@ -211,84 +211,15 @@ function zenith(latitude, sδ, cδ, sH, cH)
 	return π/2 - asin(se0) + 4.26e-5*sqrt(1-se0^2)  # sqrt(1-se0^2) = cos(e0), but slightly faster
 end
 
-solarconstant(dt::DateTime) = 1361 * (1 + 0.034*cos(2*π*(dt - DateTime(year(dt))).value/1000/3600/24/365.25))
+const solarconstant = 1361  # W/m2
+
+# Annual variation of solar insolation outside the atmosphere (W/m2):
+# https://www.itacanet.org/the-sun-as-a-source-of-energy/part-2-solar-energy-reaching-the-earths-surface/#2.1.-The-Solar-Constant
+solarinsolation(dt::DateTime) = solarconstant * (1 + 0.034*cos(2*π*(dt - DateTime(year(dt))).value/1000/3600/24/365.25))
 
 # dt = DateTime(2019,4,15,13,46)
 # δ, H = solarposition(dt, 12)	# return rad2deg(zenith), rad2deg(mod(azimuth+π,2π)), rad2deg(H)/15+12, rad2deg(δ)
 
 # pos = sines_and_cosines(δ, H)
 # zen = zenith(58, pos...)
-
-
-
-
-# ERA5 radiations are those accumulated during one hour onto a square meter of a flat horizontal plane.
-# This holds for both SSRD and FDIR (see Hogan, "Radiation Quantities in the ECMWF model and MARS").
-# ERA5 vars:  SSRD = Surface Solar Radiation Downwards, FDIR = DIRect solar radiation at the surface.
-#
-# We will use the following abbreviations and identifiers:
-#
-# GHI = Global Horizontal Irradiance (here "global" means direct + diffuse)
-# DHI = Diffuse Horizontal Irradiance
-# DNI = Direct Normal Irradiance
-#
-# AOI = angle of incidence of sun on panel
-# β = panel tilt angle
-# z = solar zenith angle = 90 - solar elevation angle
-# ρ = ground albedo ≈ 0.2	(we can try estimating albedo from land cover data later)
-# Rb = cosAOI / cosz    (projection coefficient of horizontal beam radiation on tilted surface)
-#
-# We have:
-# FDIR = DNI * cosz
-# GHI = SSRD = FDIR + DHI = DNI*cosz + DHI
-# cosAOI = cosz*cosβ + sinz*sinβ*cos(AZsolar-AZpv)
-#
-# For solar PV, we need to estimate Global Tilted Irradiance (GTI) from GHI.
-# There are three components to the radiation that hits a tilted PV panel:
-# 1. direct beam radiation from the sun
-# 2. diffuse radiation from the sky
-# 3. diffuse reflected radiation from the ground
-#
-# Components 1 and 3 are easy (see any textbook or paper on solar radiation, e.g. Lave 2015):
-# 1.  FDIR * Rb = FDIR * cosAOI / cosz = DNI * cosAOI
-# 3.  GHI * ρ * (1 - cosβ)/2
-#
-# For an evaluation of approaches on estimation of diffuse sky radiation, see Loutzenhiser 2007.
-# For now we will use the simplest approach and assume the sky is isotropic (i.e. diffuse radiation
-# is uniformly distributed over the sky dome). Then we have:
-#
-# 2. DHI * (1 + cosβ)/2
-#
-# But the sky around the sun is significantly brighter ("circumsolar diffuse radiation"). Later,
-# if we also download the TISR variable from ERA5 (top of atmosphere incident solar radiation),
-# we can use the Hay and Davies model from 1980 to consider circumsolar diffuse radiation:
-#
-# 2. DHI*AI*Rb + DHI*(1-AI)*(1+cosβ)/2, with AI = FDIR / TISR = DNI / solarconstant
-#
-# AI is the "anisotropy index", i.e. beam radiation transmittance through atmosphere.
-# (TISR, like FDIR, is also defined as radiation hitting a horizontal plane)
-#
-# Relations from textbook by Petros Axaopoulos (chapter 4)
-# http://www.labri.fr/perso/billaud/Helios2/docs/page-all-tiles.php
-#
-# Similarly for CSP, the insolation per m2 on a 2-axis solar tower collector is approximately FDIR/cos(zenith).
-# For a 1-axis parabolic trough, the axis is usually (but not always) oriented north-south, and the rotation
-# of the trough follows the sun east-west.
-
-# North-south oriented axis: The insolation per m2 of collector is FDIR.
-# East-west oriented axis: The insolation per m2 of collector is FDIR/cos(zenith) * cos(azimuth).
-
-# ADJUST LAND USE BY LATITUDE!!!!!
-# GET OPTIMUM PV TILT ANGLES FROM Jacobson 2018:
-# https://web.stanford.edu/group/efmh/jacobson/Articles/I/TiltAngles.pdf
-# http://www.ftexploring.com/solar-energy/tilt-angle1.htm
-# http://www.ftexploring.com/solar-energy/tilt-angle2.htm
-# http://www.ftexploring.com/solar-energy/tilt-angle3.htm
-# WE DON'T CORRECT EFFICIENCY FOR TEMPERATURES (or wind speed!) see Jacobson.
-
-# Here zenith is the solar zenith angle = π/2 - elevation. Azimuth is the direction of the sun measured from
-# south with positive direction towards west.
-#
-# Note that when the solar elevation is close to 0, both FDIR and cos(zenith) will also be near 0, and all
-# calculated solar insolations will have a "0/0" quotient. If the underlying 
 

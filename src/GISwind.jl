@@ -150,10 +150,10 @@ function read_wind_datasets(options, lonrange, latrange)
     @time meanwind, windspeed = h5open("D:/era5wind$era_year.h5", "r") do file
         if length(eralonranges) == 1
             file["meanwind"][eralonranges[1], eralatrange],
-            file["wind"][:, eralonranges[1], eralatrange]
+                file["wind"][:, eralonranges[1], eralatrange]
         else
             [file["meanwind"][eralonranges[1], eralatrange]; file["meanwind"][eralonranges[2], eralatrange]],
-            [file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]]
+                [file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]]
         end
     end
     return windatlas, meanwind, windspeed

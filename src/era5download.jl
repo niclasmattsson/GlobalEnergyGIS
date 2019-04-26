@@ -33,7 +33,9 @@ function era5download(year)
 end
 
 function request_era5_vars(outfile::String, vars::Vector{String}, firstdate::String, lastdate::String)
-    varstring = join(vars, ", ")
+    println("Something seems wrong with outfile in Python code...")
+    # vars = ["'$v'" for v in vars]
+    # varstring = join(vars, ", ")
     datestring = "$firstdate/$lastdate"
     py"""
     import cdsapi
@@ -44,13 +46,13 @@ function request_era5_vars(outfile::String, vars::Vector{String}, firstdate::Str
         {
             'product_type': 'reanalysis',
             'format': 'netcdf',
-            'variable': [$varstring],
+            'variable': $vars,
             'grid': '0.28125/0.28125',
             'area': '89.859375/-179.859375/-89.859375/179.859375',
             'date': $datestring,
             'time': '00/to/23/by/1'
         },
-        $outfile)
+        '$outfile')
     """
 end
 
