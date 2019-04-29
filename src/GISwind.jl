@@ -23,8 +23,8 @@ windoptions() = Dict(
     :res => 0.01,                       # resolution of auxiliary datasets [degrees per pixel]
     :erares => 0.28125,                 # resolution of ERA5 datasets [degrees per pixel]
 
-    :onshoreclasses_min => [2,5,6,7,8],     # lower bound on annual onshore wind speeds for class X    [0:0.25:12.25]
-    :onshoreclasses_max => [5,6,7,8,99],    # upper bound on annual onshore wind speeds for class X    [0.25:0.25:12.5]
+    :onshoreclasses_min => [2,5,6,7,8],     # lower bound on annual onshore wind speeds for class X    [0:0.25:12.25;]
+    :onshoreclasses_max => [5,6,7,8,99],    # upper bound on annual onshore wind speeds for class X    [0.25:0.25:12.5;]
     :offshoreclasses_min => [3,6,7,8,9],    # lower bound on annual offshore wind speeds for class X
     :offshoreclasses_max => [6,7,8,9,99]    # upper bound on annual offshore wind speeds for class X
 )
@@ -231,15 +231,16 @@ function makewindclasses(options, windatlas)
 
     @unpack onshoreclasses_min, onshoreclasses_max, offshoreclasses_min, offshoreclasses_max = options
 
-    nclasses = length(onshoreclasses_min)
     onshoreclass = zeros(UInt8, size(windatlas))
     offshoreclass = zeros(UInt8, size(windatlas))
-    for c = 1:nclasses
+    for c = 1:length(onshoreclasses_min)
         onshoreclass[(windatlas .>= onshoreclasses_min[c]) .& (windatlas .< onshoreclasses_max[c])] .= c
+    end
+    for c = 1:length(offshoreclasses_min)
         offshoreclass[(windatlas .>= offshoreclasses_min[c]) .& (windatlas .< offshoreclasses_max[c])] .= c
     end
 
-    return nclasses, onshoreclass, offshoreclass
+    return onshoreclass, offshoreclass
 end
 
 function coordmap(len::Int, croprange)
@@ -275,23 +276,25 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
     println("Calculating GW potential and hourly capacity factors for each region and wind class...")
     println("Interpolate ERA5 wind speeds later (maybe 4x runtime).")
 
-    nclasses, onshoreclass, offshoreclass = makewindclasses(options, windatlas)
+    onshoreclass, offshoreclass = makewindclasses(options, windatlas)
     eralons, eralats, lonmap, latmap, cellarea = eralonlat(options, lonrange, latrange)
 
-    @unpack rescale_to_wind_atlas, res, erares, onshore_density, area_onshore, offshore_density, area_offshore = options
+    @unpack onshoreclasses_min, offshoreclasses_min, rescale_to_wind_atlas, res, erares,
+                onshore_density, area_onshore, offshore_density, area_offshore = options
 
     numreg = length(regionlist)
+    nonshoreclasses, noffshoreclasses = length(onshoreclasses_min), length(offshoreclasses_min)
     yearlength, nlons, nlats = size(windspeed)
 
-    capacity_onshoreA = zeros(numreg,nclasses)
-    capacity_onshoreB = zeros(numreg,nclasses)
-    capacity_offshore = zeros(numreg,nclasses)
-    windCF_onshoreA = zeros(yearlength,numreg,nclasses)
-    windCF_onshoreB = zeros(yearlength,numreg,nclasses)
-    windCF_offshore = zeros(yearlength,numreg,nclasses)
-    count_onshoreA = zeros(Int,numreg,nclasses)
-    count_onshoreB = zeros(Int,numreg,nclasses)
-    count_offshore = zeros(Int,numreg,nclasses)
+    capacity_onshoreA = zeros(numreg,nonshoreclasses)
+    capacity_onshoreB = zeros(numreg,nonshoreclasses)
+    capacity_offshore = zeros(numreg,noffshoreclasses)
+    windCF_onshoreA = zeros(yearlength,numreg,nonshoreclasses)
+    windCF_onshoreB = zeros(yearlength,numreg,nonshoreclasses)
+    windCF_offshore = zeros(yearlength,numreg,noffshoreclasses)
+    count_onshoreA = zeros(Int,numreg,nonshoreclasses)
+    count_onshoreB = zeros(Int,numreg,nonshoreclasses)
+    count_offshore = zeros(Int,numreg,noffshoreclasses)
 
     if rescale_to_wind_atlas
         println("\nRescaling ERA5 wind speeds to match annual wind speeds from the Global Wind Atlas.")

@@ -21,8 +21,8 @@ solaroptions() = Dict(
     :res => 0.01,                       # resolution of auxiliary datasets [degrees per pixel]
     :erares => 0.28125,                 # resolution of ERA5 datasets [degrees per pixel]
 
-    :pvclasses_min => [0.05,0.15,0.20,0.24,0.28],   # lower bound on annual PV capacity factor for class X    [0:0.01:0.49]
-    :pvclasses_max => [0.15,0.20,0.24,0.28,1.00],   # upper bound on annual PV capacity factor for class X    [0.01:0.01:0.50]
+    :pvclasses_min => [0.05,0.15,0.20,0.24,0.28],   # lower bound on annual PV capacity factor for class X    [0:0.01:0.49;]
+    :pvclasses_max => [0.15,0.20,0.24,0.28,1.00],   # upper bound on annual PV capacity factor for class X    [0.01:0.01:0.50;]
     :cspclasses_min => [0.05,0.15,0.20,0.24,0.28],  # lower bound on annual CSP capacity factor for class X
     :cspclasses_max => [0.15,0.20,0.24,0.28,1.00]  # upper bound on annual CSP capacity factor for class X
 )
@@ -78,7 +78,7 @@ mutable struct SolarOptions
     cspclasses_max          ::Vector{Float64}
 end
 
-SolarOptions() = SolarOptions("",0,0,0,0,0,0,0,[],[],0,0,"",0,0,0,[],[],[],[])
+SolarOptions() = SolarOptions("",0,0,0,0,0,0,0,[],[],"",0,0,0,[],[],[],[])
 
 function SolarOptions(d::Dict{Symbol,Any})
     options = SolarOptions()
@@ -202,47 +202,49 @@ function makesolarclasses(options, meanGTI, meanDNI)
 
     @unpack pvclasses_min, pvclasses_max, cspclasses_min, cspclasses_max = options
 
-    nclasses = length(pvclasses_min)
     pvclass = zeros(UInt8, size(meanGTI))
     cspclass = zeros(UInt8, size(meanDNI))
-    for c = 1:nclasses
+    for c = 1:length(pvclasses_min)
         pvclass[(meanGTI .>= pvclasses_min[c]) .& (meanGTI .< pvclasses_max[c])] .= c
+    end
+    for c = 1:length(cspclasses_min)
         cspclass[(meanDNI .>= cspclasses_min[c]) .& (meanDNI .< cspclasses_max[c])] .= c
     end
 
-    return nclasses, pvclass, cspclass
+    return pvclass, cspclass
 end
 
 function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions, offshoreregions, regionlist,
                 mask_rooftop, mask_plantA, mask_plantB, lonrange, latrange)
 
-    nclasses, pvclass, cspclass = makesolarclasses(options, meanGTI, meanDNI)
+    pvclass, cspclass = makesolarclasses(options, meanGTI, meanDNI)
     eralons, eralats, lonmap, latmap, cellarea = eralonlat(options, lonrange, latrange)
 
     println("Calculating GW potential and hourly capacity factors for each region and class...")
     println("Interpolate ERA5 insolation later (maybe 4x runtime).")
 
-    @unpack era_year, res, erares, pv_density, csp_density, pvroof_area, plant_area = options
+    @unpack era_year, pvclasses_min, cspclasses_min, res, erares, pv_density, csp_density, pvroof_area, plant_area = options
 
     numreg = length(regionlist)
+    npvclasses, ncspclasses = length(pvclasses_min), length(cspclasses_min)
     yearlength, nlons, nlats = size(solarGTI)
     firsttime = DateTime(era_year, 1, 1)
 
-    capacity_pvrooftop = zeros(numreg,nclasses)
-    capacity_pvplantA = zeros(numreg,nclasses)
-    capacity_pvplantB = zeros(numreg,nclasses)
-    capacity_cspplantA = zeros(numreg,nclasses)
-    capacity_cspplantB = zeros(numreg,nclasses)
-    CF_pvrooftop = zeros(yearlength,numreg,nclasses)
-    CF_pvplantA = zeros(yearlength,numreg,nclasses)
-    CF_pvplantB = zeros(yearlength,numreg,nclasses)
-    CF_cspplantA = zeros(yearlength,numreg,nclasses)
-    CF_cspplantB = zeros(yearlength,numreg,nclasses)
-    count_pvrooftop = zeros(Int,numreg,nclasses)
-    count_pvplantA = zeros(Int,numreg,nclasses)
-    count_pvplantB = zeros(Int,numreg,nclasses)
-    count_cspplantA = zeros(Int,numreg,nclasses)
-    count_cspplantB = zeros(Int,numreg,nclasses)
+    capacity_pvrooftop = zeros(numreg,npvclasses)
+    capacity_pvplantA = zeros(numreg,npvclasses)
+    capacity_pvplantB = zeros(numreg,npvclasses)
+    capacity_cspplantA = zeros(numreg,ncspclasses)
+    capacity_cspplantB = zeros(numreg,ncspclasses)
+    CF_pvrooftop = zeros(yearlength,numreg,npvclasses)
+    CF_pvplantA = zeros(yearlength,numreg,npvclasses)
+    CF_pvplantB = zeros(yearlength,numreg,npvclasses)
+    CF_cspplantA = zeros(yearlength,numreg,ncspclasses)
+    CF_cspplantB = zeros(yearlength,numreg,ncspclasses)
+    count_pvrooftop = zeros(Int,numreg,npvclasses)
+    count_pvplantA = zeros(Int,numreg,npvclasses)
+    count_pvplantB = zeros(Int,numreg,npvclasses)
+    count_cspplantA = zeros(Int,numreg,ncspclasses)
+    count_cspplantB = zeros(Int,numreg,ncspclasses)
 
     # Run times vary wildly depending on geographical area (because of far offshore regions with mostly zero wind speeds).
     # To improve the estimated time of completing the progress bar, iterate over latitudes in random order.
