@@ -134,7 +134,8 @@ function GISsolar(; optionlist...)
         write(file, "capacity_cspplantB", capacity_cspplantB)
     end
 
-    return capacity_pvrooftop, capacity_pvplantA, capacity_pvplantB, capacity_cspplantA, capacity_cspplantB
+    return CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB,
+            capacity_pvrooftop, capacity_pvplantA, capacity_pvplantB, capacity_cspplantA, capacity_cspplantB
 end
 
 function read_solar_datasets(options, lonrange, latrange)
@@ -202,8 +203,8 @@ function makesolarclasses(options, meanGTI, meanDNI)
 
     @unpack pvclasses_min, pvclasses_max, cspclasses_min, cspclasses_max = options
 
-    pvclass = zeros(UInt8, size(meanGTI))
-    cspclass = zeros(UInt8, size(meanDNI))
+    pvclass = zeros(Int16, size(meanGTI))
+    cspclass = zeros(Int16, size(meanDNI))
     for c = 1:length(pvclasses_min)
         pvclass[(meanGTI .>= pvclasses_min[c]) .& (meanGTI .< pvclasses_max[c])] .= c
     end
@@ -268,7 +269,9 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
 
                 class = pvclass[i,j]
                 # can't use elseif here, probably some overlap in the masks
-                if reg > 0 && class > 0
+                # @views is needed to make sure increment_windCF!() works with matrix slices
+                # also faster since it avoids making copies
+                @views if reg > 0 && class > 0
                     if mask_rooftop[r,c] > 0
                         capacity_pvrooftop[reg,class] += 1/1000 * pv_density * pvroof_area * area
                         increment_solarCF!(CF_pvrooftop[:,reg,class], GTI)
@@ -285,7 +288,9 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
                 end
 
                 class = cspclass[i,j]
-                if reg > 0 && class > 0
+                # @views is needed to make sure increment_windCF!() works with matrix slices
+                # also faster since it avoids making copies
+                @views if reg > 0 && class > 0
                     if mask_plantA[r,c] > 0
                         capacity_cspplantA[reg,class] += 1/1000 * csp_density * plant_area * area
                         increment_solarCF!(CF_cspplantA[:,reg,class], DNI)

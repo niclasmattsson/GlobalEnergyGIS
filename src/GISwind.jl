@@ -115,7 +115,7 @@ function GISwind(; optionlist...)
         write(file, "capacity_offshore", capacity_offshore)
     end
 
-    return capacity_onshoreA, capacity_onshoreB, capacity_offshore
+    return windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore
 end
 
 function read_datasets(options)
@@ -231,8 +231,8 @@ function makewindclasses(options, windatlas)
 
     @unpack onshoreclasses_min, onshoreclasses_max, offshoreclasses_min, offshoreclasses_max = options
 
-    onshoreclass = zeros(UInt8, size(windatlas))
-    offshoreclass = zeros(UInt8, size(windatlas))
+    onshoreclass = zeros(Int16, size(windatlas))
+    offshoreclass = zeros(Int16, size(windatlas))
     for c = 1:length(onshoreclasses_min)
         onshoreclass[(windatlas .>= onshoreclasses_min[c]) .& (windatlas .< onshoreclasses_max[c])] .= c
     end
@@ -324,7 +324,9 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
                 offclass = offshoreclass[r,c]
                 
                 # can't use elseif here, probably some overlap in the masks
-                if reg > 0 && class > 0 && mask_onshoreA[r,c] > 0
+                # @views is needed to make sure increment_windCF!() works with matrix slices
+                # also faster since it avoids making copies
+                @views if reg > 0 && class > 0 && mask_onshoreA[r,c] > 0
                     capacity_onshoreA[reg,class] += 1/1000 * onshore_density * area_onshore * area
                     increment_windCF!(windCF_onshoreA[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
                     count_onshoreA[reg,class] += 1
