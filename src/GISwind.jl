@@ -225,20 +225,41 @@ function increment_windCF!(cf::AbstractVector{<:AbstractFloat}, speed_or_cf::Abs
     end
 end
 
+function getclasses0(windatlas, classes_min, classes_max)
+    class = zeros(Int16, size(windatlas))
+    for c = 1:length(classes_min)
+        class[(windatlas .>= classes_min[c]) .& (windatlas .< classes_max[c])] .= c
+    end
+    return class
+end
+
+function getclasses(windatlas, classes_min, classes_max)
+    class = similar(windatlas, Int16)
+    nclasses = length(classes_min)
+    @inbounds for i = 1:length(windatlas)
+        wa = windatlas[i]
+        if wa < classes_min[1] || wa > classes_max[end]
+            class[i] = 0
+            continue
+        end
+        for c = 1:nclasses
+            if wa < classes_max[c]
+                class[i] = c
+                break
+            end
+        end
+    end
+    return class
+end
+
 function makewindclasses(options, windatlas)
     println("Allocating pixels to classes using the Global Wind Atlas...")
     println("CHANGE TO CAPACITY FACTOR LATER!")
 
     @unpack onshoreclasses_min, onshoreclasses_max, offshoreclasses_min, offshoreclasses_max = options
 
-    onshoreclass = zeros(Int16, size(windatlas))
-    offshoreclass = zeros(Int16, size(windatlas))
-    for c = 1:length(onshoreclasses_min)
-        onshoreclass[(windatlas .>= onshoreclasses_min[c]) .& (windatlas .< onshoreclasses_max[c])] .= c
-    end
-    for c = 1:length(offshoreclasses_min)
-        offshoreclass[(windatlas .>= offshoreclasses_min[c]) .& (windatlas .< offshoreclasses_max[c])] .= c
-    end
+    onshoreclass = getclasses(windatlas, onshoreclasses_min, onshoreclasses_max)
+    offshoreclass = getclasses(windatlas, offshoreclasses_min, offshoreclasses_max)
 
     return onshoreclass, offshoreclass
 end

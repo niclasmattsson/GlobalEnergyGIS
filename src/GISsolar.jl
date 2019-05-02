@@ -21,10 +21,10 @@ solaroptions() = Dict(
     :res => 0.01,                       # resolution of auxiliary datasets [degrees per pixel]
     :erares => 0.28125,                 # resolution of ERA5 datasets [degrees per pixel]
 
-    :pvclasses_min => [0.05,0.15,0.20,0.24,0.28],   # lower bound on annual PV capacity factor for class X    [0:0.01:0.49;]
-    :pvclasses_max => [0.15,0.20,0.24,0.28,1.00],   # upper bound on annual PV capacity factor for class X    [0.01:0.01:0.50;]
-    :cspclasses_min => [0.05,0.15,0.20,0.24,0.28],  # lower bound on annual CSP capacity factor for class X
-    :cspclasses_max => [0.15,0.20,0.24,0.28,1.00]  # upper bound on annual CSP capacity factor for class X
+    :pvclasses_min => [0.08,0.14,0.18,0.22,0.26],   # lower bound on annual PV capacity factor for class X    [0:0.01:0.49;]
+    :pvclasses_max => [0.14,0.18,0.22,0.26,1.00],   # upper bound on annual PV capacity factor for class X    [0.01:0.01:0.50;]
+    :cspclasses_min => [0.10,0.18,0.24,0.28,0.32],  # lower bound on annual CSP capacity factor for class X
+    :cspclasses_max => [0.18,0.24,0.28,0.32,1.00]  # upper bound on annual CSP capacity factor for class X
 )
     # Land types
     #     0      'Water'                       
@@ -203,14 +203,8 @@ function makesolarclasses(options, meanGTI, meanDNI)
 
     @unpack pvclasses_min, pvclasses_max, cspclasses_min, cspclasses_max = options
 
-    pvclass = zeros(Int16, size(meanGTI))
-    cspclass = zeros(Int16, size(meanDNI))
-    for c = 1:length(pvclasses_min)
-        pvclass[(meanGTI .>= pvclasses_min[c]) .& (meanGTI .< pvclasses_max[c])] .= c
-    end
-    for c = 1:length(cspclasses_min)
-        cspclass[(meanDNI .>= cspclasses_min[c]) .& (meanDNI .< cspclasses_max[c])] .= c
-    end
+    pvclass = getclasses(meanGTI, pvclasses_min, pvclasses_max)
+    cspclass = getclasses(meanDNI, cspclasses_min, cspclasses_max)
 
     return pvclass, cspclass
 end
