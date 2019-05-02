@@ -124,12 +124,12 @@ function rasterize_GADM()
     @time run(` ogr2ogr -f CSV $outfile -sql $sql $shapefile` )
 end
 
-function saveregions(regionname, regiondefinitionarray)
-    regions = makeregions(regiondefinitionarray)
-    offshoreregions = makeoffshoreregions(regions)
+function saveregions(regionname, regiondefinitionarray, landcover)
+    regions = makeregions(regiondefinitionarray) .* (landcover.>0)
+    offshoreregions = makeoffshoreregions(regions, landcover)
     regionlist = Symbol.(regiondefinitionarray[:,1])
     # bbox = getbboxranges(regions)
-    println("Saving regions and offshoreregions...")
+    println("\nSaving regions and offshoreregions...")
     JLD.save("regions_$regionname.jld", "regions", regions, "offshoreregions", offshoreregions,
                 "regionlist", regionlist, compress=true)
 end
@@ -199,9 +199,34 @@ function build_inverseregionlookup(regiondefinitions)
     return d
 end
 
-function makeoffshoreregions(regions)
-    println("Making offshore region index matrix...")
-    regions[feature_transform(regions.>0)]
+# Find the closest region pixel for each ocean pixel and major lake.
+# Even VERY far offshore pixels will be allocated to whatever region is nearest, but
+# those areas still won't be available for offshore wind power because of the
+# requirement to be close enough to the electricity grid (or rather the grid proxy).
+function makeoffshoreregions(regions, landcover)
+    println("\nMaking offshore region index matrix...")
+    closest_region = regions[feature_transform(regions.>0)]
+    @time lakes = majorlakes(regions)
+    return closest_region .* ((regions .== 0) .| lakes) .* (landcover.==0)
+end
+
+# Use ImageSegmentation.jl to identify large lakes (large enough for offshore wind).
+# This will incorrectly trigger for some very long and wide rivers, but that's not a
+# big problem since near-shore areas are not allowed for offshore wind. 
+function majorlakes(regions)
+    println("\nIdentifying major lakes (>1000 km2)...")
+    println("...segmenting regions...")
+    seg = fast_scanning(regions.>0, 0.1)
+    println("...removing small segments and land areas...")
+    large_water_segments = prune_segments(seg, i -> (segment_pixel_count(seg,i)<1000 || segment_mean(seg,i)>0.8),
+                                            (i,j) -> -segment_pixel_count(seg,j))
+    lakes = labels_map(large_water_segments)
+    println("...removing the largest land segment...")
+    pixelcount = countmap(lakes, alg=:dict)
+    # the most common index will (almost certainly) be the sole non-lake segment
+    mostcommonindex = sort(collect(pixelcount), by=x->x[2], rev=true)[1][1]
+    println("...lake identification complete.")    
+    return lakes .!= mostcommonindex
 end
 
 struct GADM{T}
