@@ -264,33 +264,6 @@ function makewindclasses(options, windatlas)
     return onshoreclass, offshoreclass
 end
 
-function coordmap(len::Int, croprange)
-    coords = zeros(Int, len)
-    indexes = (1:len)[croprange]
-    for (i,n) = enumerate(indexes)
-        coords[n] = i
-    end
-    return coords
-end
-
-function eralonlat(options, lonrange, latrange)
-    @unpack res, erares = options
-
-    lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
-    lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
-    cellarea = cosd.(lats) * (2*6371*π/(360/res))^2     # area of a grid cell in km2
-
-    eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
-    eralonrange = length(eralonranges) == 1 ? eralonranges[1] : [eralonranges[1]; eralonranges[2]]
-    eralons = (-180+erares/2:erares:180-erares/2)[eralonrange]     # longitude values (pixel center)
-    eralats = (90-erares/2:-erares:-90+erares/2)[eralatrange]      # latitude values (pixel center)
-    
-    lonmap = coordmap(round(Int, 360/res), lonrange)      # map full longitude indexes to cropped indexes
-    latmap = coordmap(round(Int, 180/res), latrange)      # ditto latitude
-
-    return eralons, eralats, lonmap, latmap, cellarea
-end
-
 function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
                 mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
 
