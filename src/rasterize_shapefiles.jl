@@ -314,16 +314,14 @@ function savelandcover()
     println("Reading landcover dataset (TIFF)...")
     landcover = readraster("landcover.tif")
     landtypes = [
-        "Barren", "Snow/Ice", "Cropland/Natural", "Urban", "Croplands",
-        "Permanent Wetlands", "Grasslands", "Savannas", "Woody Savannas", "Open Shrublands",
-        "Closed Shrublands", "Mixed Forests", "Deciduous Broadleaf Forests", "Deciduous Needleleaf Forests", "Evergreen Broadleaf Forests",
-        "Evergreen Needleleaf Forests", "Water"
+        "Water", "Evergreen Needleleaf Forests", "Evergreen Broadleaf Forests", "Deciduous Needleleaf Forests", "Deciduous Broadleaf Forests", 
+        "Mixed Forests", "Closed Shrublands", "Open Shrublands", "Woody Savannas", "Savannas", "Grasslands", "Permanent Wetlands",
+        "Croplands", "Urban", "Cropland/Natural", "Snow/Ice", "Barren"
     ]
     landcolors = 1/255 * [
-        190 190 190; 255 218 209; 144 144 0; 255 0 0; 255 255 0;
-        40 136 213; 255 192 107; 255 228 18; 182 231 140; 255 236 163;
-        216 118 118; 55 200 133; 104 229 104; 123 204 6; 77 167 86;
-        0 100 0; 190 247 255
+        190 247 255; 0 100 0; 77 167 86; 123 204 6; 104 229 104;
+        55 200 133; 216 118 118; 255 236 163; 182 231 140; 255 228 18; 255 192 107; 40 136 213; 
+        255 255 0; 255 0 0; 144 144 0; 255 218 209; 190 190 190; 
     ]
     println("Saving landcover dataset...")
     JLD.save("landcover.jld", "landcover", landcover, "landtypes", landtypes, "landcolors", landcolors, compress=true)
