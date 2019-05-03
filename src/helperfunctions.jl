@@ -245,6 +245,12 @@ function eralonlat(options, lonrange, latrange)
     return eralons, eralats, lonmap, latmap, cellarea
 end
 
+function uncrop(croppedarray, lonrange, latrange, res)
+    nlon, nlat = round(Int, 360/res), round(Int, 180/res)
+    full = zeros(eltype(croppedarray), nlon, nlat)
+    full[lonrange, latrange] = croppedarray
+    return full
+end
 
 
 

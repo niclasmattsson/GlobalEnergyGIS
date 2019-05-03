@@ -13,7 +13,7 @@ solaroptions() = Dict(
                                         # US census bureau requires 1000 ppl/mile^2 = 386 ppl/km2 for "urban" (half in Australia)
                                         # roughly half the people of the world live at density > 300 ppl/km2
     :exclude_landtypes => [0,12],       # exclude water and croplands. See codes in table below.
-    :protected_codes => [3,4,5,6,7,8],  # IUCN codes to be excluded as protected areas. See codes in table below.
+    :protected_codes => [1,2,3,4,5,6,7],# IUCN codes to be excluded as protected areas. See codes in table below.
 
     :scenario => "ssp2_2050",           # default scenario for population and grid access datasets
     :era_year => 2018,                  # which year of the ERA5 time series to use 
@@ -46,16 +46,17 @@ solaroptions() = Dict(
     #    16      'Barren'                      
 
     # Protected areas (IUCN codes from the WDPA)
-    #    1      'Not Applicable'    'Not Applicable'                 
-    #    2      'Not Assigned'      'Not Assigned'                   
-    #    3      'Not Reported'      'Not Reported'                   
-    #    4      'Ia'                'Strict Nature Reserve'          
-    #    5      'Ib'                'Wilderness Area'                
-    #    6      'II'                'National Park'                  
-    #    7      'III'               'Natural Monument'               
-    #    8      'IV'                'Habitat/Species Management'     
-    #    9      'V'                 'Protected Landscape/Seascape'   
-    #    10     'VI'                'Managed Resource Protected Area'
+    #    1      'Ia'                'Strict Nature Reserve'          
+    #    2      'Ib'                'Wilderness Area'                
+    #    3      'II'                'National Park'                  
+    #    4      'III'               'Natural Monument'               
+    #    5      'IV'                'Habitat/Species Management'     
+    #    6      'V'                 'Protected Landscape/Seascape'   
+    #    7      'VI'                'Managed Resource Protected Area'
+    #    8      'Not Reported'      'Not Reported'                   
+    #    9      'Not Applicable'    'Not Applicable'                 
+    #    10     'Not Assigned'      'Not Assigned'                   
+
 
 mutable struct SolarOptions
     gisregion               ::String

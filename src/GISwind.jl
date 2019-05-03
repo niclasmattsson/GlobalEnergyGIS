@@ -14,7 +14,7 @@ windoptions() = Dict(
     :max_depth => 40,                   # max depth for offshore wind [m]
     :min_shore_distance => 5,           # minimum distance to shore for offshore wind [km]
     :exclude_landtypes => [0,11,13],    # exclude water, wetlands and urban areas. See codes in table below.
-    :protected_codes => [3,4,5,6,7,8],  # IUCN codes to be excluded as protected areas. See codes in table below.
+    :protected_codes => [1,2,3,4,5,6,7],# IUCN codes to be excluded as protected areas. See codes in table below.
 
     :scenario => "ssp2_2050",           # default scenario for population and grid access datasets
     :era_year => 2018,                  # which year of the ERA5 time series to use 
@@ -48,16 +48,16 @@ windoptions() = Dict(
     #    16      'Barren'                      
 
     # Protected areas (IUCN codes from the WDPA)
-    #    1      'Not Applicable'    'Not Applicable'                 
-    #    2      'Not Assigned'      'Not Assigned'                   
-    #    3      'Not Reported'      'Not Reported'                   
-    #    4      'Ia'                'Strict Nature Reserve'          
-    #    5      'Ib'                'Wilderness Area'                
-    #    6      'II'                'National Park'                  
-    #    7      'III'               'Natural Monument'               
-    #    8      'IV'                'Habitat/Species Management'     
-    #    9      'V'                 'Protected Landscape/Seascape'   
-    #    10     'VI'                'Managed Resource Protected Area'
+    #    1      'Ia'                'Strict Nature Reserve'          
+    #    2      'Ib'                'Wilderness Area'                
+    #    3      'II'                'National Park'                  
+    #    4      'III'               'Natural Monument'               
+    #    5      'IV'                'Habitat/Species Management'     
+    #    6      'V'                 'Protected Landscape/Seascape'   
+    #    7      'VI'                'Managed Resource Protected Area'
+    #    8      'Not Reported'      'Not Reported'                   
+    #    9      'Not Applicable'    'Not Applicable'                 
+    #    10     'Not Assigned'      'Not Assigned'                   
 
 mutable struct WindOptions
     gisregion               ::String
@@ -122,13 +122,7 @@ function read_datasets(options)
     @unpack res, gisregion, scenario = options
 
     println("\nReading auxiliary datasets...")
-    regions, offshoreregions, regionlist = loadregions(gisregion)
-
-    # get indexes of the bounding box containing onshore region data with 1 degree of padding
-    lonrange, latrange = getbboxranges(regions, round(Int, 1/res))
-
-    regions = regions[lonrange,latrange]
-    offshoreregions = offshoreregions[lonrange,latrange]
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
 
     # path = joinpath(dirname(@__FILE__), "..")
     gridaccess = JLD.load("gridaccess_$scenario.jld", "gridaccess")[lonrange,latrange]

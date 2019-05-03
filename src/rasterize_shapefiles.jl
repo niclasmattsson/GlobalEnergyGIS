@@ -124,19 +124,28 @@ function rasterize_GADM()
     @time run(` ogr2ogr -f CSV $outfile -sql $sql $shapefile` )
 end
 
+function saveregions(regionname, regiondefinitionarray)
+    land = JLD.load("landcover.jld", "landcover")
+    saveregions(regionname, regiondefinitionarray, land)
+end
+
 function saveregions(regionname, regiondefinitionarray, landcover)
     regions = makeregions(regiondefinitionarray) .* (landcover.>0)
-    offshoreregions = makeoffshoreregions(regions, landcover)
+    # get indexes of the bounding box containing onshore region data with 1 degree of padding
+    lonrange, latrange = getbboxranges(regions, round(Int, 1/0.01))
+    regions = regions[lonrange, latrange]
+    offshoreregions = makeoffshoreregions(regions, landcover[lonrange, latrange])
     regionlist = Symbol.(regiondefinitionarray[:,1])
-    # bbox = getbboxranges(regions)
+
     println("\nSaving regions and offshoreregions...")
     JLD.save("regions_$regionname.jld", "regions", regions, "offshoreregions", offshoreregions,
-                "regionlist", regionlist, compress=true)
+                "regionlist", regionlist, "lonrange", lonrange, "latrange", latrange, compress=true)
 end
 
 function loadregions(regionname)
     jldopen("regions_$regionname.jld", "r") do file
-        return read(file, "regions"), read(file, "offshoreregions"), read(file, "regionlist")
+        return read(file, "regions"), read(file, "offshoreregions"), read(file, "regionlist"),
+                    read(file, "lonrange"), read(file, "latrange")
     end
 end
 
