@@ -7,13 +7,13 @@ solaroptions() = Dict(
     :pvroof_area => .05,                # area available for rooftop PV after the masks have been applied
     :plant_area => .03,                 # area available for PV or CSP plants after the masks have been applied
 
-    :distance_elec_access => 150,       # max distance to grid [km] (for solar classes of category B)
+    :distance_elec_access => 300,       # max distance to grid [km] (for solar classes of category B)
     :plant_persons_per_km2 => 75,       # not too crowded, max X persons/km2 (both PV and CSP plants)
     :pvroof_persons_per_km2 => 100,     # only in populated areas, so AT LEAST x persons/km2
                                         # US census bureau requires 1000 ppl/mile^2 = 386 ppl/km2 for "urban" (half in Australia)
                                         # roughly half the people of the world live at density > 300 ppl/km2
     :exclude_landtypes => [0,12],       # exclude water and croplands. See codes in table below.
-    :protected_codes => [1,2,3,4,5,6,7],# IUCN codes to be excluded as protected areas. See codes in table below.
+    :protected_codes => [1,2,3,4,5,8],  # IUCN codes to be excluded as protected areas. See codes in table below.
 
     :scenario => "ssp2_2050",           # default scenario for population and grid access datasets
     :era_year => 2018,                  # which year of the ERA5 time series to use 
@@ -276,7 +276,7 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
                         increment_solarCF!(CF_pvplantA[:,reg,class], GTI)
                         count_pvplantA[reg,class] += 1
                     elseif mask_plantB[r,c] > 0
-                        capacity_pvplantB[reg,class] += 1/1000 * pv_density * plant_area * area
+                        capacity_pvplantB[reg,class] += 1/1000 * pv_density * 2 * plant_area * area
                         increment_solarCF!(CF_pvplantB[:,reg,class], GTI)
                         count_pvplantB[reg,class] += 1
                     end
@@ -291,7 +291,7 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
                         increment_solarCF!(CF_cspplantA[:,reg,class], DNI)
                         count_cspplantA[reg,class] += 1
                     elseif mask_plantB[r,c] > 0
-                        capacity_cspplantB[reg,class] += 1/1000 * csp_density * plant_area * area
+                        capacity_cspplantB[reg,class] += 1/1000 * csp_density * 2 * plant_area * area
                         increment_solarCF!(CF_cspplantB[:,reg,class], DNI)
                         count_cspplantB[reg,class] += 1
                     end

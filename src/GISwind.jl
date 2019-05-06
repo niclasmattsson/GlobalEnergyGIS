@@ -7,14 +7,14 @@ windoptions() = Dict(
     :area_onshore => .05,               # area available for onshore wind power after the masks have been applied
     :area_offshore => .33,              # area available for offshore wind power after the masks have been applied
 
-    :distance_elec_access => 150,       # max distance to grid [km] (for wind classes of category B and offshore)
+    :distance_elec_access => 300,       # max distance to grid [km] (for wind classes of category B and offshore)
     :persons_per_km2 => 75,             # not too crowded, max X persons/km2
                                         # US census bureau requires 1000 ppl/mile^2 = 386 ppl/km2 for "urban" (half in Australia)
                                         # roughly half the people of the world live at density > 300 ppl/km2
     :max_depth => 40,                   # max depth for offshore wind [m]
     :min_shore_distance => 5,           # minimum distance to shore for offshore wind [km]
     :exclude_landtypes => [0,11,13],    # exclude water, wetlands and urban areas. See codes in table below.
-    :protected_codes => [1,2,3,4,5,6,7],# IUCN codes to be excluded as protected areas. See codes in table below.
+    :protected_codes => [1,2,3,4,5,8],  # IUCN codes to be excluded as protected areas. See codes in table below.
 
     :scenario => "ssp2_2050",           # default scenario for population and grid access datasets
     :era_year => 2018,                  # which year of the ERA5 time series to use 
@@ -319,7 +319,7 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
                     increment_windCF!(windCF_onshoreA[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
                     count_onshoreA[reg,class] += 1
                 elseif reg > 0 && class > 0 && mask_onshoreB[r,c] > 0
-                    capacity_onshoreB[reg,class] += 1/1000 * onshore_density * area_onshore * area
+                    capacity_onshoreB[reg,class] += 1/1000 * onshore_density * 2 * area_onshore * area
                     increment_windCF!(windCF_onshoreB[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
                     count_onshoreB[reg,class] += 1
                 elseif offreg > 0 && offclass > 0 && mask_offshore[r,c] > 0

@@ -131,8 +131,8 @@ end
 
 function saveregions(regionname, regiondefinitionarray, landcover)
     regions = makeregions(regiondefinitionarray) .* (landcover.>0)
-    # get indexes of the bounding box containing onshore region data with 1 degree of padding
-    lonrange, latrange = getbboxranges(regions, round(Int, 1/0.01))
+    # get indexes of the bounding box containing onshore region data with 3 degrees of padding
+    lonrange, latrange = getbboxranges(regions, round(Int, 3/0.01))
     regions = regions[lonrange, latrange]
     offshoreregions = makeoffshoreregions(regions, landcover[lonrange, latrange])
     regionlist = Symbol.(regiondefinitionarray[:,1])
