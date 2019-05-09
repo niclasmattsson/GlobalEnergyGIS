@@ -178,26 +178,20 @@ function makeregions_main(gadm, subregionnames, regiondefinitions)
     return region
 end
 
-# Integer version (commented out) is somewhat faster but less clear
 function lookup_regionnames(regionlookup, reg0, reg1, reg2)
     v = get(regionlookup, (reg0, "*", "*"), 0)
-    # v = get(regionlookup, (reg0, 0, 0), 0)
     v > 0 && return v
     v = get(regionlookup, (reg0, reg1, "*"), 0)
-    # v = get(regionlookup, (reg0, reg1, 0), 0)
     v > 0 && return v
     return get(regionlookup, (reg0, reg1, reg2), 0)
 end
 
-# Integer version (commented out) is somewhat faster but less clear
 function build_inverseregionlookup(regiondefinitions)
     d = Dict{Tuple{String,String,String}, Int}()
-    # d = Dict{Tuple{Int,Int,Int}, Int}()
     for reg = 1:length(regiondefinitions)
         for regdef in regiondefinitions[reg]
             parentregions, subregionnames = regdef.parentregions, regdef.subregionnames
             regions = ["*", "*", "*"]
-            # regions = zeros(3)
             regions[1:length(parentregions)] = parentregions
             for s in subregionnames
                 regions[length(parentregions)+1] = s
