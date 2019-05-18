@@ -227,12 +227,15 @@ function coordmap(len::Int, croprange)
     return coords
 end
 
+# area of a grid cell in km2 for a given latitude (in degrees) and raster resolution
+rastercellarea(lat, res) = cosd(lat) * (2*6371*π/(360/res))^2
+
 function eralonlat(options, lonrange, latrange)
     @unpack res, erares = options
 
     lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
     lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
-    cellarea = cosd.(lats) * (2*6371*π/(360/res))^2     # area of a grid cell in km2
+    cellarea = rastercellarea.(lats, res)
 
     eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
     eralonrange = length(eralonranges) == 1 ? eralonranges[1] : [eralonranges[1]; eralonranges[2]]

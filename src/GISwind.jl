@@ -16,7 +16,7 @@ windoptions() = Dict(
     :exclude_landtypes => [0,11,13],    # exclude water, wetlands and urban areas. See codes in table below.
     :protected_codes => [1,2,3,4,5,8],  # IUCN codes to be excluded as protected areas. See codes in table below.
 
-    :scenario => "ssp2_2050",           # default scenario for population and grid access datasets
+    :scenarioyear => "ssp2_2050",       # default scenario and year for population and grid access datasets
     :era_year => 2018,                  # which year of the ERA5 time series to use 
     :rescale_to_wind_atlas => true,     # rescale the ERA5 time series to fit annual wind speed averages from the Global Wind Atlas
 
@@ -71,7 +71,7 @@ mutable struct WindOptions
     min_shore_distance      ::Float64           # km
     exclude_landtypes       ::Vector{Int}
     protected_codes         ::Vector{Int}
-    scenario                ::String
+    scenarioyear            ::String
     era_year                ::Int
     rescale_to_wind_atlas   ::Bool
     res                     ::Float64           # degrees/pixel
@@ -96,11 +96,12 @@ function GISwind(; optionlist...)
 
     options = WindOptions(merge(windoptions(), optionlist))
 
-    regions, offshoreregions, regionlist, gridaccess, pop, topo, land, protected, lonrange, latrange = read_datasets(options)
+    regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
+                read_datasets(options)
     windatlas, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
 
     mask_onshoreA, mask_onshoreB, mask_offshore =
-        create_wind_masks(options, regions, offshoreregions, gridaccess, pop, topo, land, protected)
+        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected)
 
     windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore =
         calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
@@ -119,19 +120,22 @@ function GISwind(; optionlist...)
 end
 
 function read_datasets(options)
-    @unpack res, gisregion, scenario = options
+    @unpack res, gisregion, scenarioyear = options
 
     println("\nReading auxiliary datasets...")
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
+    cellarea = rastercellarea.(latrange, res)
 
     # path = joinpath(dirname(@__FILE__), "..")
-    gridaccess = JLD.load("gridaccess_$scenario.jld", "gridaccess")[lonrange,latrange]
-    pop = JLD.load("population_$scenario.jld", "population")[lonrange,latrange]
+    gridaccess = JLD.load("gridaccess_$scenarioyear.jld", "gridaccess")[lonrange,latrange]
+    pop = JLD.load("population_$scenarioyear.jld", "population")[lonrange,latrange]
     topo = JLD.load("topography.jld", "topography")[lonrange,latrange]
     land = JLD.load("landcover.jld", "landcover")[lonrange,latrange]
     protected = JLD.load("protected.jld", "protected")[lonrange,latrange]
 
-    return regions, offshoreregions, regionlist, gridaccess, pop, topo, land, protected, lonrange, latrange
+    popdens = pop ./ cellarea'
+
+    return regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange
 end
 
 function read_wind_datasets(options, lonrange, latrange)
@@ -153,7 +157,7 @@ function read_wind_datasets(options, lonrange, latrange)
     return windatlas, meanwind, windspeed
 end
 
-function create_wind_masks(options, regions, offshoreregions, gridaccess, pop, topo, land, protected)
+function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected)
     @unpack res, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2, min_shore_distance, max_depth = options
 
     println("Creating masks...")
@@ -178,8 +182,8 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, pop, t
     println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
 
     # all mask conditions
-    mask_onshoreA = gridA .& (pop .< persons_per_km2) .& goodland .& .!protected_area
-    mask_onshoreB = (gridB .& .!gridA) .& (pop .< persons_per_km2) .& goodland .& .!protected_area
+    mask_onshoreA = gridA .& (popdens .< persons_per_km2) .& goodland .& .!protected_area
+    mask_onshoreB = (gridB .& .!gridA) .& (popdens .< persons_per_km2) .& goodland .& .!protected_area
 
     # shoreline mask for offshore wind
     disk = diskfilterkernel(min_shore_distance/km_per_degree/res)

@@ -15,7 +15,7 @@ solaroptions() = Dict(
     :exclude_landtypes => [0,12],       # exclude water and croplands. See codes in table below.
     :protected_codes => [1,2,3,4,5,8],  # IUCN codes to be excluded as protected areas. See codes in table below.
 
-    :scenario => "ssp2_2050",           # default scenario for population and grid access datasets
+    :scenarioyear => "ssp2_2050",       # default scenario and year for population and grid access datasets
     :era_year => 2018,                  # which year of the ERA5 time series to use 
 
     :res => 0.01,                       # resolution of auxiliary datasets [degrees per pixel]
@@ -69,7 +69,7 @@ mutable struct SolarOptions
     pvroof_persons_per_km2  ::Float64           # persons/km2
     exclude_landtypes       ::Vector{Int}
     protected_codes         ::Vector{Int}
-    scenario                ::String
+    scenarioyear            ::String
     era_year                ::Int
     res                     ::Float64           # degrees/pixel
     erares                  ::Float64           # degrees/pixel
@@ -111,11 +111,12 @@ function GISsolar(; optionlist...)
 
     options = SolarOptions(merge(solaroptions(), optionlist))
 
-    regions, offshoreregions, regionlist, gridaccess, pop, topo, land, protected, lonrange, latrange = read_datasets(options)
+    regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
+                read_datasets(options)
     meanGTI, solarGTI, meanDNI, solarDNI = read_solar_datasets(options, lonrange, latrange)
 
     mask_rooftop, mask_plantA, mask_plantB =
-        create_solar_masks(options, regions, gridaccess, pop, land, protected)
+        create_solar_masks(options, regions, gridaccess, popdens, land, protected)
 
     CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB,
             capacity_pvrooftop, capacity_pvplantA, capacity_pvplantB, capacity_cspplantA, capacity_cspplantB =
@@ -161,7 +162,7 @@ function read_solar_datasets(options, lonrange, latrange)
     return meanGTI, solarGTI, meanDNI, solarDNI
 end
 
-function create_solar_masks(options, regions, gridaccess, pop, land, protected)
+function create_solar_masks(options, regions, gridaccess, popdens, land, protected)
     @unpack res, exclude_landtypes, protected_codes, distance_elec_access, plant_persons_per_km2, pvroof_persons_per_km2 = options
 
     println("Creating masks...")
@@ -186,9 +187,9 @@ function create_solar_masks(options, regions, gridaccess, pop, land, protected)
     println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
 
     # all mask conditions
-    mask_rooftop = gridA .& (pop .> pvroof_persons_per_km2) .& goodland .& .!protected_area
-    mask_plantA = gridA .& (pop .< plant_persons_per_km2) .& goodland .& .!protected_area
-    mask_plantB = (gridB .& .!gridA) .& (pop .< plant_persons_per_km2) .& goodland .& .!protected_area
+    mask_rooftop = gridA .& (popdens .> pvroof_persons_per_km2) .& goodland .& .!protected_area
+    mask_plantA = gridA .& (popdens .< plant_persons_per_km2) .& goodland .& .!protected_area
+    mask_plantB = (gridB .& .!gridA) .& (popdens .< plant_persons_per_km2) .& goodland .& .!protected_area
 
     return mask_rooftop, mask_plantA, mask_plantB
 end
