@@ -124,15 +124,20 @@ function rasterize_GADM()
     @time run(` ogr2ogr -f CSV $outfile -sql $sql $shapefile` )
 end
 
-function saveregions(regionname, regiondefinitionarray)
+function saveregions(regionname, regiondefinitionarray; crop=true)
     land = JLD.load("landcover.jld", "landcover")
-    saveregions(regionname, regiondefinitionarray, land)
+    saveregions(regionname, regiondefinitionarray, land, crop)
 end
 
-function saveregions(regionname, regiondefinitionarray, landcover)
+function saveregions(regionname, regiondefinitionarray, landcover, crop)
     regions = makeregions(regiondefinitionarray) .* (landcover.>0)
-    # get indexes of the bounding box containing onshore region data with 3 degrees of padding
-    lonrange, latrange = getbboxranges(regions, round(Int, 3/0.01))
+    if crop
+        # get indexes of the bounding box containing onshore region data with 3 degrees of padding
+        lonrange, latrange = getbboxranges(regions, round(Int, 3/0.01))
+    else
+        nlon, nlat = size(regions)
+        lonrange, latrange = 1:nlon, 1:nlat
+    end
     regions = regions[lonrange, latrange]
     offshoreregions = makeoffshoreregions(regions, landcover[lonrange, latrange])
     regionlist = Symbol.(regiondefinitionarray[:,1])
@@ -140,6 +145,13 @@ function saveregions(regionname, regiondefinitionarray, landcover)
     println("\nSaving regions and offshoreregions...")
     JLD.save("regions_$regionname.jld", "regions", regions, "offshoreregions", offshoreregions,
                 "regionlist", regionlist, "lonrange", lonrange, "latrange", latrange, compress=true)
+end
+
+function saveregions_global_gadm0()
+    g = readdlm("gadmfields.csv", ',', skipstart=1)
+    gadm0 = unique(string.(g[:,2]))
+    regiondefinitionarray = [gadm0 GADM.(gadm0)]
+    saveregions("Global_GADM0", regiondefinitionarray, crop=false)
 end
 
 function loadregions(regionname)
@@ -381,18 +393,18 @@ function createGDP(scen, year)
     gdp_per_capita[pop.<=0] .= 0    # non land cells have pop & gdp set to -infinity, set to zero instead
     saveTIFF(gdp_per_capita, tempfile, extent)
 
-    # println("Upscaling to high resolution and saving...")
+    # println("Downscaling to high resolution and saving...")
     # options = "-r average -tr 0.01 0.01"
     # resample(tempfile, "gdp_per_capita_$(scen)_$year.tif", split(options, ' '))
     # rm(tempfile)
 
-    @time gdphigh = upscale_lowres_gdp_per_capita(tempfile, scen, year)     # unit: USD(2010)/grid cell, PPP
+    @time gdphigh = downscale_lowres_gdp_per_capita(tempfile, scen, year)     # unit: USD(2010)/grid cell, PPP
     rm(tempfile)
     println("Saving high resolution GDP...")
     JLD.save("gdp_$(scen)_$year.jld", "gdp", gdphigh, compress=true)
 end
 
-function upscale_lowres_gdp_per_capita(tempfile, scen, year)
+function downscale_lowres_gdp_per_capita(tempfile, scen, year)
     println("Create high resolution GDP set using high resolution population and low resolution GDP per capita...")
     gpclow, extent = readraster(tempfile, :extend_to_full_globe)
     pop = getpopulation(scen, year)
