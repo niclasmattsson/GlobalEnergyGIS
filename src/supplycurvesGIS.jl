@@ -36,7 +36,7 @@ end
 
 function supplycurves_pv(reg, plant_area, persons_per_km2, minclasses, step)
 	cfr,cfpva,cfpvb,cfcsa,cfcsb,pvr,pva,pvb,csa,csb =
-		GISsolar(gisregion=reg, pvclasses_min=minclasses, pvclasses_max=(minclasses.+step),
+		GISsolar(savetodisk=false, gisregion=reg, pvclasses_min=minclasses, pvclasses_max=(minclasses.+step),
 			plant_area=plant_area, plant_persons_per_km2=persons_per_km2)
 
 	# results=loadresults("regionset=eurasia21, carboncap=0",resultsfile="results_prev.jld2");
@@ -69,7 +69,7 @@ end
 
 function supplycurves_wind(reg, area_onshore, persons_per_km2, minclasses, step)
 	cfa,cfb,cfoff,wa,wb,woff =
-		GISwind(gisregion=reg, onshoreclasses_min=minclasses, onshoreclasses_max=(minclasses.+step),
+		GISwind(savetodisk=false, gisregion=reg, onshoreclasses_min=minclasses, onshoreclasses_max=(minclasses.+step),
 			offshoreclasses_min=minclasses, offshoreclasses_max=(minclasses.+step),
 			area_onshore=area_onshore, persons_per_km2=persons_per_km2)
 
@@ -209,11 +209,11 @@ end
 
 plotly()
 
-# cap, lc = calcvars("China6")
+cap, lc = calcvars("China6")
 
-# plottriplepv(cap, lc, :low, 75)
-# plottriplewind(cap, lc, :low, 75)
-# plotmono(cap, lc)
+plottriplepv(cap, lc, :low, 75)
+plottriplewind(cap, lc, :low, 75)
+plotmono(cap, lc)
 
 
 const powercurves = [

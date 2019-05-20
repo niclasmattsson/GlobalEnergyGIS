@@ -89,7 +89,7 @@ function SolarOptions(d::Dict{Symbol,Any})
     return options
 end
 
-function GISsolar(; optionlist...)
+function GISsolar(; savetodisk=true, optionlist...)
 
     # IMPORTANT!! The function makesolarera5() uses ERA5 solar datasets to
     # calculate Global Tilted Irradiance (GTI) for solar PV and Direct Normal
@@ -123,17 +123,19 @@ function GISsolar(; optionlist...)
         calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions, offshoreregions, regionlist,
                 mask_rooftop, mask_plantA, mask_plantB, lonrange, latrange)
 
-    matopen("GISdata_solar$(options.era_year)_$(options.gisregion).mat", "w") do file
-        write(file, "CFtime_pvrooftop", CF_pvrooftop)
-        write(file, "CFtime_pvplantA", CF_pvplantA)
-        write(file, "CFtime_pvplantB", CF_pvplantB)
-        write(file, "CFtime_cspplantA", CF_cspplantA)
-        write(file, "CFtime_cspplantB", CF_cspplantB)
-        write(file, "capacity_pvrooftop", capacity_pvrooftop)
-        write(file, "capacity_pvplantA", capacity_pvplantA)
-        write(file, "capacity_pvplantB", capacity_pvplantB)
-        write(file, "capacity_cspplantA", capacity_cspplantA)
-        write(file, "capacity_cspplantB", capacity_cspplantB)
+    if savetodisk
+        matopen("GISdata_solar$(options.era_year)_$(options.gisregion).mat", "w") do file
+            write(file, "CFtime_pvrooftop", CF_pvrooftop)
+            write(file, "CFtime_pvplantA", CF_pvplantA)
+            write(file, "CFtime_pvplantB", CF_pvplantB)
+            write(file, "CFtime_cspplantA", CF_cspplantA)
+            write(file, "CFtime_cspplantB", CF_cspplantB)
+            write(file, "capacity_pvrooftop", capacity_pvrooftop)
+            write(file, "capacity_pvplantA", capacity_pvplantA)
+            write(file, "capacity_pvplantB", capacity_pvplantB)
+            write(file, "capacity_cspplantA", capacity_cspplantA)
+            write(file, "capacity_cspplantB", capacity_cspplantB)
+        end
     end
 
     return CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB,

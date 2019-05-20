@@ -92,7 +92,7 @@ function WindOptions(d::Dict{Symbol,Any})
     return options
 end
 
-function GISwind(; optionlist...)
+function GISwind(; savetodisk=true, optionlist...)
 
     options = WindOptions(merge(windoptions(), optionlist))
 
@@ -107,13 +107,15 @@ function GISwind(; optionlist...)
         calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
                 mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
 
-    matopen("GISdata_wind$(options.era_year)_$(options.gisregion).mat", "w") do file
-        write(file, "CFtime_windonshoreA", windCF_onshoreA)
-        write(file, "CFtime_windonshoreB", windCF_onshoreB)
-        write(file, "CFtime_windoffshore", windCF_offshore)
-        write(file, "capacity_onshoreA", capacity_onshoreA)
-        write(file, "capacity_onshoreB", capacity_onshoreB)
-        write(file, "capacity_offshore", capacity_offshore)
+    if savetodisk
+        matopen("GISdata_wind$(options.era_year)_$(options.gisregion).mat", "w") do file
+            write(file, "CFtime_windonshoreA", windCF_onshoreA)
+            write(file, "CFtime_windonshoreB", windCF_onshoreB)
+            write(file, "CFtime_windoffshore", windCF_offshore)
+            write(file, "capacity_onshoreA", capacity_onshoreA)
+            write(file, "capacity_onshoreB", capacity_onshoreB)
+            write(file, "capacity_offshore", capacity_offshore)
+        end
     end
 
     return windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore
