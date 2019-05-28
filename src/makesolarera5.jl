@@ -1,5 +1,7 @@
 export makesolarera5
 
+# TO DO: save FDIR to disk (masked by land cover) for parabolic troughs (oriented north-south).
+
 # Can optionally zero water cells in the landcover dataset to save a lot of disk space.
 # add options to save all three CSP variables: tower, trough-NS, trough-EW.
 function makesolarera5(year=2018, land_cells_only=true)
