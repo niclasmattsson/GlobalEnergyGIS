@@ -88,3 +88,20 @@ const eurasia38 = [
 
 const eurasia21 = eurasia38[[1:10; 14:15; 25:27; 31:36], :]
 const china6 = eurasia38[31:36, :]
+
+const europe13 = [
+    # BNL = Benelux, BTC = Baltic, BKN = Balkan, CEN = Central
+    "SWE"   GADM("Sweden")
+    "NOR"   GADM("Norway")
+    "DEN"   GADM("Denmark","Faroe Islands")
+    "FIN"   GADM("Finland","Åland")
+    "BNL"   GADM("Netherlands","Belgium","Luxembourg")
+    "GER"   GADM("Germany")
+    "FRA"   GADM("France","Monaco")
+    "UK"    GADM("United Kingdom","Ireland","Guernsey","Isle of Man","Jersey")
+    "ITA"   GADM("Italy","San Marino","Vatican City")
+    "BKN"   GADM("Greece","Bulgaria","Romania","Slovenia","Croatia","Bosnia and Herzegovina","Serbia","Montenegro","Kosovo","Albania","Macedonia","Malta")
+    "BTC"   GADM("Poland","Estonia","Latvia","Lithuania")
+    "SPA"   GADM("Spain","Portugal","Andorra","Gibraltar")
+    "CEN"   GADM("Austria","Switzerland","Czech Republic","Hungary","Slovakia","Liechtenstein")
+]
