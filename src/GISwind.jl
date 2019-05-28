@@ -1,5 +1,6 @@
 windoptions() = Dict(
     :gisregion => "Europe8",            # "Europe8", "Eurasia38", "Scand3"
+    :filenamesuffix => "",              # e.g. "_landx2" to save high land availability data as "GISdata_solar2018_Europe8_landx2.mat" 
 
     :onshore_density => 5,              # about 30% of existing farms have at least 5 W/m2, will become more common
     :offshore_density => 8,             # varies a lot in existing parks (4-18 W/m2)
@@ -61,6 +62,7 @@ windoptions() = Dict(
 
 mutable struct WindOptions
     gisregion               ::String
+    filenamesuffix          ::String
     onshore_density         ::Float64           # W/m2
     offshore_density        ::Float64           # W/m2
     area_onshore            ::Float64           # share [0-1]
@@ -82,7 +84,7 @@ mutable struct WindOptions
     offshoreclasses_max     ::Vector{Float64}
 end
 
-WindOptions() = WindOptions("",0,0,0,0,0,0,0,0,[],[],"",0,false,0,0,[],[],[],[])
+WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,0,0,[],[],[],[])
 
 function WindOptions(d::Dict{Symbol,Any})
     options = WindOptions()
@@ -93,8 +95,8 @@ function WindOptions(d::Dict{Symbol,Any})
 end
 
 function GISwind(; savetodisk=true, optionlist...)
-
     options = WindOptions(merge(windoptions(), optionlist))
+    @unpack gisregion, era_year, filenamesuffix = options
 
     regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
                 read_datasets(options)
@@ -108,7 +110,7 @@ function GISwind(; savetodisk=true, optionlist...)
                 mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
 
     if savetodisk
-        matopen("GISdata_wind$(options.era_year)_$(options.gisregion).mat", "w") do file
+        matopen("GISdata_wind$(era_year)_$gisregion$filenamesuffix.mat", "w") do file
             write(file, "CFtime_windonshoreA", windCF_onshoreA)
             write(file, "CFtime_windonshoreB", windCF_onshoreB)
             write(file, "CFtime_windoffshore", windCF_offshore)

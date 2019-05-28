@@ -1,5 +1,6 @@
 solaroptions() = Dict(
     :gisregion => "Europe8",            # "Europe8", "Eurasia38", "Scand3"
+    :filenamesuffix => "",              # e.g. "_landx2" to save high land availability data as "GISdata_solar2018_Europe8_landx2.mat" 
 
     :pv_density => 45,                  # Solar PV land use 45 Wp/m2 = 45 MWp/km2
     :csp_density => 35,                 # CSP land use 35 W/m2
@@ -60,6 +61,7 @@ solaroptions() = Dict(
 
 mutable struct SolarOptions
     gisregion               ::String
+    filenamesuffix          ::String
     pv_density              ::Float64           # W/m2
     csp_density             ::Float64           # W/m2
     pvroof_area             ::Float64           # share [0-1]
@@ -79,7 +81,7 @@ mutable struct SolarOptions
     cspclasses_max          ::Vector{Float64}
 end
 
-SolarOptions() = SolarOptions("",0,0,0,0,0,0,0,[],[],"",0,0,0,[],[],[],[])
+SolarOptions() = SolarOptions("","",0,0,0,0,0,0,0,[],[],"",0,0,0,[],[],[],[])
 
 function SolarOptions(d::Dict{Symbol,Any})
     options = SolarOptions()
@@ -110,6 +112,7 @@ function GISsolar(; savetodisk=true, optionlist...)
     # variations as a function of temperature don't matter.
 
     options = SolarOptions(merge(solaroptions(), optionlist))
+    @unpack gisregion, era_year, filenamesuffix = options
 
     regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
                 read_datasets(options)
@@ -124,7 +127,7 @@ function GISsolar(; savetodisk=true, optionlist...)
                 mask_rooftop, mask_plantA, mask_plantB, lonrange, latrange)
 
     if savetodisk
-        matopen("GISdata_solar$(options.era_year)_$(options.gisregion).mat", "w") do file
+        matopen("GISdata_solar$(era_year)_$gisregion$filenamesuffix.mat", "w") do file
             write(file, "CFtime_pvrooftop", CF_pvrooftop)
             write(file, "CFtime_pvplantA", CF_pvplantA)
             write(file, "CFtime_pvplantB", CF_pvplantB)
