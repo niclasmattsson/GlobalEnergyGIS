@@ -32,7 +32,7 @@ end
 # significantly faster for some reason, also give a simple progress indication
 function rasterize(infile::String, outfile::String, options::Vector{<:AbstractString})
     GDAL_BINPATH = joinpath(dirname(pathof(GDAL)), "../deps/usr/bin")
-    run(` gdal_rasterize $options $infile $outfile` )
+    run(`gdal_rasterize $options $infile $outfile`)
 end
 
 function getextent(geotransform::Vector{Float64}, rastersize::Tuple{Int,Int})
@@ -121,7 +121,7 @@ function rasterize_GADM()
     sql = "select uid,name_0,name_1,name_2 from gadm36"
     # sql = "select uid,id_0,name_0,id_1,name_1,id_2,name_2 from gadm36"
     outfile = "gadmfields.csv"
-    @time run(` ogr2ogr -f CSV $outfile -sql $sql $shapefile` )
+    @time run(`ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
 end
 
 function saveregions(regionname, regiondefinitionarray; crop=true)
@@ -264,7 +264,7 @@ GADM(parentregions::Vector{T}, subregionnames::T...) where T = GADM(parentregion
 # gdal_rasterize -a UID -ot Int32 -ts 36000 18000 -co COMPRESS=LZW C:/Stuff/Datasets/gadm36/gadm36.shp C:/Users/niclas/Downloads/globtest.tif
 # gdal_rasterize -a UID -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW C:/Stuff/Datasets/gadm36/gadm36.shp C:/Users/niclas/Downloads/globtest.tif
 
-# run(` gdal_rasterize -a UID -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW C:/Stuff/Datasets/gadm36/gadm36.shp C:/Users/niclas/Downloads/globtest.tif` )
+# run(`gdal_rasterize -a UID -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW C:/Stuff/Datasets/gadm36/gadm36.shp C:/Users/niclas/Downloads/globtest.tif`)
 # rasterize_AG("C:/Stuff/Datasets/gadm36/gadm36.shp", "C:/Users/niclas/Downloads/globtest3.tif", split("-a ID_0 -ot Byte -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"))
 # rasterize("C:/Stuff/Datasets/gadm36/gadm36.shp", "C:/Users/niclas/Downloads/globtest3.tif", split("-a ID_0 -ot Byte -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"))
 
@@ -277,12 +277,12 @@ function rasterize_protected()
     sql = "select FID from \"WDPA_Feb2019-shapefile-polygons\""
     outfile = "protected_raster.tif"
     options = "-a FID -a_nodata -1 -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
-    @time run(` gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile` )
+    @time run(`gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile`)
 
     println("Creating .csv file for WDPA index and name lookup...")
     sql = "select FID,IUCN_CAT from \"WDPA_Feb2019-shapefile-polygons\""
     outfile = "protectedfields.csv"
-    @time run(` ogr2ogr -f CSV $outfile -sql $sql $shapefile` )
+    @time run(`ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
 end
 
 function makeprotected()
@@ -306,7 +306,7 @@ end
 
 
 function resample(infile::String, outfile::String, options::Vector{<:AbstractString})
-    @time run(` gdal_translate $options -co COMPRESS=LZW $infile $outfile` )
+    @time run(`gdal_translate $options -co COMPRESS=LZW $infile $outfile`)
 end
 
 function downscale_landcover()
