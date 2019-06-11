@@ -2,7 +2,7 @@ solaroptions() = Dict(
     :gisregion => "Europe8",            # "Europe8", "Eurasia38", "Scand3"
     :filenamesuffix => "",              # e.g. "_landx2" to save high land availability data as "GISdata_solar2018_Europe8_landx2.mat" 
 
-    :pv_density => 45,                  # Solar PV land use 45 Wp/m2 = 45 MWp/km2
+    :pv_density => 45,                  # Solar PV land use 45 Wp/m2 = 45 MWp/km2 (includes PV efficiency & module spacing, add latitude dependency later)
     :csp_density => 35,                 # CSP land use 35 W/m2
 
     :pvroof_area => .05,                # area available for rooftop PV after the masks have been applied
