@@ -1,6 +1,6 @@
 # GlobalEnergyGIS.jl
 
-Generates input data for energy models on renewable energy in arbitrary world regions using public datasets. Written in Julia 1.x. 
+Automatic generation of renewable energy input data for energy models in arbitrary world regions using public datasets. Written in Julia. 
 
 ## Installation
 
