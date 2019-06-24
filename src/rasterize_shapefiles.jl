@@ -30,9 +30,14 @@ end
 
 # uses the command line version instead (gdal_rasterize)
 # significantly faster for some reason, also give a simple progress indication
-function rasterize(infile::String, outfile::String, options::Vector{<:AbstractString})
+function rasterize(infile::String, outfile::String, options::Vector{<:AbstractString}; sql::String="")
     GDAL_BINPATH = joinpath(dirname(pathof(GDAL)), "../deps/usr/bin")
-    run(`gdal_rasterize $options $infile $outfile`)
+    println("Add GDAL_BINPATH to the gdal_rasterize commands before release!")
+    if isempty(sql)
+        run(`gdal_rasterize $options $infile $outfile`)
+    else
+        run(`gdal_rasterize $options -sql $sql $infile $outfile`)
+    end        
 end
 
 function getextent(geotransform::Vector{Float64}, rastersize::Tuple{Int,Int})
@@ -122,6 +127,21 @@ function rasterize_GADM()
     # sql = "select uid,id_0,name_0,id_1,name_1,id_2,name_2 from gadm36"
     outfile = "gadmfields.csv"
     @time run(`ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
+end
+
+function rasterize_NUTS()
+    println("Rasterizing global shapefile...")
+    name = "NUTS_RG_60M_2016_4326"
+    shapefile = "C:/Stuff/Datasets/NUTS regions (nuts-2016-60m)/$name.shp"
+    outfile = "nuts.tif"
+    options = "-a ROWID -ot Int16 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW -dialect SQlite"
+    sql = "select ROWID,* from $name"
+    @time rasterize(shapefile, outfile, split(options, ' '), sql=sql)
+ 
+    println("Creating .csv file for regional index and name lookup...")
+    outfile = "nutsfields.csv"
+    sql = "select ROWID,* from $name"
+    @time run(`ogr2ogr -f CSV $outfile -dialect SQlite -sql $sql $shapefile`)
 end
 
 function saveregions(regionname, regiondefinitionarray; crop=true)
@@ -255,6 +275,8 @@ GADM(parentregions::Vector{T}, subregionnames::T...) where T = GADM(parentregion
 
 
 # ArchGDAL tutorial: http://www.acgeospatial.co.uk/julia-prt3/
+
+# ogrinfo -al -so C:/Stuff/Datasets/gadm36/gadm36.shp
 
 # rasterize_AG("C:/Stuff/Datasets/gadm36/gadm36.shp", "testtest.tif", "-a ID_0 -ts 4000 2000 -ot Byte")
 # shapefile2tif("C:/Stuff/Datasets/gadm36/gadm36.shp", "Europe", "ID_0", 4300, [-11, 34, 32, 72], ')
