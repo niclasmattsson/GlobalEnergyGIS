@@ -2,7 +2,7 @@ import GDAL
 using ArchGDAL
 const AG = ArchGDAL
 
-export rasterize, readraster, saveTIFF, GADM, makeregions, makeregions_nuts, makeoffshoreregions, makeprotected,
+export rasterize, readraster, saveTIFF, GADM, NUTS, makeregions, makeregions_nuts, makeoffshoreregions, makeprotected,
         savelandcover, getpopulation, createGDP, creategridaccess, getwindatlas, saveregions, loadregions, read3draster
         # Node, findchild, printnode, print_tree, Leaves
 
@@ -181,25 +181,67 @@ function loadregions(regionname)
     end
 end
 
-function makeregions_nuts(regiondefinitionarray)
+function makeregions(regiondefinitionarray)
+    regionnames, nutsdef, gadmdef = splitregiondefinitions(regiondefinitionarray)
+    region = zeros(Int16, (36000,18000))    # hard code size for now
+    if !all(isempty.(nutsdef))
+        nuts, subregionnames = read_nuts()
+        makeregions_nuts!(region, nuts, subregionnames, nutsdef)
+    end
+    if !all(isempty.(gadmdef))
+        gadm, subregionnames = read_gadm()
+        makeregions_gadm!(region, gadm, subregionnames, gadmdef)
+    end
+    return region
+end
+
+function splitregiondefinitions(regiondefinitionarray)
+    regionnames = regiondefinitionarray[:,1]
+    regiondefinitions = [regdef isa Tuple ? regdef : (regdef,) for regdef in regiondefinitionarray[:,2]]
+    nutsdef = [Tuple(rd for rd in regdef if rd isa NUTS) for regdef in regiondefinitions]
+    gadmdef = [Tuple(rd for rd in regdef if rd isa GADM) for regdef in regiondefinitions]
+    return regionnames, nutsdef, gadmdef
+end
+
+function read_gadm()
+    println("Reading GADM rasters...")
+    gadmfields = readdlm("gadmfields.csv", ',', header=true)[1]
+    imax = maximum(gadmfields[:,1])
+    subregionnames = fill("", (imax,3))
+    subregionnames[gadmfields[:,1],:] = string.(gadmfields[:,2:4])
+    gadm = readraster("gadm.tif")
+    return gadm, subregionnames
+end
+
+function makeregions_gadm!(region, gadm, subregionnames, regiondefinitions)
+    println("Making region index matrix...")
+    regionlookup = build_inverseregionlookup(regiondefinitions)
+    updateprogress = Progress(prod(size(region)), 1)
+    for (i, g_uid) in enumerate(gadm)
+        next!(updateprogress)
+        g_uid == 0 && continue
+        reg0, reg1, reg2 = subregionnames[g_uid,:]
+        regid = lookup_regionnames(regionlookup, reg0, reg1, reg2)
+        if regid > 0
+            region[i] = regid
+        end
+    end
+end
+
+function read_nuts()
     println("Reading NUTS rasters...")
     nutsfields = readdlm("nutsfields.csv", ',', header=true)[1]
     imax = maximum(nutsfields[:,1])
     subregionnames = nutsfields[:,3]    # indexes of NUTS regions are in order 1:2016, let's use that 
     nuts = readraster("nuts.tif")
-
-    regionnames = regiondefinitionarray[:,1]
-    regiondefinitions = [regdef for regdef in regiondefinitionarray[:,2]]
-
-    println("Making region index matrix...")
-    return makeregions_main_nuts(nuts, subregionnames, regiondefinitions)
+    return nuts, subregionnames
 end
 
-function makeregions_main_nuts(nuts, subregionnames, regiondefinitions)
-    regionlookup = Dict(r => i for (i,tup) in enumerate(regiondefinitions) for r in tup)
-    sz = size(nuts)
-    region = zeros(Int16, sz)
-    updateprogress = Progress(prod(sz), 1)
+function makeregions_nuts!(region, nuts, subregionnames, regiondefinitions)
+    println("Making region index matrix...")
+    regionlookup = Dict(r => i for (i,tuptup) in enumerate(regiondefinitions)
+                                    for ntup in tuptup for r in ntup.subregionnames)
+    updateprogress = Progress(prod(size(region)), 1)
     for (i, g_uid) in enumerate(nuts)
         next!(updateprogress)
         g_uid == 0 && continue
@@ -213,36 +255,6 @@ function makeregions_main_nuts(nuts, subregionnames, regiondefinitions)
             reg = reg[1:end-1]
         end
     end
-    return region
-end
-
-function makeregions(regiondefinitionarray)
-    println("Reading GADM rasters...")
-    gadmfields = readdlm("gadmfields.csv", ',', header=true)[1]
-    imax = maximum(gadmfields[:,1])
-    subregionnames = fill("", (imax,3))
-    subregionnames[gadmfields[:,1],:] = string.(gadmfields[:,2:4])
-    gadm = readraster("gadm.tif")
-
-    regionnames = regiondefinitionarray[:,1]
-    regiondefinitions = [isa(regdef, Tuple) ? regdef : (regdef,) for regdef in regiondefinitionarray[:,2]]
-
-    println("Making region index matrix...")
-    return makeregions_main(gadm, subregionnames, regiondefinitions)
-end
-
-function makeregions_main(gadm, subregionnames, regiondefinitions)
-    regionlookup = build_inverseregionlookup(regiondefinitions)
-    sz = size(gadm)
-    region = zeros(Int16, sz)
-    updateprogress = Progress(prod(sz), 1)
-    for (i, g_uid) in enumerate(gadm)
-        next!(updateprogress)
-        g_uid == 0 && continue
-        reg0, reg1, reg2 = subregionnames[g_uid,:]
-        region[i] = lookup_regionnames(regionlookup, reg0, reg1, reg2)
-    end
-    return region
 end
 
 function lookup_regionnames(regionlookup, reg0, reg1, reg2)
@@ -306,10 +318,10 @@ end
 GADM(regionnames::T...) where T = GADM(T[], regionnames)
 GADM(parentregions::Vector{T}, subregionnames::T...) where T = GADM(parentregions, subregionnames)
 
-# struct NUTS{T}
-#     subregionnames::NTuple{N,T} where N
-# end
-NUTS(regionnames...) = regionnames
+struct NUTS{T}
+    subregionnames::NTuple{N,T} where N
+end
+NUTS(regionnames::T...) where T = NUTS(regionnames)
 
 
 # ArchGDAL tutorial: http://www.acgeospatial.co.uk/julia-prt3/

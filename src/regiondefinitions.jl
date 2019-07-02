@@ -1,4 +1,4 @@
-export europe8, eurasia38, scand3, eurasia21, china6, europe13, europe56
+export europe8, eurasia38, scand3, eurasia21, china6, europe13, europe56, testreg
 
 const scand3 = [
     "SWE"   GADM("Sweden")
@@ -136,7 +136,7 @@ const europe56 = [
     "SK"    NUTS("SK")
     "CH"    NUTS("CH","LI")
     "IS"    NUTS("IS")    
-    "BO"    NUTS("BO")    # Bosnia and Herzegovina completely missing in NUTS (?)
+    "BO"    NUTS("BO")    # Bosnia and Herzegovina completely missing in NUTS, replace with GADM("Bosnia and Herzegovina")
     "CR"    NUTS("HR")    # Hrvatska (Croatia in Croatian)
     "MC"    NUTS("MK")    # Macedonia
     "ES1"   NUTS("ES11","ES12","ES13")  
