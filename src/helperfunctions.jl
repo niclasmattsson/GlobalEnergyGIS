@@ -255,6 +255,46 @@ function uncrop(croppedarray, lonrange, latrange, res)
     return full
 end
 
+function matlab2elin()
+    era_year = 2018
+    gisregion = "Europe56"
+    filenamesuffix = ""
+    _, _, regionlist, _, _ = loadregions(gisregion)
+    
+    # CF_pvrooftop, capacity_pvrooftop
+    region = string.(regionlist)
+    tech = ["PV", "CSP", "onshore", "offshore"]
+    classname = ["pv", "csp", "WON", "WOFF"]
+    nclass = [5, 5, 5, 5] 
+    capvar = ["capacity_pvplantA", "capacity_cspplantA", "capacity_onshoreA", "capacity_offshore"]
+    cfvar = ["CFtime_pvplantA", "CFtime_cspplantA", "CFtime_windonshoreA", "CFtime_windoffshore"]
+
+    winddata = matread("D:/elin/GISdata_wind$(era_year)_$gisregion$filenamesuffix.mat")
+    solardata = matread("D:/elin/GISdata_solar$(era_year)_$gisregion$filenamesuffix.mat")
+    data = merge(winddata, solardata)
+
+    for t = 1:length(tech)
+        open("D:/elin/capacity_$(tech[t]).inc", "w") do f
+            for (r,reg) in enumerate(region)
+                for c = 1:nclass[t]
+                    val = data[capvar[t]][r,c]
+                    !isnan(val) && val > 0 && @printf(f, "%s . %s%d %12.6f\n", reg, classname[t], c, val)
+                end
+            end
+        end
+        open("D:/elin/cf_$(tech[t]).inc", "w") do f
+            for (r,reg) in enumerate(region)
+                for c = 1:nclass[t]
+                    for h = 1:8760
+                        val = data[cfvar[t]][h,r,c]
+                        !isnan(val) && val > 0 && @printf(f, "%s . %s%d . h%04d %10.6f\n", reg, classname[t], c, h, val)
+                    end
+                end
+            end
+        end
+    end
+end
+
 
 
 # timemem-1.0 gdal_translate -r mode -tr 0.1 0.1 -co COMPRESS=LZW gadm.tif gadmsmall.tif
