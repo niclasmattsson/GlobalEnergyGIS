@@ -278,7 +278,7 @@ function matlab2elin()
             for (r,reg) in enumerate(region)
                 for c = 1:nclass[t]
                     val = data[capvar[t]][r,c]
-                    !isnan(val) && val > 0 && @printf(f, "%s . %s%d %12.6f\n", reg, classname[t], c, val)
+                    !isnan(val) && val > 0 && @printf(f, "%-3s . %s%-2d %12.6f\n", reg, classname[t], c, val)
                 end
             end
         end
@@ -287,7 +287,7 @@ function matlab2elin()
                 for c = 1:nclass[t]
                     for h = 1:8760
                         val = data[cfvar[t]][h,r,c]
-                        !isnan(val) && val > 0 && @printf(f, "%s . %s%d . h%04d %10.6f\n", reg, classname[t], c, h, val)
+                        !isnan(val) && val > 0 && @printf(f, "%-3s . %s%-2d . h%04d %10.6f\n", reg, classname[t], c, h, val)
                     end
                 end
             end
