@@ -2,8 +2,8 @@ import GDAL
 using ArchGDAL
 const AG = ArchGDAL
 
-export rasterize, readraster, saveTIFF, GADM, makeregions, makeoffshoreregions, makeprotected, savelandcover,
-        getpopulation, createGDP, creategridaccess, getwindatlas, saveregions, loadregions, read3draster
+export rasterize, readraster, saveTIFF, GADM, makeregions, makeregions_nuts, makeoffshoreregions, makeprotected,
+        savelandcover, getpopulation, createGDP, creategridaccess, getwindatlas, saveregions, loadregions, read3draster
         # Node, findchild, printnode, print_tree, Leaves
 
 function rasterize_AG(infile::String, outfile::String, options::Vector{<:AbstractString})
@@ -131,16 +131,16 @@ end
 
 function rasterize_NUTS()
     println("Rasterizing global shapefile...")
-    name = "NUTS_RG_60M_2016_4326"
+    name = "NUTS_RG_60M_2016_4326_LEVL_3"
     shapefile = "C:/Stuff/Datasets/NUTS regions (nuts-2016-60m)/$name.shp"
     outfile = "nuts.tif"
     options = "-a ROWID -ot Int16 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW -dialect SQlite"
-    sql = "select ROWID,* from $name"
+    sql = "select ROWID+1 AS ROWID,* from $name"
     @time rasterize(shapefile, outfile, split(options, ' '), sql=sql)
  
     println("Creating .csv file for regional index and name lookup...")
     outfile = "nutsfields.csv"
-    sql = "select ROWID,* from $name"
+    sql = "select ROWID+1 AS ROWID,* from $name"
     @time run(`ogr2ogr -f CSV $outfile -dialect SQlite -sql $sql $shapefile`)
 end
 
@@ -181,6 +181,41 @@ function loadregions(regionname)
     end
 end
 
+function makeregions_nuts(regiondefinitionarray)
+    println("Reading NUTS rasters...")
+    nutsfields = readdlm("nutsfields.csv", ',', header=true)[1]
+    imax = maximum(nutsfields[:,1])
+    subregionnames = nutsfields[:,3]    # indexes of NUTS regions are in order 1:2016, let's use that 
+    nuts = readraster("nuts.tif")
+
+    regionnames = regiondefinitionarray[:,1]
+    regiondefinitions = [regdef for regdef in regiondefinitionarray[:,2]]
+
+    println("Making region index matrix...")
+    return makeregions_main_nuts(nuts, subregionnames, regiondefinitions)
+end
+
+function makeregions_main_nuts(nuts, subregionnames, regiondefinitions)
+    regionlookup = Dict(r => i for (i,tup) in enumerate(regiondefinitions) for r in tup)
+    sz = size(nuts)
+    region = zeros(Int16, sz)
+    updateprogress = Progress(prod(sz), 1)
+    for (i, g_uid) in enumerate(nuts)
+        next!(updateprogress)
+        g_uid == 0 && continue
+        reg = subregionnames[g_uid]
+        while length(reg) >= 2
+            regid = get(regionlookup, reg, 0)
+            if regid > 0
+                region[i] = regid
+                break
+            end
+            reg = reg[1:end-1]
+        end
+    end
+    return region
+end
+
 function makeregions(regiondefinitionarray)
     println("Reading GADM rasters...")
     gadmfields = readdlm("gadmfields.csv", ',', header=true)[1]
@@ -190,7 +225,7 @@ function makeregions(regiondefinitionarray)
     gadm = readraster("gadm.tif")
 
     regionnames = regiondefinitionarray[:,1]
-    regiondefinitions = [isa(regdef, GADM) ? (regdef,) : regdef for regdef in regiondefinitionarray[:,2]]
+    regiondefinitions = [isa(regdef, Tuple) ? regdef : (regdef,) for regdef in regiondefinitionarray[:,2]]
 
     println("Making region index matrix...")
     return makeregions_main(gadm, subregionnames, regiondefinitions)
@@ -271,7 +306,10 @@ end
 GADM(regionnames::T...) where T = GADM(T[], regionnames)
 GADM(parentregions::Vector{T}, subregionnames::T...) where T = GADM(parentregions, subregionnames)
 
-
+# struct NUTS{T}
+#     subregionnames::NTuple{N,T} where N
+# end
+NUTS(regionnames...) = regionnames
 
 
 # ArchGDAL tutorial: http://www.acgeospatial.co.uk/julia-prt3/
