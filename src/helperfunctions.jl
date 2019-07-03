@@ -255,6 +255,15 @@ function uncrop(croppedarray, lonrange, latrange, res)
     return full
 end
 
+function drawregionmap(regionname)
+    plotly()
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions(regionname)
+    reg = reverse(regions[1:4:end,1:4:end]', dims=1)
+    display(heatmap(reg .+ (reg.>0).*20, size=(1200, 900)))
+    reg = reverse(offshoreregions[1:4:end,1:4:end]', dims=1)
+    display(heatmap(reg .+ (reg.>0).*20, size=(1200, 900)))
+end
+
 function matlab2elin()
     era_year = 2018
     gisregion = "Europe54"
