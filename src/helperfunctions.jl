@@ -257,17 +257,17 @@ end
 
 function matlab2elin()
     era_year = 2018
-    gisregion = "Europe56"
+    gisregion = "Europe54"
     filenamesuffix = ""
     _, _, regionlist, _, _ = loadregions(gisregion)
     
     # CF_pvrooftop, capacity_pvrooftop
     region = string.(regionlist)
-    tech = ["PV", "CSP", "onshore", "offshore"]
-    classname = ["pv", "csp", "WON", "WOFF"]
-    nclass = [5, 5, 5, 5] 
-    capvar = ["capacity_pvplantA", "capacity_cspplantA", "capacity_onshoreA", "capacity_offshore"]
-    cfvar = ["CFtime_pvplantA", "CFtime_cspplantA", "CFtime_windonshoreA", "CFtime_windoffshore"]
+    tech = ["PVplant", "PVroof", "CSP", "onshore", "offshore"]
+    classname = ["PVP", "PVR", "CSP", "WON", "WOFF"]
+    nclass = [5, 5, 5, 5, 5] 
+    capvar = ["capacity_pvplantA", "capacity_pvrooftop", "capacity_cspplantA", "capacity_onshoreA", "capacity_offshore"]
+    cfvar = ["CFtime_pvplantA", "CFtime_pvrooftop", "CFtime_cspplantA", "CFtime_windonshoreA", "CFtime_windoffshore"]
 
     winddata = matread("D:/elin/GISdata_wind$(era_year)_$gisregion$filenamesuffix.mat")
     solardata = matread("D:/elin/GISdata_solar$(era_year)_$gisregion$filenamesuffix.mat")
