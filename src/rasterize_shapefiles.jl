@@ -131,8 +131,8 @@ end
 
 function rasterize_NUTS()
     println("Rasterizing global shapefile...")
-    name = "NUTS_RG_60M_2016_4326_LEVL_3"
-    shapefile = "C:/Stuff/Datasets/NUTS regions (nuts-2016-60m)/$name.shp"
+    name = "NUTS_RG_01M_2016_4326_LEVL_3"
+    shapefile = "C:/Stuff/Datasets/NUTS regions (nuts-2016-1M)/$name.shp"
     outfile = "nuts.tif"
     options = "-a ROWID -ot Int16 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW -dialect SQlite"
     sql = "select ROWID+1 AS ROWID,* from $name"
