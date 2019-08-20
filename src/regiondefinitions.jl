@@ -1,4 +1,4 @@
-export europe8, eurasia38, scand3, eurasia21, china6, europe13, europe54, testreg
+export europe8, eurasia38, scand3, eurasia21, china6, europe13, europe21, europe54, testreg
 
 const scand3 = [
     "SWE"   GADM("Sweden")
@@ -104,6 +104,16 @@ const europe13 = [
     "BTC"   GADM("Poland","Estonia","Latvia","Lithuania")
     "SPA"   GADM("Spain","Portugal","Andorra","Gibraltar")
     "CEN"   GADM("Austria","Switzerland","Czech Republic","Hungary","Slovakia","Liechtenstein")
+]
+
+# Wikipedia's definition of Europe
+const europe21 = [
+    europe13;
+    "BLM"   GADM("Belarus","Moldova")
+    "UKR"   GADM("Ukraine")
+    "TUR"   GADM("Turkey")
+    "CCS"   GADM("Georgia","Armenia","Azerbaijan")
+    eurasia38[24:27, :]
 ]
 
 # Regions for the ELIN/EPOD models
