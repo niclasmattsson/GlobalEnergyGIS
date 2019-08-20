@@ -1,6 +1,6 @@
 module GlobalEnergyGIS
 
-export GISwind, GISsolar
+export GISwind, GISsolar, makedistances
 
 using MAT, HDF5, ProgressMeter, Random, Interpolations, BenchmarkTools, Images, Statistics, DelimitedFiles, Dates,
         NCDatasets, JLD, Parameters, ImageSegmentation, StatsBase, CSV, Distances, Printf, Plots
@@ -11,6 +11,7 @@ include("helperfunctions.jl")
 include("solarposition.jl")
 include("makewindera5.jl")
 include("makesolarera5.jl")
+include("makedistances.jl")
 include("GISwind.jl")
 include("GISsolar.jl")
 include("era5download.jl")
