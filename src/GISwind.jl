@@ -128,7 +128,8 @@ function read_datasets(options)
 
     println("\nReading auxiliary datasets...")
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
-    cellarea = rastercellarea.(latrange, res)
+    lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
+    cellarea = rastercellarea.(lats, res)
 
     # path = joinpath(dirname(@__FILE__), "..")
     gridaccess = JLD.load("gridaccess_$scenarioyear.jld", "gridaccess")[lonrange,latrange]
