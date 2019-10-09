@@ -255,10 +255,21 @@ function uncrop(croppedarray, lonrange, latrange, res)
     return full
 end
 
+function drawmap(mapdata)
+    plotly()
+    skip = ceil(Int, maximum(size(mapdata))/3000)
+    mirrormap = reverse(mapdata[1:skip:end,1:skip:end]', dims=1)
+    # display(heatmap(mirrormap, size=(1200, 900), c=[cgrad(:viridis)[x] for x in 0.0:0.2:1.0]))
+    # display(heatmap(mirrormap, size=(1200, 900), c=cgrad(:viridis, [0, 0.5, 1])))
+    display(heatmap(mirrormap, size=(1200, 900)))
+    # display(countmap(mirrormap[:]))
+end
+
 function drawregionmap(regionname)
     plotly()
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions(regionname)
-    reg = reverse(regions[1:4:end,1:4:end]', dims=1)
+    skip = ceil(Int, maximum(size(mapdata))/3000)
+    reg = reverse(regions[1:skip:end,1:skip:end]', dims=1)
     display(heatmap(reg .+ (reg.>0).*20, size=(1200, 900)))
     reg = reverse(offshoreregions[1:4:end,1:4:end]', dims=1)
     display(heatmap(reg .+ (reg.>0).*20, size=(1200, 900)))

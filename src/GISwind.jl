@@ -140,6 +140,8 @@ function read_datasets(options)
 
     popdens = pop ./ cellarea'
 
+    # drawmap(log.(pop))
+
     return regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange
 end
 
@@ -196,6 +198,20 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
 
     # all mask conditions
     mask_offshore = gridB .& .!shore .& (topo .> -max_depth) .& (offshoreregions .> 0) .& .!protected_area
+
+    # drawmap(land)
+    # drawmap(goodland)
+    # drawmap(.!protected_area)
+    # # drawmap(gridaccess)
+    # drawmap(gridA)
+    # drawmap(gridB)    
+    # drawmap(popdens .< persons_per_km2)
+    drawmap(mask_onshoreA)
+
+    # drawmap(.!shore .& (offshoreregions .> 0))
+    # drawmap((topo .> -max_depth) .& (offshoreregions .> 0))
+    # drawmap(.!protected_area .& (offshoreregions .> 0))
+    drawmap(mask_offshore)
 
     return mask_onshoreA, mask_onshoreB, mask_offshore
 end
@@ -348,4 +364,90 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
     end
 
     return windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore
+end
+
+
+
+
+
+# Quick and ugly copy/paste hack to create resource maps for wind classes combined with masks.
+function GISwindmap(; savetodisk=true, optionlist...)
+    options = WindOptions(merge(windoptions(), optionlist))
+    @unpack gisregion, era_year, filenamesuffix = options
+
+    regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
+                read_datasets(options)
+    windatlas, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
+
+    mask_onshoreA, mask_onshoreB, mask_offshore =
+        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected)
+
+    onshoremap, offshoremap = calc_wind_map(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
+                mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
+
+    return onshoremap, offshoremap
+end
+
+function calc_wind_map(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
+                mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
+
+    println("Calculating GW potential and hourly capacity factors for each region and wind class...")
+    println("Interpolate ERA5 wind speeds later (maybe 4x runtime).")
+
+    onshoreclass, offshoreclass = makewindclasses(options, windatlas)
+    eralons, eralats, lonmap, latmap, cellarea = eralonlat(options, lonrange, latrange)
+
+    @unpack onshoreclasses_min, offshoreclasses_min, rescale_to_wind_atlas, res, erares,
+                onshore_density, area_onshore, offshore_density, area_offshore = options
+
+    numreg = length(regionlist)
+    nonshoreclasses, noffshoreclasses = length(onshoreclasses_min), length(offshoreclasses_min)
+    yearlength, nlons, nlats = size(windspeed)
+
+    onshoremap = zeros(Int16, size(regions))
+    offshoremap = zeros(Int16, size(regions))
+
+    if rescale_to_wind_atlas
+        println("\nRescaling ERA5 wind speeds to match annual wind speeds from the Global Wind Atlas.")
+        println("This will increase run times by an order of magnitude (since GWA has very high spatial resolution).")
+    end
+
+    # Run times vary wildly depending on geographical area (because of far offshore regions with mostly zero wind speeds).
+    # To improve the estimated time of completing the progress bar, iterate over latitudes in random order.
+    Random.seed!(1)
+    updateprogress = Progress(nlats, 1)
+    @inbounds for j in randperm(nlats)
+        eralat = eralats[j]
+        colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2+res/5, res)]
+        for i = 1:nlons
+            meanwind[i,j] == 0 && continue
+            wind = rescale_to_wind_atlas ? windspeed[:, i, j] : speed2capacityfactor.(windspeed[:, i, j])
+            eralon = eralons[i]
+            # get all high resolution row and column indexes within this ERA5 cell         
+            rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2-res/5, res)]
+
+            for c in colrange, r in rowrange
+                (c == 0 || r == 0) && continue
+                reg = regions[r,c]
+                area = cellarea[c]
+                class = onshoreclass[r,c]
+                offreg = offshoreregions[r,c]
+                offclass = offshoreclass[r,c]
+                
+                # can't use elseif here, probably some overlap in the masks
+                # @views is needed to make sure increment_windCF!() works with matrix slices
+                # also faster since it avoids making copies
+                @views if reg > 0 && class > 0 && mask_onshoreA[r,c] > 0
+                    onshoremap[r,c] = class
+                elseif reg > 0 && class > 0 && mask_onshoreB[r,c] > 0
+                    onshoremap[r,c] = class
+                elseif offreg > 0 && offclass > 0 && mask_offshore[r,c] > 0
+                    offshoremap[r,c] = class
+                end
+            end
+        end
+        next!(updateprogress)
+    end
+
+    return onshoremap, offshoremap
 end

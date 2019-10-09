@@ -196,6 +196,17 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
     mask_plantA = gridA .& (popdens .< plant_persons_per_km2) .& goodland .& .!protected_area
     mask_plantB = (gridB .& .!gridA) .& (popdens .< plant_persons_per_km2) .& goodland .& .!protected_area
 
+    # drawmap(land)
+    # drawmap(goodland)
+    # drawmap(.!protected_area)
+    # # drawmap(gridaccess)
+    # drawmap(gridA)
+    # drawmap(gridB)    
+    # drawmap(popdens .< plant_persons_per_km2)
+    drawmap(mask_rooftop)
+    drawmap(mask_plantA)
+    drawmap(mask_plantB)
+
     return mask_rooftop, mask_plantA, mask_plantB
 end
 
@@ -319,3 +330,103 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
             capacity_pvrooftop, capacity_pvplantA, capacity_pvplantB, capacity_cspplantA, capacity_cspplantB
 end
 
+
+
+
+
+# Quick and ugly copy/paste hack to create resource maps for solar classes combined with masks.
+function GISsolarmap(; savetodisk=true, optionlist...)
+    options = SolarOptions(merge(solaroptions(), optionlist))
+    @unpack gisregion, era_year, filenamesuffix = options
+
+    regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
+                read_datasets(options)
+    meanGTI, solarGTI, meanDNI, solarDNI = read_solar_datasets(options, lonrange, latrange)
+
+    mask_rooftop, mask_plantA, mask_plantB =
+        create_solar_masks(options, regions, gridaccess, popdens, land, protected)
+
+    pvmap, pvrooftopmap, cspmap =
+        calc_solar_map(options, meanGTI, solarGTI, meanDNI, solarDNI, regions, offshoreregions, regionlist,
+                mask_rooftop, mask_plantA, mask_plantB, lonrange, latrange)
+
+    return pvmap, pvrooftopmap, cspmap
+end
+
+function calc_solar_map(options, meanGTI, solarGTI, meanDNI, solarDNI, regions, offshoreregions, regionlist,
+                mask_rooftop, mask_plantA, mask_plantB, lonrange, latrange)
+
+    pvclass, cspclass = makesolarclasses(options, meanGTI, meanDNI)
+    eralons, eralats, lonmap, latmap, cellarea = eralonlat(options, lonrange, latrange)
+
+    println("Calculating GW potential and hourly capacity factors for each region and class...")
+    println("Interpolate ERA5 insolation later (maybe 4x runtime).")
+
+    @unpack era_year, pvclasses_min, cspclasses_min, res, erares, pv_density, csp_density, pvroof_area, plant_area = options
+
+    numreg = length(regionlist)
+    npvclasses, ncspclasses = length(pvclasses_min), length(cspclasses_min)
+    yearlength, nlons, nlats = size(solarGTI)
+    firsttime = DateTime(era_year, 1, 1)
+
+    # pvmap = zeros(size(regions))
+    # pvrooftopmap = zeros(size(regions))
+    # cspmap = zeros(size(regions))
+    pvmap = zeros(Int16, size(regions))
+    pvrooftopmap = zeros(Int16, size(regions))
+    cspmap = zeros(Int16, size(regions))
+
+    # Run times vary wildly depending on geographical area (because of far offshore regions with mostly zero wind speeds).
+    # To improve the estimated time of completing the progress bar, iterate over latitudes in random order.
+    Random.seed!(1)
+    updateprogress = Progress(nlats, 1)
+    @inbounds for j in randperm(nlats)
+        eralat = eralats[j]
+        colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2+res/5, res)]
+        for i = 1:nlons
+            meanGTI[i,j] == 0 && meanDNI[i,j] == 0 && continue
+            GTI = solarGTI[:, i, j]
+            DNI = solarDNI[:, i, j]
+            eralon = eralons[i]
+            # get all high resolution row and column indexes within this ERA5 cell         
+            rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2-res/5, res)]
+
+            for c in colrange, r in rowrange
+                (c == 0 || r == 0) && continue
+                reg = regions[r,c]
+                area = cellarea[c]
+
+                class = pvclass[i,j]
+                # can't use elseif here, probably some overlap in the masks
+                # @views is needed to make sure increment_windCF!() works with matrix slices
+                # also faster since it avoids making copies
+                @views if reg > 0 && class > 0
+                    if mask_rooftop[r,c] > 0
+                        # pvrooftopmap[r,c] = meanGTI[i,j]
+                        pvrooftopmap[r,c] = class
+                    elseif mask_plantA[r,c] > 0
+                        # pvmap[r,c] = meanGTI[i,j]
+                        pvmap[r,c] = class
+                    elseif mask_plantB[r,c] > 0
+                        # pvmap[r,c] = class
+                    end
+                end
+
+                class = cspclass[i,j]
+                # @views is needed to make sure increment_windCF!() works with matrix slices
+                # also faster since it avoids making copies
+                @views if reg > 0 && class > 0
+                    if mask_plantA[r,c] > 0
+                        # cspmap[r,c] = meanGTI[i,j]
+                        cspmap[r,c] = class
+                    elseif mask_plantB[r,c] > 0
+                        # cspmap[r,c] = class
+                    end
+                end
+            end
+        end
+        next!(updateprogress)
+    end
+
+    return pvmap, pvrooftopmap, cspmap
+end
