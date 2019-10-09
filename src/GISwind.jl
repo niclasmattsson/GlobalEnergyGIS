@@ -192,7 +192,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
 
     # shoreline mask for offshore wind
     disk = diskfilterkernel(min_shore_distance/km_per_degree/res)
-    shore = (imfilter(regions .> 0, disk) .> 0)
+    shore = (imfilter(regions .> 0, disk) .> 1e-6)
 
     # all mask conditions
     mask_offshore = gridB .& .!shore .& (topo .> -max_depth) .& (offshoreregions .> 0) .& .!protected_area
