@@ -164,7 +164,7 @@ function read_wind_datasets(options, lonrange, latrange)
     return windatlas, meanwind, windspeed
 end
 
-function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected)
+function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected; plotmasks=false)
     @unpack res, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2, min_shore_distance, max_depth = options
 
     println("Creating masks...")
@@ -199,19 +199,21 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     # all mask conditions
     mask_offshore = gridB .& .!shore .& (topo .> -max_depth) .& (offshoreregions .> 0) .& .!protected_area
 
-    # drawmap(land)
-    # drawmap(goodland)
-    # drawmap(.!protected_area)
-    # # drawmap(gridaccess)
-    # drawmap(gridA)
-    # drawmap(gridB)    
-    # drawmap(popdens .< persons_per_km2)
-    drawmap(mask_onshoreA)
+    if plotmasks
+        drawmap(land)
+        drawmap(goodland)
+        drawmap(.!protected_area)
+        # drawmap(gridaccess)
+        drawmap(gridA)
+        drawmap(gridB)    
+        drawmap(popdens .< persons_per_km2)
+        drawmap(mask_onshoreA)
 
-    # drawmap(.!shore .& (offshoreregions .> 0))
-    # drawmap((topo .> -max_depth) .& (offshoreregions .> 0))
-    # drawmap(.!protected_area .& (offshoreregions .> 0))
-    drawmap(mask_offshore)
+        drawmap(.!shore .& (offshoreregions .> 0))
+        drawmap((topo .> -max_depth) .& (offshoreregions .> 0))
+        drawmap(.!protected_area .& (offshoreregions .> 0))
+        drawmap(mask_offshore)
+    end
 
     return mask_onshoreA, mask_onshoreB, mask_offshore
 end
@@ -380,7 +382,7 @@ function GISwindmap(; savetodisk=true, optionlist...)
     windatlas, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
 
     mask_onshoreA, mask_onshoreB, mask_offshore =
-        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected)
+        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, plotmasks=true)
 
     onshoremap, offshoremap = calc_wind_map(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
                 mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
@@ -440,7 +442,7 @@ function calc_wind_map(options, windatlas, meanwind, windspeed, regions, offshor
                 @views if reg > 0 && class > 0 && mask_onshoreA[r,c] > 0
                     onshoremap[r,c] = class
                 elseif reg > 0 && class > 0 && mask_onshoreB[r,c] > 0
-                    onshoremap[r,c] = class
+                    # onshoremap[r,c] = class
                 elseif offreg > 0 && offclass > 0 && mask_offshore[r,c] > 0
                     offshoremap[r,c] = class
                 end

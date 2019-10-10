@@ -167,7 +167,7 @@ function read_solar_datasets(options, lonrange, latrange)
     return meanGTI, solarGTI, meanDNI, solarDNI
 end
 
-function create_solar_masks(options, regions, gridaccess, popdens, land, protected)
+function create_solar_masks(options, regions, gridaccess, popdens, land, protected; plotmasks=false)
     @unpack res, exclude_landtypes, protected_codes, distance_elec_access, plant_persons_per_km2, pvroof_persons_per_km2 = options
 
     println("Creating masks...")
@@ -196,16 +196,18 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
     mask_plantA = gridA .& (popdens .< plant_persons_per_km2) .& goodland .& .!protected_area
     mask_plantB = (gridB .& .!gridA) .& (popdens .< plant_persons_per_km2) .& goodland .& .!protected_area
 
-    # drawmap(land)
-    # drawmap(goodland)
-    # drawmap(.!protected_area)
-    # # drawmap(gridaccess)
-    # drawmap(gridA)
-    # drawmap(gridB)    
-    # drawmap(popdens .< plant_persons_per_km2)
-    drawmap(mask_rooftop)
-    drawmap(mask_plantA)
-    drawmap(mask_plantB)
+    if plotmasks
+        drawmap(land)
+        drawmap(goodland)
+        drawmap(.!protected_area)
+        # drawmap(gridaccess)
+        drawmap(gridA)
+        drawmap(gridB)    
+        drawmap(popdens .< plant_persons_per_km2)
+        drawmap(mask_rooftop)
+        drawmap(mask_plantA)
+        drawmap(mask_plantB)
+    end
 
     return mask_rooftop, mask_plantA, mask_plantB
 end
@@ -344,7 +346,7 @@ function GISsolarmap(; savetodisk=true, optionlist...)
     meanGTI, solarGTI, meanDNI, solarDNI = read_solar_datasets(options, lonrange, latrange)
 
     mask_rooftop, mask_plantA, mask_plantB =
-        create_solar_masks(options, regions, gridaccess, popdens, land, protected)
+        create_solar_masks(options, regions, gridaccess, popdens, land, protected, plotmasks=true)
 
     pvmap, pvrooftopmap, cspmap =
         calc_solar_map(options, meanGTI, solarGTI, meanDNI, solarDNI, regions, offshoreregions, regionlist,
