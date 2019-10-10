@@ -13,7 +13,7 @@ solaroptions() = Dict(
     :pvroof_persons_per_km2 => 100,     # only in populated areas, so AT LEAST x persons/km2
                                         # US census bureau requires 1000 ppl/mile^2 = 386 ppl/km2 for "urban" (half in Australia)
                                         # roughly half the people of the world live at density > 300 ppl/km2
-    :exclude_landtypes => [0,1,2,3,4,5,12],       # exclude water, forests and croplands. See codes in table below.
+    :exclude_landtypes => [0,1,2,3,4,5,8,12],       # exclude water, forests and croplands. See codes in table below.
     :protected_codes => [1,2,3,4,5,8],  # IUCN codes to be excluded as protected areas. See codes in table below.
 
     :scenarioyear => "ssp2_2050",       # default scenario and year for population and grid access datasets
