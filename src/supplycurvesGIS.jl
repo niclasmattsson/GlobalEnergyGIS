@@ -53,8 +53,8 @@ function supplycurves_pv(reg, plant_area, persons_per_km2, minclasses, step)
 	# fixedcost = Dict(:pv => 16, :wind => 36)
 	# lifetime = Dict(:pv => 25, :wind => 25)
 	totalcost_a = capacity_a .* (800 * CRF(0.05, 25) + 16)
-	totalcost_b = capacity_b .* (1.1*800 * CRF(0.05, 25) + 16)
-	totalcost_r = capacity_r .* (1200 * CRF(0.05, 25) + 24)
+	totalcost_b = capacity_b .* ((800+200) * CRF(0.05, 25) + 16)
+	totalcost_r = capacity_r .* (1200 * CRF(0.05, 25) + 20)
 	annualenergy_a = capacity_a .* meanCF_a .* 8760
 	annualenergy_b = capacity_b .* meanCF_b .* 8760
 	annualenergy_r = capacity_r .* meanCF_r .* 8760
@@ -83,9 +83,9 @@ function supplycurves_wind(reg, area_onshore, persons_per_km2, minclasses, step)
 	capacity_a = sumdrop(wa, dims=1)
 	capacity_b = sumdrop(wb, dims=1)
 	capacity_off = sumdrop(woff, dims=1)
-	totalcost_a = capacity_a .* (1200 * CRF(0.05, 25) + 36)
-	totalcost_b = capacity_b .* (1.1*1200 * CRF(0.05, 25) + 36)
-	totalcost_off = capacity_off .* (2000 * CRF(0.05, 25) + 60)
+	totalcost_a = capacity_a .* (1200 * CRF(0.05, 25) + 60)
+	totalcost_b = capacity_b .* ((1200+200) * CRF(0.05, 25) + 60)
+	totalcost_off = capacity_off .* (2400 * CRF(0.05, 25) + 120)
 	annualenergy_a = capacity_a .* meanCF_a .* 8760
 	annualenergy_b = capacity_b .* meanCF_b .* 8760
 	annualenergy_off = capacity_off .* meanCF_off .* 8760
@@ -206,14 +206,19 @@ function plotwindturbinecurve()
 					tickfont=18, legendfont=18, guidefont=18, titlefont=20))
 end
 
+# Plot supply curves for a given model region
+function plotsupplycurves(reg)
+	plotly()
 
-plotly()
+	cap, lc = calcvars(reg)
 
-cap, lc = calcvars("China6")
+	plottriplepv(cap, lc, :low, 75)
+	plottriplewind(cap, lc, :low, 75)
+	plotmono(cap, lc)					# this is figure 3 in the model paper 
+end
 
-plottriplepv(cap, lc, :low, 75)
-plottriplewind(cap, lc, :low, 75)
-plotmono(cap, lc)
+# plotsupplycurves("China6")
+# plotsupplycurves("Europe8")
 
 
 const powercurves = [
