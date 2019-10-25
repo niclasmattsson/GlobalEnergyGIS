@@ -6,11 +6,11 @@ solaroptions() = Dict(
     :csp_density => 35,                 # CSP land use 35 W/m2
 
     :pvroof_area => .05,                # area available for rooftop PV after the masks have been applied
-    :plant_area => .03,                 # area available for PV or CSP plants after the masks have been applied
+    :plant_area => .05,                 # area available for PV or CSP plants after the masks have been applied
 
     :distance_elec_access => 300,       # max distance to grid [km] (for solar classes of category B)
-    :plant_persons_per_km2 => 75,       # not too crowded, max X persons/km2 (both PV and CSP plants)
-    :pvroof_persons_per_km2 => 100,     # only in populated areas, so AT LEAST x persons/km2
+    :plant_persons_per_km2 => 150,      # not too crowded, max X persons/km2 (both PV and CSP plants)
+    :pvroof_persons_per_km2 => 200,     # only in populated areas, so AT LEAST x persons/km2
                                         # US census bureau requires 1000 ppl/mile^2 = 386 ppl/km2 for "urban" (half in Australia)
                                         # roughly half the people of the world live at density > 300 ppl/km2
     :exclude_landtypes => [0,1,2,3,4,5,8,12],       # exclude water, forests and croplands. See codes in table below.
@@ -337,7 +337,7 @@ end
 
 
 # Quick and ugly copy/paste hack to create resource maps for solar classes combined with masks.
-function GISsolarmap(; savetodisk=true, optionlist...)
+function GISsolarmap(; optionlist...)
     options = SolarOptions(merge(solaroptions(), optionlist))
     @unpack gisregion, era_year, filenamesuffix = options
 

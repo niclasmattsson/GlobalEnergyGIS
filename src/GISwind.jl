@@ -5,11 +5,11 @@ windoptions() = Dict(
     :onshore_density => 5,              # about 30% of existing farms have at least 5 W/m2, will become more common
     :offshore_density => 8,             # varies a lot in existing parks (4-18 W/m2)
                                         # For reference: 10D x 5D spacing of 3 MW turbines (with 1D = 100m) is approximately 6 MW/km2 = 6 W/m2
-    :area_onshore => .05,               # area available for onshore wind power after the masks have been applied
+    :area_onshore => .08,               # area available for onshore wind power after the masks have been applied
     :area_offshore => .33,              # area available for offshore wind power after the masks have been applied
 
     :distance_elec_access => 300,       # max distance to grid [km] (for wind classes of category B and offshore)
-    :persons_per_km2 => 75,             # not too crowded, max X persons/km2
+    :persons_per_km2 => 150,            # not too crowded, max X persons/km2
                                         # US census bureau requires 1000 ppl/mile^2 = 386 ppl/km2 for "urban" (half in Australia)
                                         # roughly half the people of the world live at density > 300 ppl/km2
     :max_depth => 40,                   # max depth for offshore wind [m]
@@ -373,7 +373,7 @@ end
 
 
 # Quick and ugly copy/paste hack to create resource maps for wind classes combined with masks.
-function GISwindmap(; savetodisk=true, optionlist...)
+function GISwindmap(; optionlist...)
     options = WindOptions(merge(windoptions(), optionlist))
     @unpack gisregion, era_year, filenamesuffix = options
 
