@@ -195,6 +195,17 @@ function makeregions(regiondefinitionarray)
     return region
 end
 
+function regions2matlab(gisregion)
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
+    matopen("regions_$gisregion.mat", "w") do file
+        write(file, "regions", regions)
+        write(file, "offshoreregions", offshoreregions)
+        write(file, "regionlist", string.(regionlist))
+        write(file, "lonrange", lonrange)
+        write(file, "latrange", collect(latrange))
+    end
+end
+
 function splitregiondefinitions(regiondefinitionarray)
     regionnames = regiondefinitionarray[:,1]
     regiondefinitions = [regdef isa Tuple ? regdef : (regdef,) for regdef in regiondefinitionarray[:,2]]

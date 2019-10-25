@@ -100,7 +100,7 @@ const europe13 = [
     "FRA"   GADM("France","Monaco")
     "UK"    GADM("United Kingdom","Ireland","Guernsey","Isle of Man","Jersey")
     "ITA"   GADM("Italy","San Marino","Vatican City")
-    "BKN"   GADM("Greece","Bulgaria","Romania","Slovenia","Croatia","Bosnia and Herzegovina","Serbia","Montenegro","Kosovo","Albania","Macedonia","Malta")
+    "BKN"   GADM("Greece","Bulgaria","Romania","Slovenia","Croatia","Bosnia and Herzegovina","Serbia","Montenegro","Kosovo","Albania","Macedonia","Malta","Moldova")
     "BTC"   GADM("Poland","Estonia","Latvia","Lithuania")
     "SPA"   GADM("Spain","Portugal","Andorra","Gibraltar")
     "CEN"   GADM("Austria","Switzerland","Czech Republic","Hungary","Slovakia","Liechtenstein")
@@ -109,7 +109,7 @@ const europe13 = [
 # Wikipedia's definition of Europe
 const europe21 = [
     europe13;
-    "BLM"   GADM("Belarus","Moldova")
+    "BLR"   GADM("Belarus")
     "UKR"   GADM("Ukraine")
     "TUR"   GADM("Turkey")
     "CCS"   GADM("Georgia","Armenia","Azerbaijan")
@@ -183,4 +183,10 @@ const testreg = [
     "NO"     GADM("Norway")
     "DK"     NUTS("DK")
     "ISL"    (NUTS("SE214"), GADM("Åland"), GADM(["Sweden","Kalmar"], "Borgholm","Mörbylånga"))  # Gotland, Åland, Öland
+]
+
+const mapregions = [
+    "FRA"   GADM("France","Monaco")
+    "KZK"   GADM("Kazakhstan")
+    "CH_E"   (GADM(["China"], "Shanghai","Jiangsu","Zhejiang","Anhui","Fujian","Jiangxi","Shandong"), GADM("Taiwan"))    
 ]

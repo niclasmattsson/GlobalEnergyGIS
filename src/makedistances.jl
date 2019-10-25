@@ -21,6 +21,15 @@ function makedistances(gisregion; scenarioyear="ssp2_2050", res=0.01)
         # write(file, "population", pop)
         # write(file, "demand", demand)
     end
+    
+    # another version for plotting projected maps in Matlab 
+    matopen("matlabdistances_$gisregion.mat", "w") do file
+        write(file, "distances", distances)
+        write(file, "connected", connected)
+        write(file, "connectedoffshore", connectedoffshore)
+        write(file, "regioncenters_lat", [latlon[1] for latlon in popcenters])
+        write(file, "regioncenters_lon", [latlon[2] for latlon in popcenters])
+    end   
 end
 
 # returns great circle distance in km between points given as (lat,lon) tuples (in degrees).
