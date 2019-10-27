@@ -52,9 +52,9 @@ function supplycurves_pv(reg, plant_area, persons_per_km2, minclasses, step)
 	# investcost = Dict(:pv => 800, :wind => 1200)
 	# fixedcost = Dict(:pv => 16, :wind => 36)
 	# lifetime = Dict(:pv => 25, :wind => 25)
-	totalcost_a = capacity_a .* (800 * CRF(0.05, 25) + 16)
-	totalcost_b = capacity_b .* ((800+200) * CRF(0.05, 25) + 16)
-	totalcost_r = capacity_r .* (1200 * CRF(0.05, 25) + 20)
+	totalcost_a = capacity_a .* (600 * CRF(0.05, 25) + 16)
+	totalcost_b = capacity_b .* ((600+200) * CRF(0.05, 25) + 16)
+	totalcost_r = capacity_r .* (900 * CRF(0.05, 25) + 20)
 	annualenergy_a = capacity_a .* meanCF_a .* 8760
 	annualenergy_b = capacity_b .* meanCF_b .* 8760
 	annualenergy_r = capacity_r .* meanCF_r .* 8760
@@ -83,9 +83,9 @@ function supplycurves_wind(reg, area_onshore, persons_per_km2, minclasses, step)
 	capacity_a = sumdrop(wa, dims=1)
 	capacity_b = sumdrop(wb, dims=1)
 	capacity_off = sumdrop(woff, dims=1)
-	totalcost_a = capacity_a .* (1200 * CRF(0.05, 25) + 60)
-	totalcost_b = capacity_b .* ((1200+200) * CRF(0.05, 25) + 60)
-	totalcost_off = capacity_off .* (2400 * CRF(0.05, 25) + 120)
+	totalcost_a = capacity_a .* (1200 * CRF(0.05, 25) + 43)
+	totalcost_b = capacity_b .* ((1200+200) * CRF(0.05, 25) + 43)
+	totalcost_off = capacity_off .* (2300 * CRF(0.05, 25) + 86)
 	annualenergy_a = capacity_a .* meanCF_a .* 8760
 	annualenergy_b = capacity_b .* meanCF_b .* 8760
 	annualenergy_off = capacity_off .* meanCF_off .* 8760
@@ -133,7 +133,7 @@ end
 
 function mergevars(cap, lc)
 	mergecap, mergelc = Dict(), Dict()
-	for tech = [:pv, :wind], area = [:low, :high], pop = [75]
+	for tech = [:pv, :wind], area = [:low, :high], pop = [150]
 		cc,ll = cap[tech,area,pop], lc[tech,area,pop]
 		mergecap[tech,area,pop] = [cc[1]; cc[2]; cc[3]]
 		mergelc[tech,area,pop] = [ll[1]; ll[2]; ll[3]]	
@@ -143,8 +143,8 @@ end
 
 function plotmonopv(cap, lc)
 	mcap, mlc = mergevars(cap, lc)
-	plotsupply(mcap[:pv,:low,75], mlc[:pv,:low,75], label="area=3%", linewidth=3)
-	display(plotsupply(mcap[:pv,:high,75], mlc[:pv,:high,75], label="area=12%", linewidth=3, hold=true,
+	plotsupply(mcap[:pv,:low,150], mlc[:pv,:low,150], label="area=5%", linewidth=3)
+	display(plotsupply(mcap[:pv,:high,150], mlc[:pv,:high,150], label="area=10%", linewidth=3, hold=true,
 					size=(1000,500), xlim=(0,1.2), ylim=(0,100), title="Solar PV (class A+B+rooftop)",
 					xlabel="Potential supply (relative to annual electricity demand in 2050)", ylabel="€/MWh",
 					tickfont=16, legendfont=16, guidefont=16, titlefont=20))
@@ -152,8 +152,8 @@ end
 
 function plotmonowind(cap, lc)
 	mcap, mlc = mergevars(cap, lc)
-	plotsupply(mcap[:wind,:low,75], mlc[:wind,:low,75], label="area=5%", linewidth=3)
-	display(plotsupply(mcap[:wind,:high,75], mlc[:wind,:high,75], label="area=20%", linewidth=3, hold=true,
+	plotsupply(mcap[:wind,:low,150], mlc[:wind,:low,150], label="area=8%", linewidth=3)
+	display(plotsupply(mcap[:wind,:high,150], mlc[:wind,:high,150], label="area=16%", linewidth=3, hold=true,
 					size=(1000,500), xlim=(0,1.2), ylim=(0,100), title="Wind (class A+B+offshore)",
 					xlabel="Potential supply (relative to annual electricity demand in 2050)", ylabel="€/MWh",
 					tickfont=16, legendfont=16, guidefont=16, titlefont=20))
@@ -161,10 +161,10 @@ end
 
 function plotmono(cap, lc)
 	mcap, mlc = mergevars(cap, lc)
-	plotsupply(mcap[:pv,:low,75], mlc[:pv,:low,75], label="PV area=3%", line=(3, :solid, RGB([240,220,0]/255...)))
-	plotsupply(mcap[:wind,:low,75], mlc[:wind,:low,75], label="wind area=5%", line=(3, :solid, RGB([149,179,215]/255...)), hold=true)
-	plotsupply(mcap[:pv,:high,75], mlc[:pv,:high,75], label="PV area=12%", line=(3, :dash, RGB([240,220,0]/255...)), hold=true)
-	display(plotsupply(mcap[:wind,:high,75], mlc[:wind,:high,75], label="wind area=20%", line=(3, :dash, RGB([149,179,215]/255...)), hold=true,
+	plotsupply(mcap[:pv,:low,150], mlc[:pv,:low,150], label="PV area=5%", line=(3, :solid, RGB([240,220,0]/255...)))
+	plotsupply(mcap[:wind,:low,150], mlc[:wind,:low,150], label="wind area=8%", line=(3, :solid, RGB([149,179,215]/255...)), hold=true)
+	plotsupply(mcap[:pv,:high,150], mlc[:pv,:high,150], label="PV area=10%", line=(3, :dash, RGB([240,220,0]/255...)), hold=true)
+	display(plotsupply(mcap[:wind,:high,150], mlc[:wind,:high,150], label="wind area=16%", line=(3, :dash, RGB([149,179,215]/255...)), hold=true,
 					size=(1000,500), xlim=(0,1.2), ylim=(0,100), title="Solar PV & wind (class A+B+rooftop+offshore)",
 					xlabel="Potential supply (relative to annual electricity demand in 2050)", ylabel="€/MWh",
 					tickfont=16, legendfont=16, guidefont=16, titlefont=20))
@@ -173,23 +173,23 @@ end
 function calcvars(reg)
 	cap, lc = Dict(), Dict()
 	area = :low
-	pop = 75
+	pop = 150
 
 	step = 0.00005
-	plantarea = area == :low ? 0.03 : 0.12
+	plantarea = area == :low ? 0.05 : 0.10
 	demandshare_a, demandshare_b, demandshare_r, lcoe_a, lcoe_b, lcoe_r = supplycurves_pv(reg, plantarea, pop, [0:step:0.311-step;], step)
 	cap[:pv,area,pop] = (demandshare_a, demandshare_b, demandshare_r)
 	lc[:pv,area,pop] = (lcoe_a, lcoe_b, lcoe_r)
 
-	onshorearea = area == :low ? 0.05 : 0.20
+	onshorearea = area == :low ? 0.08 : 0.16
 	step = 0.002
 	demandshare_wa, demandshare_wb, demandshare_off, lcoe_wa, lcoe_wb, lcoe_off = supplycurves_wind(reg, onshorearea, pop, [0:step:25-step;], step)
 	cap[:wind,area,pop] = (demandshare_wa, demandshare_wb, demandshare_off)
 	lc[:wind,area,pop] = (lcoe_wa, lcoe_wb, lcoe_off)
 
-	cap[:pv,:high,pop] = cap[:pv,:low,pop] .* 4
+	cap[:pv,:high,pop] = cap[:pv,:low,pop] .* 2
 	lc[:pv,:high,pop] = lc[:pv,:low,pop]
-	cap[:wind,:high,pop] = cap[:wind,:low,pop] .* 4
+	cap[:wind,:high,pop] = cap[:wind,:low,pop] .* 2
 	lc[:wind,:high,pop] = lc[:wind,:low,pop]
 
 	return cap, lc
@@ -212,8 +212,8 @@ function plotsupplycurves(reg)
 
 	cap, lc = calcvars(reg)
 
-	plottriplepv(cap, lc, :low, 75)
-	plottriplewind(cap, lc, :low, 75)
+	plottriplepv(cap, lc, :low, 150)
+	plottriplewind(cap, lc, :low, 150)
 	plotmono(cap, lc)					# this is figure 3 in the model paper 
 end
 
