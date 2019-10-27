@@ -112,7 +112,7 @@ function GISsolar(; savetodisk=true, optionlist...)
     # variations as a function of temperature don't matter.
 
     options = SolarOptions(merge(solaroptions(), optionlist))
-    @unpack gisregion, era_year, filenamesuffix = options
+    @unpack gisregion, era_year, filenamesuffix, pv_density, csp_density = options
 
     regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
                 read_datasets(options)
@@ -121,7 +121,7 @@ function GISsolar(; savetodisk=true, optionlist...)
     mask_rooftop, mask_plantA, mask_plantB =
         create_solar_masks(options, regions, gridaccess, popdens, land, protected)
 
-    CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB,
+    CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB, solar_overlap_areaA, solar_overlap_areaB,
             capacity_pvrooftop, capacity_pvplantA, capacity_pvplantB, capacity_cspplantA, capacity_cspplantB =
         calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions, offshoreregions, regionlist,
                 mask_rooftop, mask_plantA, mask_plantB, lonrange, latrange)
@@ -138,6 +138,10 @@ function GISsolar(; savetodisk=true, optionlist...)
             write(file, "capacity_pvplantB", capacity_pvplantB)
             write(file, "capacity_cspplantA", capacity_cspplantA)
             write(file, "capacity_cspplantB", capacity_cspplantB)
+            write(file, "solar_overlap_areaA", solar_overlap_areaA)
+            write(file, "solar_overlap_areaB", solar_overlap_areaB)
+            write(file, "pv_density", pv_density)
+            write(file, "csp_density", csp_density)
         end
     end
 
@@ -260,6 +264,8 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
     count_pvplantB = zeros(Int,numreg,npvclasses)
     count_cspplantA = zeros(Int,numreg,ncspclasses)
     count_cspplantB = zeros(Int,numreg,ncspclasses)
+    solar_overlap_areaA = zeros(numreg,npvclasses,ncspclasses)
+    solar_overlap_areaB = zeros(numreg,npvclasses,ncspclasses)
 
     # Run times vary wildly depending on geographical area (because of far offshore regions with mostly zero wind speeds).
     # To improve the estimated time of completing the progress bar, iterate over latitudes in random order.
@@ -301,6 +307,7 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
                     end
                 end
 
+                class_pv = class
                 class = cspclass[i,j]
                 # @views is needed to make sure increment_windCF!() works with matrix slices
                 # also faster since it avoids making copies
@@ -313,6 +320,14 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
                         capacity_cspplantB[reg,class] += 1/1000 * csp_density * 2 * plant_area * area
                         increment_solarCF!(CF_cspplantB[:,reg,class], DNI)
                         count_cspplantB[reg,class] += 1
+                    end
+                end
+
+                if reg > 0 && class_pv > 0 && class > 0
+                    if mask_plantA[r,c] > 0
+                        solar_overlap_areaA[reg,class_pv,class] += 1/1000 * plant_area * area
+                    elseif mask_plantB[r,c] > 0
+                        solar_overlap_areaB[reg,class_pv,class] += 1/1000 * 2 * plant_area * area
                     end
                 end
             end
@@ -328,7 +343,7 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
         CF_cspplantB[y,:,:] ./= count_cspplantB
     end
 
-    return CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB,
+    return CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB, solar_overlap_areaA, solar_overlap_areaB,
             capacity_pvrooftop, capacity_pvplantA, capacity_pvplantB, capacity_cspplantA, capacity_cspplantB
 end
 
