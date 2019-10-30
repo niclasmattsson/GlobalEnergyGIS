@@ -144,13 +144,16 @@ function rasterize_NUTS()
     @time run(`ogr2ogr -f CSV $outfile -dialect SQlite -sql $sql $shapefile`)
 end
 
-function saveregions(regionname, regiondefinitionarray; crop=true)
+function saveregions(regionname, regiondefinitionarray; crop=true, uselandcovermask=true)
     land = JLD.load("landcover.jld", "landcover")
-    saveregions(regionname, regiondefinitionarray, land, crop)
+    saveregions(regionname, regiondefinitionarray, land, crop, uselandcovermask)
 end
 
-function saveregions(regionname, regiondefinitionarray, landcover, crop)
-    regions = makeregions(regiondefinitionarray) .* (landcover.>0)
+function saveregions(regionname, regiondefinitionarray, landcover, crop, uselandcovermask)
+    regions = makeregions(regiondefinitionarray)
+    if uselandcovermask
+        regions = regions .* (landcover.>0)
+    end
     if crop
         # get indexes of the bounding box containing onshore region data with 3 degrees of padding
         lonrange, latrange = getbboxranges(regions, round(Int, 3/0.01))
@@ -171,7 +174,8 @@ function saveregions_global_gadm0()
     g = readdlm("gadmfields.csv", ',', skipstart=1)
     gadm0 = unique(string.(g[:,2]))
     regiondefinitionarray = [gadm0 GADM.(gadm0)]
-    saveregions("Global_GADM0", regiondefinitionarray, crop=false)
+    # This map is used to identify country by pixel, so don't mask by landcover (i.e. set region=0 in lakes).
+    saveregions("Global_GADM0", regiondefinitionarray, crop=false, uselandcovermask=false)
 end
 
 function loadregions(regionname)
