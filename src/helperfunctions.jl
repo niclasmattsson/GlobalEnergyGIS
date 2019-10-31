@@ -315,6 +315,17 @@ function matlab2elin()
     end
 end
 
+function dms2deg(dms)
+    sg = sign(dms)
+    dms = abs(dms)
+    d = sg*floor(dms/10000)
+    dms = dms-10000*d
+    m = floor(dms/100)
+    return d + m/60 + (dms-100*m)/3600
+end
+
+# Capital recovery factor for investments
+CRF(r, T) = r / (1 - 1/(1+r)^T)
 
 
 # timemem-1.0 gdal_translate -r mode -tr 0.1 0.1 -co COMPRESS=LZW gadm.tif gadmsmall.tif
