@@ -1,0 +1,47 @@
+Collecting package metadata (current_repodata.json): ...working... done
+Solving environment: ...working... done
+
+## Package Plan ##
+
+  environment location: C:\Users\niclas\.julia\conda\3
+
+  added / updated specs:
+    - cdsapi
+
+
+The following packages will be downloaded:
+
+    package                    |            build
+    ---------------------------|-----------------
+    ca-certificates-2019.9.11  |       hecc5488_0         181 KB  conda-forge
+    cdsapi-0.1.6               |             py_0          13 KB  conda-forge
+    certifi-2019.9.11          |           py36_0         147 KB  conda-forge
+    conda-4.7.12               |           py36_0         3.0 MB  conda-forge
+    openssl-1.1.1d             |       hfa6e2cd_0         4.7 MB  conda-forge
+    ------------------------------------------------------------
+                                           Total:         8.0 MB
+
+The following NEW packages will be INSTALLED:
+
+  cdsapi             conda-forge/noarch::cdsapi-0.1.6-py_0
+
+The following packages will be SUPERSEDED by a higher-priority channel:
+
+  ca-certificates    pkgs/main::ca-certificates-2019.10.16~ --> conda-forge::ca-certificates-2019.9.11-hecc5488_0
+  certifi                                         pkgs/main --> conda-forge
+  conda                                           pkgs/main --> conda-forge
+  openssl              pkgs/main::openssl-1.1.1d-he774522_3 --> conda-forge::openssl-1.1.1d-hfa6e2cd_0
+
+
+
+Downloading and Extracting Packages
+cdsapi-0.1.6         | 13 KB     |            |   0% cdsapi-0.1.6         | 13 KB     | ########## | 100% 
+openssl-1.1.1d       | 4.7 MB    |            |   0% openssl-1.1.1d       | 4.7 MB    | ########## | 100% 
+ca-certificates-2019 | 181 KB    |            |   0% ca-certificates-2019 | 181 KB    | ########## | 100% 
+conda-4.7.12         | 3.0 MB    |            |   0% conda-4.7.12         | 3.0 MB    | ########## | 100% 
+certifi-2019.9.11    | 147 KB    |            |   0% certifi-2019.9.11    | 147 KB    | ########## | 100% 
+Preparing transaction: ...working... done
+Verifying transaction: ...working... done
+Executing transaction: ...working... done
+[ Info: Running `conda config --add channels conda-forge --file 'C:\Users\niclas\.julia\conda\3\condarc-julia.yml' --force` in root environment
+[ Info: Running `conda install -y cdsapi` in root environment
