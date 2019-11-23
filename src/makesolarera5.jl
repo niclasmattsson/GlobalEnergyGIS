@@ -4,12 +4,13 @@ export makesolarera5
 
 # Can optionally zero water cells in the landcover dataset to save a lot of disk space.
 # add options to save all three CSP variables: tower, trough-NS, trough-EW.
-function makesolarera5(year=2018, land_cells_only=true)
+function makesolarera5(datafolder, year=2018, land_cells_only=true)
     hours = 24*Dates.daysinyear(year)
     gridsize = (1280,640)
 
-    filename = "D:/era5solar$year.h5"
-    isfile(filename) && error("File $filename exists in $(pwd()), please delete or rename manually.")
+    downloadpath = joinpath(datafolder, "downloads")
+    filename = joinpath(datafolder, "era5solar$year.h5")
+    isfile(filename) && error("File $filename exists in $datafolder, please delete or rename manually.")
 
     land = imresize(JLD.load("landcover.jld", "landcover"), gridsize)
 
@@ -26,6 +27,7 @@ function makesolarera5(year=2018, land_cells_only=true)
         totalDNI = zeros(gridsize)
         hour = 1
 
+        count = 0
         for month = 1:12, monthhalf = 1:2
             if monthhalf == 1
                 firstday, lastday = "01", "15"
@@ -35,9 +37,11 @@ function makesolarera5(year=2018, land_cells_only=true)
             end
             monthstr = lpad(month,2,'0')
             date = "$year-$monthstr-$firstday/$year-$monthstr-$lastday"
-            erafile = "D:/testera5/solar$year-$monthstr$firstday-$monthstr$lastday.nc"
+            erafile = joinpath(downloadpath, "solar$year-$monthstr$firstday-$monthstr$lastday.nc")
 
-            println("\nReading solar diffuse and direct components from $erafile...")
+            count += 1
+            println("\nFile $count of 24:")
+            println("Reading solar diffuse and direct components from $erafile...")
             ncdataset = Dataset(erafile)
             # GHI = replace(ncdataset["ssrd"][:,:,:], missing => 0.0) .* (land .> 0) ./ (3600*1000)
             # DHI = GHI - replace(ncdataset["fdir"][:,:,:], missing => 0.0) .* (land .> 0) ./ (3600*1000)

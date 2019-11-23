@@ -1,12 +1,13 @@
 export makewindera5
 
 # Can optionally zero cells that are zero in the Global Wind Atlas to save a lot of disk space.
-function makewindera5(year=2018, windatlas_only=true)
+function makewindera5(datafolder, year=2018, windatlas_only=true)
     hours = 24*Dates.daysinyear(year)
     gridsize = (1280,640)
 
-    filename = "D:/era5wind$year.h5"
-    isfile(filename) && error("File $filename exists in $(pwd()), please delete or rename manually.")
+    downloadpath = joinpath(datafolder, "downloads")
+    filename = joinpath(datafolder, "era5wind$year.h5")
+    isfile(filename) && error("File $filename exists in $datafolder, please delete or rename manually.")
 
     windatlas = reshape(imresize(getwindatlas(), gridsize), (1,gridsize...))
 
@@ -19,6 +20,7 @@ function makewindera5(year=2018, windatlas_only=true)
         totalwind = zeros(gridsize)
         hour = 1
 
+        count = 0
         for month = 1:12, monthhalf = 1:2
             if monthhalf == 1
                 firstday, lastday = "01", "15"
@@ -28,9 +30,11 @@ function makewindera5(year=2018, windatlas_only=true)
             end
             monthstr = lpad(month,2,'0')
             date = "$year-$monthstr-$firstday/$year-$monthstr-$lastday"
-            erafile = "D:/testera5/wind$year-$monthstr$firstday-$monthstr$lastday.nc"
+            erafile = joinpath(downloadpath, "wind$year-$monthstr$firstday-$monthstr$lastday.nc")
 
-            println("\nReading wind components from $erafile...")
+            count += 1
+            println("\nFile $count of 24:")
+            println("Reading wind components from $erafile...")
             # Permute dimensions to get hours as dimension 1 (for efficient iteration in GISwind())
             ncdataset = Dataset(erafile)
             u100 = permutedims(ncdataset["u100"][:,:,:], [3,1,2])
