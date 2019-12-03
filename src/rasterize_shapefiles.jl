@@ -529,12 +529,16 @@ function creategridaccess(scen, year)
 end
 
 function getwindatlas()
+    # filename = "D:/datasets/Global Wind Atlas v3.0/gwa3_250_wind-speed_100m.tif"     # v3.0 (lon extent [-180.3, 180.3], strangely)
     # filename = "D:/datasets/Global Wind Atlas v2.3/global_ws.tif"     # v2.3 (lon extent [-180.3, 180.3], strangely)
-    filename = "C:/Stuff/GET.GIS/datasets/Global Wind Atlas/Global Wind Atlas - 100m mean wind speed.tif"   # v1.0
+    filename = "D:/datasets/Global Wind Atlas v1.0/Global Wind Atlas v1 - 100m wind speed.tif"   # v1.0
     windatlas = readraster(filename, :extend_to_full_globe)[1]
     clamp!(windatlas, 0, 25)
 end
 
+# @time q,cc = readraster("D:/datasets/Global Wind Atlas v3.0/gwa3_250_wind-speed_100m.tif", :none, 1);
+# size(q,1)/(cc[3]-cc[1])
+# cc[1]+132/400
 
 # grid12 + electrification
 # turbine curves

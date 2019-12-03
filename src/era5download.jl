@@ -1,20 +1,43 @@
-using PyCall
+using PyCall, TOML
 
-export era5download, cds_id
+export era5download, saveconfig
 
-function cds_id(uid::Int, api_key::String)
+getconfig(key) = getconfig()[key]
+
+function getconfig()
+    configfile = joinpath(homedir(), ".GlobalEnergyGIS_config")
+    if !isfile(configfile)
+        error("Configuration file missing, please run saveconfig(datafolder, uid, api_key) first. See GlobalEnergyGIS README.")
+    end
+    return TOML.parsefile(configfile)
+end
+
+function saveconfig(datafolder::AbstractString, uid::Int, api_key::AbstractString; agree_terms=false)
+    !agree_terms && error("You must agree to the terms of use of all datasets to proceed. See GlobalEnergyGIS README.")
+    downloadsfolder = joinpath(datafolder, "downloads")
+    mkpath(downloadsfolder)
+    configfile = joinpath(homedir(), ".GlobalEnergyGIS_config")
+    open(configfile, "w") do io
+        d = Dict("datafolder"=>datafolder, "agree_terms"=>agree_terms)
+        TOML.print(io, d)
+        println("Configuration file written to $configfile.")
+    end
+    cds_id(uid, api_key)
+end
+
+function cds_id(uid::Int, api_key::AbstractString)
     filename = joinpath(homedir(), ".cdsapirc")
     isfile(filename) && error("$filename already exists, no changes made. Please check its contents manually.")
     open(filename, "w") do file
         write(file, "url: https://cds.climate.copernicus.eu/api/v2\n")
         write(file, "key: $uid:$api_key\n")
-        println("Credentials written to $filename.")
+        println("Copernicus credentials written to $filename.")
     end
 end
 
-function era5download(datafolder, year=2018)
-    downloadpath = joinpath(datafolder, "downloads")
-    mkpath(downloadpath)
+function era5download(year=2018)
+    downloadsfolder = joinpath(getconfig("datafolder"), "downloads")
+    mkpath(downloadsfolder)
     count = 0
     for dataset in ["wind", "solar"], month = 1:12, monthhalf = 1:2       # ["wind", "solar"]
         if dataset == "wind"
@@ -30,7 +53,7 @@ function era5download(datafolder, year=2018)
         end
         monthstr = lpad(month,2,'0')
         date1, date2 = "$year-$monthstr-$firstday", "$year-$monthstr-$lastday"
-        outfile = joinpath(downloadpath, "$dataset$year-$monthstr$firstday-$monthstr$lastday.nc")
+        outfile = joinpath(downloadsfolder, "$dataset$year-$monthstr$firstday-$monthstr$lastday.nc")
         count += 1
         println("\nFile $count of 48:")
         request_era5_vars(outfile, [var1, var2], date1, date2)

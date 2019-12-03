@@ -4,11 +4,13 @@ export makesolarera5
 
 # Can optionally zero water cells in the landcover dataset to save a lot of disk space.
 # add options to save all three CSP variables: tower, trough-NS, trough-EW.
-function makesolarera5(datafolder, year=2018, land_cells_only=true)
+function makesolarera5(year=2018, land_cells_only=true)
     hours = 24*Dates.daysinyear(year)
     gridsize = (1280,640)
 
-    downloadpath = joinpath(datafolder, "downloads")
+    datafolder = getconfig("datafolder")
+    downloadsfolder = joinpath(datafolder, "downloads")
+
     filename = joinpath(datafolder, "era5solar$year.h5")
     isfile(filename) && error("File $filename exists in $datafolder, please delete or rename manually.")
 
@@ -37,7 +39,7 @@ function makesolarera5(datafolder, year=2018, land_cells_only=true)
             end
             monthstr = lpad(month,2,'0')
             date = "$year-$monthstr-$firstday/$year-$monthstr-$lastday"
-            erafile = joinpath(downloadpath, "solar$year-$monthstr$firstday-$monthstr$lastday.nc")
+            erafile = joinpath(downloadsfolder, "solar$year-$monthstr$firstday-$monthstr$lastday.nc")
 
             count += 1
             println("\nFile $count of 24:")
@@ -81,7 +83,7 @@ function transform_solar_vars(ssrd, fdir, datetime, land, land_cells_only)
     albedo = 0.2                        # standard average value for ground albedo (maybe use landcover data later)
     azimuthPV = π * (eralats .< 0)      # assume equator-facing PV panels (azimuth = 0 if lat>0, π if lat<0)
     tiltPV = optimalPVtilt.(eralats)    # degrees
-    println("Check if PV tilt sign is correct in the southern hemisphere!")
+    # println("Check if PV tilt sign is correct in the southern hemisphere!")
     cos_tiltPVs = cosd.(tiltPV)
     sin_tiltPVs = sind.(tiltPV)
 

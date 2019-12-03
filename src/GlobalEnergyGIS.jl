@@ -16,6 +16,7 @@ include("GISwind.jl")
 include("GISsolar.jl")
 include("GIShydro.jl")
 include("era5download.jl")
+include("downloaddatasets.jl")
 include("testio.jl")
 
 end

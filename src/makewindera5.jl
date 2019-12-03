@@ -1,11 +1,13 @@
 export makewindera5
 
 # Can optionally zero cells that are zero in the Global Wind Atlas to save a lot of disk space.
-function makewindera5(datafolder, year=2018, windatlas_only=true)
+function makewindera5(year=2018, windatlas_only=true)
     hours = 24*Dates.daysinyear(year)
     gridsize = (1280,640)
 
-    downloadpath = joinpath(datafolder, "downloads")
+    datafolder = getconfig("datafolder")
+    downloadsfolder = joinpath(datafolder, "downloads")
+    
     filename = joinpath(datafolder, "era5wind$year.h5")
     isfile(filename) && error("File $filename exists in $datafolder, please delete or rename manually.")
 
@@ -30,7 +32,7 @@ function makewindera5(datafolder, year=2018, windatlas_only=true)
             end
             monthstr = lpad(month,2,'0')
             date = "$year-$monthstr-$firstday/$year-$monthstr-$lastday"
-            erafile = joinpath(downloadpath, "wind$year-$monthstr$firstday-$monthstr$lastday.nc")
+            erafile = joinpath(downloadsfolder, "wind$year-$monthstr$firstday-$monthstr$lastday.nc")
 
             count += 1
             println("\nFile $count of 24:")
