@@ -1,4 +1,4 @@
-export europe8, eurasia38, scand3, eurasia21, china6, europe13, europe21, europe54, testreg
+export europe8, eurasia38, scand3, eurasia21, china6, europe13, europe21, europe22, europe54, testreg
 
 const scand3 = [
     "SWE"   GADM("Sweden")
@@ -176,6 +176,39 @@ const europe54 = [
                  "UKK1","UKK2","UKK3","UKK4","UKJ1","UKJ2","UKJ3","UKJ4")
     "UK2"   NUTS("UKM5","UKM6","UKM7","UKM8","UKM9")
     "UK3"   NUTS("UKN0", "UKN1")
+]
+
+const europe22 = [
+    "SE1"   NUTS("SE332")
+    "SE2"   NUTS("SE313", "SE321", "SE322", "SE331")
+    "SE3"   NUTS("SE110", "SE121", "SE122", "SE123", "SE124", "SE125", "SE211", "SE213", "SE214", "SE232", "SE311", "SE312")
+    "SE4"   NUTS("SE212", "SE221", "SE224", "SE231")
+    "NO1"   NUTS("NO011", "NO012", "NO021", "NO022", "NO031")
+    "NO2"   NUTS("NO011", "NO012", "NO021", "NO022", "NO031")
+    "NO3"   NUTS("NO011", "NO012", "NO021", "NO022", "NO031")
+    "NO4"   NUTS("NO011", "NO012", "NO021", "NO022", "NO031")
+    "NO5"   NUTS("NO011", "NO012", "NO021", "NO022", "NO031")
+    "DEN"   NUTS("DK")
+    "FI1"   NUTS("FI193", "FI194", "FI195", "FI196", "FI197", "FI1B1", "FI1C1", "FI1C2", "FI1C3", "FI1C4", "FI1C5",
+                    "FI1D1", "FI1D2", "FI1D3", "FI1D5", "FI200")
+    "FI2"   NUTS("FI1D7", "FI1D8", "FI1D9")
+    "BNL"   NUTS("NL","BE","LU")
+    "GER"   NUTS("DE")
+    "POL"   NUTS("PL")
+    "BAL"   NUTS("EE", "LV", "LT")
+    "IRL"   NUTS("IE")
+    "UK"    NUTS("UK")
+    "FRA"   (NUTS("FR"), GADM("Monaco"))
+    "CEN"   NUTS("AT", "CH", "LI", "CZ", "HU", "SK", "RO")  # Austria, Switzerland, Liechtenstein, Czech Rep, Hungary, Slovakia, Romania
+    "SPA"   (NUTS("ES", "PT"), GADM("Andorra"))             # Spain includes Gibraltar
+    "MED"   (NUTS("IT", "SI", "HR", "RS", "BG", "ME",       # Italy, Slovenia, Croatia, Serbia, Bularia, Montenegro
+                  "AL", "MK", "EL"),                        # Albania, North Macedonia, Greece
+            GADM("San Marino", "Vatican City", "Bosnia and Herzegovina", "Kosovo"))       # these are not included in NUTS-2016
+    # Not included in any region:  Iceland, Faroe Islands, Cyprus, Malta, Isle of Man, Guernsey, Jersey, Jan Mayen, Svalbard, Bear Island,
+    #                               Moldova, Ukraine, Belarus, Kaliningrad (or any part of Russia)
+    # Islands that ARE included:  Canarias, Mallorca and other Balearic islands (ES); Madeira, Azores (PT); Åland (FI);
+    #                               Corsica, Reunion, Mayotte, Guadeloupe, Martinique, Guyana (FR); Sicily, Sardinia (IT);
+    #                               Orkney Islands, Shetney Islands, Western Isles, Isle of Wight (UK); Crete (EL)
 ]
 
 # Test region to see if mixed GADM/NUTS notation works
