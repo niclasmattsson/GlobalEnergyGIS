@@ -144,22 +144,24 @@ function rasterize_NUTS()
     @time run(`ogr2ogr -f CSV $outfile -dialect SQlite -sql $sql $shapefile`)
 end
 
-function saveregions(regionname, regiondefinitionarray; crop=true, uselandcovermask=true)
+function saveregions(regionname, regiondefinitionarray; autocrop=true, uselandcovermask=true, bbox=[-90 -180; 90 180])
     land = JLD.load("landcover.jld", "landcover")
-    saveregions(regionname, regiondefinitionarray, land, crop, uselandcovermask)
+    if !all(bbox .== [-90 -180; 90 180])
+        autocrop = false         # ignore supplied autocrop option if user changed bbox
+    end
+    saveregions(regionname, regiondefinitionarray, land, autocrop, uselandcovermask, bbox)
 end
 
-function saveregions(regionname, regiondefinitionarray, landcover, crop, uselandcovermask)
+function saveregions(regionname, regiondefinitionarray, landcover, autocrop, uselandcovermask, bbox)
     regions = makeregions(regiondefinitionarray)
     if uselandcovermask
         regions = regions .* (landcover.>0)
     end
-    if crop
+    if autocrop
         # get indexes of the bounding box containing onshore region data with 3 degrees of padding
         lonrange, latrange = getbboxranges(regions, round(Int, 3/0.01))
     else
-        nlon, nlat = size(regions)
-        lonrange, latrange = 1:nlon, 1:nlat
+        latrange, lonrange = bbox2ranges(roundbbox(bbox,100), 100)      # TO DO: remove hardcoded raster density
     end
     regions = regions[lonrange, latrange]
     offshoreregions = makeoffshoreregions(regions, landcover[lonrange, latrange])
@@ -175,7 +177,7 @@ function saveregions_global_gadm0()
     gadm0 = unique(string.(g[:,2]))
     regiondefinitionarray = [gadm0 GADM.(gadm0)]
     # This map is used to identify country by pixel, so don't mask by landcover (i.e. set region=0 in lakes).
-    saveregions("Global_GADM0", regiondefinitionarray, crop=false, uselandcovermask=false)
+    saveregions("Global_GADM0", regiondefinitionarray, autocrop=false, uselandcovermask=false)
 end
 
 function loadregions(regionname)

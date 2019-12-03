@@ -1,3 +1,6 @@
+# bbox is a "bounding box" representing outer limits of latitude & longitude: [bottomlat leftlon; toplat rightlon]
+# rasterdensity is number of pixels per degree, so rasterdensity = 1/res with res = raster resolution measured in degrees
+# TO DO: make these consistent with lon, lat convention in rest of code, use resolution instead of rasterdensity
 function bbox2ranges(bbox, rasterdensity)
     latindexes, lonindexes = bbox2indexes(bbox, rasterdensity)
     latindex = latindexes[1] : latindexes[2]
