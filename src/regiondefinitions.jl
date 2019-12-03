@@ -184,10 +184,10 @@ const europe22 = [
     "SE3"   NUTS("SE110", "SE121", "SE122", "SE123", "SE124", "SE125", "SE211", "SE213", "SE214", "SE232", "SE311", "SE312")
     "SE4"   NUTS("SE212", "SE221", "SE224", "SE231")
     "NO1"   NUTS("NO011", "NO012", "NO021", "NO022", "NO031")
-    "NO2"   NUTS("NO011", "NO012", "NO021", "NO022", "NO031")
-    "NO3"   NUTS("NO011", "NO012", "NO021", "NO022", "NO031")
-    "NO4"   NUTS("NO011", "NO012", "NO021", "NO022", "NO031")
-    "NO5"   NUTS("NO011", "NO012", "NO021", "NO022", "NO031")
+    "NO2"   NUTS("NO033", "NO034", "NO041", "NO042", "NO043")
+    "NO3"   NUTS("NO053", "NO060")
+    "NO4"   NUTS("NO071", "NO072", "NO073")
+    "NO5"   NUTS("NO032", "NO051", "NO052")
     "DEN"   NUTS("DK")
     "FI1"   NUTS("FI193", "FI194", "FI195", "FI196", "FI197", "FI1B1", "FI1C1", "FI1C2", "FI1C3", "FI1C4", "FI1C5",
                     "FI1D1", "FI1D2", "FI1D3", "FI1D5", "FI200")
@@ -209,6 +209,7 @@ const europe22 = [
     # Islands that ARE included:  Canarias, Mallorca and other Balearic islands (ES); Madeira, Azores (PT); Åland (FI);
     #                               Corsica, Reunion, Mayotte, Guadeloupe, Martinique, Guyana (FR); Sicily, Sardinia (IT);
     #                               Orkney Islands, Shetney Islands, Western Isles, Isle of Wight (UK); Crete (EL)
+    # But note that non-European territories are eliminated when the region bounding box is set to [34 -11; 72 32].
 ]
 
 # Test region to see if mixed GADM/NUTS notation works
