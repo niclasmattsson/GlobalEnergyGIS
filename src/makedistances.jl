@@ -29,7 +29,10 @@ function makedistances(gisregion; scenarioyear="ssp2_2050", res=0.01)
         write(file, "connectedoffshore", connectedoffshore)
         write(file, "regioncenters_lat", [latlon[1] for latlon in popcenters])
         write(file, "regioncenters_lon", [latlon[2] for latlon in popcenters])
-    end   
+    end
+
+    # Also save the region file in Matlab format
+    regions2matlab(gisregion)
 end
 
 # returns great circle distance in km between points given as (lat,lon) tuples (in degrees).

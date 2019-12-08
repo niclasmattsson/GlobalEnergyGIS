@@ -207,7 +207,7 @@ function regions2matlab(gisregion)
         write(file, "regions", regions)
         write(file, "offshoreregions", offshoreregions)
         write(file, "regionlist", string.(regionlist))
-        write(file, "lonrange", lonrange)
+        write(file, "lonrange", collect(lonrange))
         write(file, "latrange", collect(latrange))
     end
 end
