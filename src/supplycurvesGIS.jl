@@ -52,9 +52,9 @@ function supplycurves_pv(reg, plant_area, persons_per_km2, minclasses, step)
 	# investcost = Dict(:pv => 800, :wind => 1200)
 	# fixedcost = Dict(:pv => 16, :wind => 36)
 	# lifetime = Dict(:pv => 25, :wind => 25)
-	totalcost_a = capacity_a .* (600 * CRF(0.05, 25) + 16)
-	totalcost_b = capacity_b .* ((600+200) * CRF(0.05, 25) + 16)
-	totalcost_r = capacity_r .* (900 * CRF(0.05, 25) + 20)
+	totalcost_a = capacity_a .* (600 * CRF(0.07, 25) + 16)
+	totalcost_b = capacity_b .* ((600+200) * CRF(0.07, 25) + 16)
+	totalcost_r = capacity_r .* (900 * CRF(0.07, 25) + 20)
 	annualenergy_a = capacity_a .* meanCF_a .* 8760
 	annualenergy_b = capacity_b .* meanCF_b .* 8760
 	annualenergy_r = capacity_r .* meanCF_r .* 8760
@@ -83,9 +83,9 @@ function supplycurves_wind(reg, area_onshore, persons_per_km2, minclasses, step)
 	capacity_a = sumdrop(wa, dims=1)
 	capacity_b = sumdrop(wb, dims=1)
 	capacity_off = sumdrop(woff, dims=1)
-	totalcost_a = capacity_a .* (1200 * CRF(0.05, 25) + 43)
-	totalcost_b = capacity_b .* ((1200+200) * CRF(0.05, 25) + 43)
-	totalcost_off = capacity_off .* (2300 * CRF(0.05, 25) + 86)
+	totalcost_a = capacity_a .* (1200 * CRF(0.07, 25) + 43)
+	totalcost_b = capacity_b .* ((1200+200) * CRF(0.07, 25) + 43)
+	totalcost_off = capacity_off .* (2300 * CRF(0.07, 25) + 86)
 	annualenergy_a = capacity_a .* meanCF_a .* 8760
 	annualenergy_b = capacity_b .* meanCF_b .* 8760
 	annualenergy_off = capacity_off .* meanCF_off .* 8760
