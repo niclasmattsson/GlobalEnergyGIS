@@ -722,14 +722,6 @@ git-tree-sha1 = "c53e809e63fe5cf5de13632090bc3520649c9950"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.32.0"
 
-[[TOML]]
-deps = ["Dates"]
-git-tree-sha1 = "f0955321b78cffbe95507e99fde6c41efd03698a"
-repo-rev = "master"
-repo-url = "https://github.com/JuliaStdlibs/TOML.jl"
-uuid = "037cace4-c66a-5006-a6b7-c26ba1b2f83e"
-version = "0.0.0"
-
 [[TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
 git-tree-sha1 = "b1ad568ba658d8cbb3b892ed5380a6f3e781a81e"

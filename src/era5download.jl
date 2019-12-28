@@ -1,4 +1,4 @@
-using PyCall, TOML
+using PyCall, Pkg.TOML
 
 export era5download, saveconfig
 
