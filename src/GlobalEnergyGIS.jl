@@ -6,6 +6,8 @@ using MAT, HDF5, ProgressMeter, Random, Interpolations, BenchmarkTools, Images, 
         NCDatasets, JLD, Parameters, ImageSegmentation, StatsBase, CSV, Distances, Printf, Plots
 
 include("rasterize_shapefiles.jl")
+include("make_auxiliary_datasets.jl")
+include("make_regions.jl")
 include("regiondefinitions.jl")
 include("helperfunctions.jl")
 include("solarposition.jl")

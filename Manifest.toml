@@ -8,9 +8,9 @@ version = "0.5.0"
 
 [[ArchGDAL]]
 deps = ["DataStreams", "Dates", "GDAL", "GeoInterface"]
-git-tree-sha1 = "bf9bdc0ecf69323da1391e157f23f197cc030847"
+git-tree-sha1 = "4b82c0fb3211ca3721eb6f251c748f1ccab72a32"
 uuid = "c9ce4bd3-c3d5-55b8-8973-c0e20141b8c3"
-version = "0.2.2"
+version = "0.3.0"
 
 [[ArnoldiMethod]]
 deps = ["DelimitedFiles", "LinearAlgebra", "Random", "SparseArrays", "StaticArrays", "Test"]
@@ -62,6 +62,11 @@ deps = ["Compat", "Test"]
 git-tree-sha1 = "5d55b9486590fdda5905c275bb21ce1f0754020f"
 uuid = "e1450e63-4bb3-523b-b2a4-4ffa8c0fd77d"
 version = "1.0.0"
+
+[[CEnum]]
+git-tree-sha1 = "62847acab40e6855a9b5905ccb99c2b5cf6b3ebb"
+uuid = "fa961155-64e5-5f13-b03f-caf6b980ea82"
+version = "0.2.0"
 
 [[CFTime]]
 deps = ["Dates", "Printf"]
@@ -263,10 +268,10 @@ deps = ["Random"]
 uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
 [[GDAL]]
-deps = ["BinaryProvider", "Libdl", "Test"]
-git-tree-sha1 = "100429098b7ec9930f7db9ba68aee3495365be24"
+deps = ["BinaryProvider", "CEnum", "Libdl"]
+git-tree-sha1 = "9bf43e21980e4723d8e57b90cfdf66337a4d40c8"
 uuid = "add2ef01-049f-52c4-9ee2-e494f65e021a"
-version = "0.2.0"
+version = "1.0.2"
 
 [[GR]]
 deps = ["Base64", "DelimitedFiles", "LinearAlgebra", "Printf", "Random", "Serialization", "Sockets", "Test"]
@@ -326,10 +331,10 @@ uuid = "2803e5a7-5153-5ecf-9a86-9b4c37f5f5ac"
 version = "0.6.1"
 
 [[ImageCore]]
-deps = ["ColorTypes", "Colors", "FFTW", "FixedPointNumbers", "Graphics", "MappedArrays", "OffsetArrays", "PaddedViews", "Reexport"]
-git-tree-sha1 = "17a646b2b4f018d36170a99cb6a690773bb69ede"
+deps = ["Colors", "FixedPointNumbers", "Graphics", "MappedArrays", "OffsetArrays", "PaddedViews", "Reexport", "Requires"]
+git-tree-sha1 = "8bad767299f4eab28f231a92af2746137f3165af"
 uuid = "a09fc81d-aa75-5fe9-8630-4744c3626534"
-version = "0.8.7"
+version = "0.8.8"
 
 [[ImageDistances]]
 deps = ["ColorVectorSpace", "Colors", "Distances", "ImageCore", "LinearAlgebra", "MappedArrays", "Statistics"]
