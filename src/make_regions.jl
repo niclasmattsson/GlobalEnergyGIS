@@ -54,7 +54,8 @@ function saveregions_global_gadm0()
 end
 
 function loadregions(regionname)
-    jldopen("regions_$regionname.jld", "r") do file
+    datafolder = getconfig("datafolder")
+    jldopen(joinpath(datafolder, "regions_$regionname.jld"), "r") do file
         return read(file, "regions"), read(file, "offshoreregions"), read(file, "regionlist"),
                     read(file, "lonrange"), read(file, "latrange")
     end

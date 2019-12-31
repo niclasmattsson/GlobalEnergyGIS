@@ -14,7 +14,7 @@ function makesolarera5(year=2018, land_cells_only=true)
     filename = joinpath(datafolder, "era5solar$year.h5")
     isfile(filename) && error("File $filename exists in $datafolder, please delete or rename manually.")
 
-    land = imresize(JLD.load("landcover.jld", "landcover"), gridsize)
+    land = imresize(JLD.load(joinpath(datafolder, "landcover.jld"), "landcover"), gridsize)
 
     println("Creating HDF5 file:  $filename")
     h5open(filename, "w") do file 
