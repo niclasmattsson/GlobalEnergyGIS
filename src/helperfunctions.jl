@@ -113,6 +113,29 @@ end
 
 selfmap!(f,x) = map!(f,x,x)
 
+# Apply a function fn to the data matrix by chunks to avoid memory issues
+function gridsplit(data::AbstractArray, fn::Function, elemtype::DataType; nmax=9000, overlap=250)
+    rows, cols = size(data)
+    nparts = length(1:nmax:rows) * length(1:nmax:cols)
+    nparts > 1 && println("\nSplitting data matrix into $nparts parts to avoid memory issues...")
+    result = zeros(elemtype, size(data))
+    part = 0
+    for r = 1:nmax:rows, c = 1:nmax:cols
+        part += 1
+        nparts > 1 && println("\nPart $part/$nparts:")
+        rowrange_in = max(r-overlap, 1):min(r-1+nmax+overlap, rows)
+        colrange_in = max(c-overlap, 1):min(c-1+nmax+overlap, cols)
+        rowrange_out = r:min(r-1+nmax, rows)
+        colrange_out = c:min(c-1+nmax, cols)
+        rowdelta = rowrange_out[1] - rowrange_in[1] + 1
+        coldelta = colrange_out[1] - colrange_in[1] + 1
+        rowrange_delta = rowdelta:(rowdelta + length(rowrange_out) - 1)
+        colrange_delta = coldelta:(coldelta + length(colrange_out) - 1)
+        result[rowrange_out,colrange_out] = fn(data[rowrange_in,colrange_in])[rowrange_delta,colrange_delta]
+    end
+    return result
+end
+
 row2lon(row::Int, res) = (row - 0.5) * res - 180
 col2lat(col::Int, res) = 90 - (col - 0.5) * res
 lon2row(lon::Real, res) = floor(Int, mod(180+lon, 360) / res) + 1

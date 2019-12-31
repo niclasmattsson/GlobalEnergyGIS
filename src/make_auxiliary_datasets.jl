@@ -276,7 +276,9 @@ function creategridaccess(scen, year)
     res = 360/size(gdp,1)
 
     disk = diskfilterkernel(1/6/res)                        # filter radius = 1/6 degrees
-    gridaccess = Float32.(imfilter(gdp .> 100_000, disk))   # only "high" income cells included (100 kUSD/cell), cell size = 1x1 km          
+    gridaccess = gridsplit(gdp .> 100_000, x -> imfilter(x, disk), Float32)
+    # gridaccess = Float32.(imfilter(gdp .> 100_000, disk))   # only "high" income cells included (100 kUSD/cell), cell size = 1x1 km          
+    println("\nCompressing...")
     selfmap!(x -> ifelse(x<1e-6, 0, x), gridaccess)         # force small values to zero to reduce dataset size
     println("Saving high resolution grid access...")
     JLD.save(joinpath(datafolder, "gridaccess_$(scen)_$year.jld"), "gridaccess", gridaccess, compress=true)

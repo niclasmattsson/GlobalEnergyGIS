@@ -157,28 +157,10 @@ end
 # those areas still won't be available for offshore wind power because of the
 # requirement to be close enough to the electricity grid (or rather the grid proxy).
 function makeoffshoreregions(regions, landcover)
-    @time lakes = findlakes(regions)
+    @time lakes = gridsplit(regions, majorlakes, Bool)  # = majorlakes(regions), but chunked calculation
     println("\nMaking offshore region index matrix...")
     closest_region = regions[feature_transform(regions.>0)]
     return closest_region .* ((regions .== 0) .| lakes) .* (landcover.==0)
-end
-
-# The majorlakes() function fails on systems with 16 GB RAM if the regions matrix is large, so split it up first.
-function findlakes(regions)
-    nmax = 9000
-    rows, cols = size(regions)
-    nparts = length(1:nmax:rows) * length(1:nmax:cols)
-    println("\nSplitting regions matrix into $nparts parts to identify lakes...")
-    lakes = zeros(Bool, size(regions))
-    part = 0
-    for r = 1:nmax:rows, c = 1:nmax:cols
-        part += 1
-        println("\nPart $part/$nparts:")
-        rowrange = max(r-500, 1):min(r+nmax+1000, rows)  # use 500 px overlap in case lakes cross boundaries
-        colrange = max(c-500, 1):min(c+nmax+1000, cols)
-        lakes[rowrange,colrange] = lakes[rowrange,colrange] .| majorlakes(regions[rowrange,colrange])
-    end
-    return lakes
 end
 
 # Use ImageSegmentation.jl to identify large lakes (large enough for offshore wind).
