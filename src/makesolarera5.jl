@@ -1,4 +1,4 @@
-export makesolarera5
+export makesolarera5, clearvars_era5
 
 # TO DO: save FDIR to disk (masked by land cover) for parabolic troughs (oriented north-south).
 
@@ -156,6 +156,31 @@ end
 
 # correction term to reduce horizon artifacts
 horizoncorrection(zen) = 1/50 * max(0, rad2deg(zen)-85).^2
+
+function clearvars_era5(solar_or_wind; year=2018)
+    if solar_or_wind == "all"
+        clearvars_era5("solar", year=year)
+        clearvars_era5("wind", year=year)
+        return
+    end
+    datafolder = getconfig("datafolder")
+    downloadsfolder = joinpath(datafolder, "downloads")
+    for month = 1:12, monthhalf = 1:2
+        if monthhalf == 1
+            firstday, lastday = "01", "15"
+        else
+            firstday = "16"
+            lastday = Dates.daysinmonth(Date("$year-$month"))
+        end
+        monthstr = lpad(month,2,'0')
+        date = "$year-$monthstr-$firstday/$year-$monthstr-$lastday"
+        erafile = joinpath(downloadsfolder, "$solar_or_wind$year-$monthstr$firstday-$monthstr$lastday.nc")
+
+        println("Deleting $erafile...")
+        rm(erafile)
+    end
+end
+
 
 # SOLAR INSOLATION CALCULATIONS FOR PV
 #
