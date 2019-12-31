@@ -124,7 +124,8 @@ function GISwind(; savetodisk=true, optionlist...)
         end
     end
 
-    return windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore
+    nothing
+    # return windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore
 end
 
 function read_datasets(options)
@@ -192,7 +193,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     disk = diskfilterkernel(distance_elec_access/km_per_degree/res)
     gridB = (imfilter(gridaccess, disk) .> 0.1)
 
-    println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
+    # println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
 
     # all mask conditions
     mask_onshoreA = gridA .& (popdens .< persons_per_km2) .& goodland .& .!protected_area
@@ -281,7 +282,7 @@ end
 
 function makewindclasses(options, windatlas)
     println("Allocating pixels to classes using the Global Wind Atlas...")
-    println("CHANGE TO CAPACITY FACTOR LATER!")
+    # println("CHANGE TO CAPACITY FACTOR LATER!")
 
     @unpack onshoreclasses_min, onshoreclasses_max, offshoreclasses_min, offshoreclasses_max = options
 
@@ -319,7 +320,7 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
 
     if rescale_to_wind_atlas
         println("\nRescaling ERA5 wind speeds to match annual wind speeds from the Global Wind Atlas.")
-        println("This will increase run times by an order of magnitude (since GWA has very high spatial resolution).")
+        # println("This will increase run times by an order of magnitude (since GWA has very high spatial resolution).")
     end
 
     # Run times vary wildly depending on geographical area (because of far offshore regions with mostly zero wind speeds).
@@ -400,7 +401,7 @@ function calc_wind_map(options, windatlas, meanwind, windspeed, regions, offshor
                 mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
 
     println("Calculating GW potential and hourly capacity factors for each region and wind class...")
-    println("Interpolate ERA5 wind speeds later (maybe 4x runtime).")
+    # println("Interpolate ERA5 wind speeds later (maybe 4x runtime).")
 
     onshoreclass, offshoreclass = makewindclasses(options, windatlas)
     eralons, eralats, lonmap, latmap, cellarea = eralonlat(options, lonrange, latrange)

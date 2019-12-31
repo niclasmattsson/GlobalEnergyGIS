@@ -149,8 +149,9 @@ function GISsolar(; savetodisk=true, optionlist...)
         end
     end
 
-    return CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB,
-            capacity_pvrooftop, capacity_pvplantA, capacity_pvplantB, capacity_cspplantA, capacity_cspplantB
+    nothing
+    # return CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB,
+    #         capacity_pvrooftop, capacity_pvplantA, capacity_pvplantB, capacity_cspplantA, capacity_cspplantB
 end
 
 function read_solar_datasets(options, lonrange, latrange)
@@ -199,7 +200,7 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
     disk = diskfilterkernel(distance_elec_access/km_per_degree/res)
     gridB = (imfilter(gridaccess, disk) .> 0.1)
 
-    println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
+    # println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
 
     # all mask conditions
     mask_rooftop = gridA .& (popdens .> pvroof_persons_per_km2) .& goodland .& .!protected_area
