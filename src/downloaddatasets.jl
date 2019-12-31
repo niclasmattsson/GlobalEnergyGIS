@@ -22,9 +22,20 @@ function download_datasets(startfile=1)
         ("1-km downscaled spatial population scenarios (Gao et al)", "temp_ssp2.tar",
             "http://www.cgd.ucar.edu/iam/modeling/data/SSP2_1km_netcdf.tar"),
         ("Global population & GDP", "temp_popgdp.zip",
-            "https://osf.io/7jv3n/download")
+            "https://osf.io/7jv3n/download"),
+        ("WRI Global Power Plant Database", "WRI - Global Power Plant Database v1.10.zip",
+            "https://chalmersuniversity.box.com/shared/static/ss6gycw7hf10e1fiicbxl5rgk08q5xr9.zip"),
+            # switch to the official v1.2 link later (some plant cleanup is hardcoded for v1.1) 
+            # "http://datasets.wri.org/dataset/540dcf46-f287-47ac-985d-269b04bea4c6/resource/c240ed2e-1190-4d7e-b1da-c66b72e08858/download/globalpowerplantdatabasev120"),
+        ("Hydropower - future potential (Gernaat et al)", "Hydro database (Gernaat) - potential.csv",
+            "https://chalmersuniversity.box.com/shared/static/uxsa2wfj7o6s6upknjagnhwfa88aw3cx.csv"),
+        ("Hydropower - existing capacity (Gernaat et al)", "Hydro database (Gernaat) - existing (GRanD).csv",
+            "https://chalmersuniversity.box.com/shared/static/cnbqvt1oxnzyky0gb5k978ki9xp1ea23.csv"),
+        ("Country-level hydropower capacity (WEC)", "WEC hydro capacity 2015.csv",
+            "https://chalmersuniversity.box.com/shared/static/0kmxcatjzt8ivo4ktw65yoybts2uht76.csv"),
+        ("Country-level hydropower potential (WEC)", "WEC hydro potentials.csv",
+            "https://chalmersuniversity.box.com/shared/static/czkpqr0b6572bzdslyn76gsrxvc87vvc.csv")
     ]
-
 
     for (i, datasetinfo) in enumerate(datasets)
         i < startfile && continue
