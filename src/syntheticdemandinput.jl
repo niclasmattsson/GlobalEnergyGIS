@@ -1,10 +1,3 @@
-function ieadatabasedownloader()
-    # put this function outside of GlobalEnergyGIS!
-    # In GlobalEnergyGIS, just include a vector of demands (field Domestic Supply) stored as JLD file.
-    # use code from imagedownloader
-    return # Vector{Float32}(length numcountries, indexed by gadm country code)
-end
-
 function readsspdemand()
     return # Dict((region,model,year) => sspdemand)
 end
