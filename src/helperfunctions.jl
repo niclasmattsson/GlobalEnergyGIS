@@ -315,12 +315,14 @@ function matlab2elin()
     capvar = ["capacity_pvplantA", "capacity_pvrooftop", "capacity_cspplantA", "capacity_onshoreA", "capacity_offshore"]
     cfvar = ["CFtime_pvplantA", "CFtime_pvrooftop", "CFtime_cspplantA", "CFtime_windonshoreA", "CFtime_windoffshore"]
 
-    winddata = matread("D:/elin/GISdata_wind$(era_year)_$gisregion$filenamesuffix.mat")
-    solardata = matread("D:/elin/GISdata_solar$(era_year)_$gisregion$filenamesuffix.mat")
+    outputfolder = joinpath(getconfig("datafolder"), "output")
+
+    winddata = matread(joinpath(outputfolder, "GISdata_wind$(era_year)_$gisregion$filenamesuffix.mat"))
+    solardata = matread(joinpath(outputfolder, "GISdata_solar$(era_year)_$gisregion$filenamesuffix.mat"))
     data = merge(winddata, solardata)
 
     for t = 1:length(tech)
-        open("D:/elin/capacity_$(tech[t]).inc", "w") do f
+        open(joinpath(outputfolder, "capacity_$(tech[t]).inc", "w")) do f
             for (r,reg) in enumerate(region)
                 for c = 1:nclass[t]
                     val = data[capvar[t]][r,c]
@@ -328,7 +330,7 @@ function matlab2elin()
                 end
             end
         end
-        open("D:/elin/cf_$(tech[t]).inc", "w") do f
+        open(joinpath(outputfolder, "cf_$(tech[t]).inc", "w")) do f
             for (r,reg) in enumerate(region)
                 for c = 1:nclass[t]
                     for h = 1:8760
