@@ -1,7 +1,8 @@
 export rasterize_datasets, create_scenario_datasets, cleanup_datasets, makeprotected, savelandcover,
         createGDP, creategridaccess, getpopulation, getwindatlas
 
-function rasterize_datasets(; cleanup=:limited)
+# cleanup options: :none, :limited, :all
+function rasterize_datasets(; cleanup=:all)
     rasterize_GADM()
     rasterize_NUTS()
     rasterize_protected()
@@ -10,7 +11,7 @@ function rasterize_datasets(; cleanup=:limited)
     savelandcover()
     upscale_topography()
     saveregions_global_gadm0()
-    cleanup_datasets(cleanup)
+    cleanup_datasets(cleanup=cleanup)
 end
 
 function create_scenario_datasets(scen, year)
@@ -22,7 +23,9 @@ function create_scenario_datasets(scen, year)
     creategridaccess(scen, year)
 end
 
-function cleanup_datasets(cleanup=:limited)
+# cleanup options: :none, :limited, :all
+function cleanup_datasets(; cleanup=:all)
+    cleanup == :none && return
     datafolder = getconfig("datafolder")
     rm(joinpath(datafolder, "protected_raster.tif"))
     rm(joinpath(datafolder, "protectedfields.csv"))
