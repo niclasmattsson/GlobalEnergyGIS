@@ -4,6 +4,9 @@ export download_datasets
 
 function download_datasets(startfile=1)
     datafolder = getconfig("datafolder")
+    if !isfile(datafolder)
+        mkpath(datafolder)
+    end
 
     # tuples of (dataset_name, filename, url)
     datasets = [
@@ -34,7 +37,9 @@ function download_datasets(startfile=1)
         ("Country-level hydropower capacity (WEC)", "WEC hydro capacity 2015.csv",
             "https://chalmersuniversity.box.com/shared/static/0kmxcatjzt8ivo4ktw65yoybts2uht76.csv"),
         ("Country-level hydropower potential (WEC)", "WEC hydro potentials.csv",
-            "https://chalmersuniversity.box.com/shared/static/czkpqr0b6572bzdslyn76gsrxvc87vvc.csv")
+            "https://chalmersuniversity.box.com/shared/static/czkpqr0b6572bzdslyn76gsrxvc87vvc.csv"),
+        ("Synthetic demand input data", "synthetic_demand_data.zip",
+            "https://chalmersuniversity.box.com/shared/static/2xe2tdo4ylmldv7e2mc8p0fd1x15gcis.zip")
     ]
 
     for (i, datasetinfo) in enumerate(datasets)
@@ -62,6 +67,11 @@ function download_datasets(startfile=1)
     println("\nUnpacking archive: $filename")
     unpack(joinpath(datafolder, "nuts-2016-01m.shp", filename), joinpath(datafolder, "nuts2016-level3"), ".zip")
 
+    syntheticdemandfolder = joinpath(datafolder, "syntheticdemand")
+    mkpath(syntheticdemandfolder)
+    mkpath(joinpath(syntheticdemandfolder, "output"))
+    cp(joinpath(dirname(@__FILE__), "synthetic_demand_demo.py"), joinpath(syntheticdemandfolder, "synthetic_demand_demo.py"))
+
     println("\n\n\nCleaning up...")
 
     mv(joinpath(datafolder, "ETOPO1_Ice_c_geotiff", "ETOPO1_Ice_c_geotiff.tif"), joinpath(datafolder, "ETOPO1_Ice_c_geotiff.tif"))
@@ -72,6 +82,8 @@ function download_datasets(startfile=1)
     rm(joinpath(datafolder, "temp_ssp2"), force=true, recursive=true)
     rm(joinpath(datafolder, "SSP2_1km", "PaxHeaders.62069"), force=true, recursive=true)
     rm(joinpath(datafolder, "nuts-2016-01m.shp"), force=true, recursive=true)
+    mv(joinpath(datafolder, "synthetic_demand_data", "data"), joinpath(syntheticdemandfolder, "data"))
+    rm(joinpath(datafolder, "synthetic_demand_data.zip"))
 
     for datasetinfo in datasets
         name, filename, url = datasetinfo
