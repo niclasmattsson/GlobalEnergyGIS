@@ -82,6 +82,10 @@ function download_datasets(startfile=1)
     rm(joinpath(datafolder, "temp_ssp2"), force=true, recursive=true)
     rm(joinpath(datafolder, "SSP2_1km", "PaxHeaders.62069"), force=true, recursive=true)
     rm(joinpath(datafolder, "nuts-2016-01m.shp"), force=true, recursive=true)
+    mv(joinpath(datafolder, "WRI - Global Power Plant Database v1.10"), joinpath(datafolder, "tempWRI"))
+    mv(joinpath(datafolder, "tempWRI", "WRI - Global Power Plant Database v1.10"),
+        joinpath(datafolder, "WRI - Global Power Plant Database v1.10"))
+    rm(joinpath(datafolder, "tempWRI"))
     mv(joinpath(datafolder, "synthetic_demand_data", "data"), joinpath(syntheticdemandfolder, "data"))
     rm(joinpath(datafolder, "synthetic_demand_data.zip"))
 
