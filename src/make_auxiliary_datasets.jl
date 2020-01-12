@@ -27,13 +27,13 @@ end
 function cleanup_datasets(; cleanup=:all)
     cleanup == :none && return
     datafolder = getconfig("datafolder")
-    rm(joinpath(datafolder, "protected_raster.tif"))
-    rm(joinpath(datafolder, "protectedfields.csv"))
-    rm(joinpath(datafolder, "landcover.tif"))
-    rm(joinpath(datafolder, "topography.tif"))
+    rm(joinpath(datafolder, "protected_raster.tif"), force=true)
+    rm(joinpath(datafolder, "protectedfields.csv"), force=true)
+    rm(joinpath(datafolder, "landcover.tif"), force=true)
+    rm(joinpath(datafolder, "topography.tif"), force=true)
     if cleanup == :all
-        rm(joinpath(datafolder, "Landcover - USGS MODIS.tif"))
-        rm(joinpath(datafolder, "ETOPO1_Ice_c_geotiff.tif"))
+        rm(joinpath(datafolder, "Landcover - USGS MODIS.tif"), force=true)
+        rm(joinpath(datafolder, "ETOPO1_Ice_c_geotiff.tif"), force=true)
         rm(joinpath(datafolder, "gadm36"), force=true, recursive=true)
         rm(joinpath(datafolder, "nuts2016-level3"), force=true, recursive=true)
         rm(joinpath(datafolder, "WDPA_Jan2020"), force=true, recursive=true)
@@ -216,8 +216,8 @@ function downscale_population(scen, year)
     println("Saving population dataset...")
     JLD.save(joinpath(datafolder, "population_$(scen)_$year.jld"), "population", newpop, compress=true)
 
-    rm(temptiff)
-    rm(temptiff2)
+    rm(temptiff, force=true)
+    rm(temptiff2, force=true)
 end
 
 function getpopulation(scen, year)
@@ -247,7 +247,7 @@ function createGDP(scen, year)
     # rm(tempfile)
 
     @time gdphigh = downscale_lowres_gdp_per_capita(tempfile, scen, year)     # unit: USD(2010)/grid cell, PPP
-    rm(tempfile)
+    rm(tempfile, force=true)
     println("Saving high resolution GDP...")
     JLD.save(joinpath(datafolder, "gdp_$(scen)_$year.jld"), "gdp", gdphigh, compress=true)
 end
