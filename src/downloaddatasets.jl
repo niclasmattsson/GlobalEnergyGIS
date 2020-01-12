@@ -9,8 +9,8 @@ function download_datasets(startfile=1)
     datasets = [
         ("Global Wind Atlas", "Global Wind Atlas v1 - 100m wind speed.tif",
             "https://chalmersuniversity.box.com/shared/static/25cjcah213sk4wdkqwi8t8kxxoy3hh6k.tif"),
-        ("WDPA (protected areas):   [add code to check for monthly updates]", "WDPA_Dec2019.zip",
-            "https://www.protectedplanet.net/downloads/WDPA_Dec2019?type=shapefile"),
+        ("WDPA (protected areas):   [add code to check for monthly updates]", "WDPA_Jan2020.zip",
+            "https://www.protectedplanet.net/downloads/WDPA_Jan2020?type=shapefile"),
         ("GADM (global administrative areas)", "gadm36.zip",
             "https://biogeo.ucdavis.edu/data/gadm3.6/gadm36_shp.zip"),
         ("NUTS (administrative areas in Europe)", "nuts-2016-01m.shp.zip",

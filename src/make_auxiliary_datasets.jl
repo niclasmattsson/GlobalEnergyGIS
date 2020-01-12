@@ -36,7 +36,7 @@ function cleanup_datasets(; cleanup=:all)
         rm(joinpath(datafolder, "ETOPO1_Ice_c_geotiff.tif"))
         rm(joinpath(datafolder, "gadm36"), force=true, recursive=true)
         rm(joinpath(datafolder, "nuts2016-level3"), force=true, recursive=true)
-        rm(joinpath(datafolder, "WDPA_Dec2019"), force=true, recursive=true)
+        rm(joinpath(datafolder, "WDPA_Jan2020"), force=true, recursive=true)
     end
 end
 
@@ -103,15 +103,15 @@ function rasterize_protected()
     println("Rasterizing WDPA shapefile for protected areas (run time 10 minutes - 2 hours)...")
     ENV["PROJ_LIB"] = abspath(dirname(pathof(GDAL)), "../deps/usr/share/proj") # hack to fix GDAL/PROJ path
     datafolder = getconfig("datafolder")
-    shapefile = joinpath(datafolder, "WDPA_Dec2019", "WDPA_Dec2019-shapefile-polygons.shp")
-    sql = "select FID from \"WDPA_Dec2019-shapefile-polygons\""
+    shapefile = joinpath(datafolder, "WDPA_Jan2020", "WDPA_Jan2020-shapefile-polygons.shp")
+    sql = "select FID from \"WDPA_Jan2020-shapefile-polygons\""
     outfile = joinpath(datafolder, "protected_raster.tif")
     options = "-a FID -a_nodata -1 -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
     gdal_rasterize = GDAL.gdal.gdal_rasterize_path
     @time run(`$gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile`)
 
     println("Creating .csv file for WDPA index and name lookup...")
-    sql = "select FID,IUCN_CAT from \"WDPA_Dec2019-shapefile-polygons\""
+    sql = "select FID,IUCN_CAT from \"WDPA_Jan2020-shapefile-polygons\""
     outfile = joinpath(datafolder, "protectedfields.csv")
     ogr2ogr = GDAL.gdal.ogr2ogr_path
     @time run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
