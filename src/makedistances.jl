@@ -24,13 +24,6 @@ function makedistances(gisregion; scenarioyear="ssp2_2050", res=0.01)
         write(file, "regionlist", string.(regionlist))
         # write(file, "population", pop)
         # write(file, "demand", demand)
-    end
-    
-    # another version for plotting projected maps in Matlab 
-    matopen(joinpath(outputfolder, "matlabdistances_$gisregion.mat"), "w") do file
-        write(file, "distances", distances)
-        write(file, "connected", connected)
-        write(file, "connectedoffshore", connectedoffshore)
         write(file, "regioncenters_lat", [latlon[1] for latlon in popcenters])
         write(file, "regioncenters_lon", [latlon[2] for latlon in popcenters])
     end
