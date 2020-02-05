@@ -25,11 +25,14 @@ end
 function rasterize(infile::String, outfile::String, options::Vector{<:AbstractString}; sql::String="")
     gdal_rasterize = GDAL.gdal.gdal_rasterize_path
     ENV["PROJ_LIB"] = abspath(dirname(pathof(GDAL)), "../deps/usr/share/proj") # hack to fix GDAL/PROJ path
+    oldpath = pwd()
+    cd(Sys.BINDIR)  # Another hack to access libs in BINDIR, e.g. libstdc++-6.dll
     if isempty(sql)
         run(`$gdal_rasterize $options $infile $outfile`)
     else
         run(`$gdal_rasterize $options -sql $sql $infile $outfile`)
     end
+    cd(oldpath)
 end
 
 function getextent(geotransform::Vector{Float64}, rastersize::Tuple{Int,Int})

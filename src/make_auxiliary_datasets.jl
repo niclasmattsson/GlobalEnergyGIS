@@ -43,6 +43,8 @@ end
 function rasterize_GADM()
     println("Rasterizing GADM shapefile for global administrative areas (10+ minute run time)...")
     ENV["PROJ_LIB"] = abspath(dirname(pathof(GDAL)), "../deps/usr/share/proj") # hack to fix GDAL/PROJ path
+    oldpath = pwd()
+    cd(Sys.BINDIR)  # Another hack to access libs in BINDIR, e.g. libstdc++-6.dll
     datafolder = getconfig("datafolder")
     shapefile = joinpath(datafolder, "gadm36", "gadm36.shp")
     outfile = joinpath(datafolder, "gadm.tif")
@@ -56,12 +58,15 @@ function rasterize_GADM()
     outfile = joinpath(datafolder, "gadmfields.csv")
     ogr2ogr = GDAL.gdal.ogr2ogr_path
     @time run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
+    cd(oldpath)
     nothing
 end
 
 function rasterize_NUTS()
     println("Rasterizing NUTS shapefile for European administrative areas...")
     ENV["PROJ_LIB"] = abspath(dirname(pathof(GDAL)), "../deps/usr/share/proj") # hack to fix GDAL/PROJ path
+    oldpath = pwd()
+    cd(Sys.BINDIR)  # Another hack to access libs in BINDIR, e.g. libstdc++-6.dll
     datafolder = getconfig("datafolder")
     name = "NUTS_RG_01M_2016_4326_LEVL_3"
     shapefile = joinpath(datafolder, "nuts2016-level3", "$name.shp")
@@ -75,6 +80,7 @@ function rasterize_NUTS()
     sql = "select ROWID+1 AS ROWID,* from $name"
     ogr2ogr = GDAL.gdal.ogr2ogr_path
     @time run(`$ogr2ogr -f CSV $outfile -dialect SQlite -sql $sql $shapefile`)
+    cd(oldpath)
     nothing
 end
 
@@ -102,6 +108,8 @@ end
 function rasterize_protected()
     println("Rasterizing WDPA shapefile for protected areas (run time 10 minutes - 2 hours)...")
     ENV["PROJ_LIB"] = abspath(dirname(pathof(GDAL)), "../deps/usr/share/proj") # hack to fix GDAL/PROJ path
+    oldpath = pwd()
+    cd(Sys.BINDIR)  # Another hack to access libs in BINDIR, e.g. libstdc++-6.dll
     datafolder = getconfig("datafolder")
     shapefile = joinpath(datafolder, "WDPA_Feb2020", "WDPA_Feb2020-shapefile-polygons.shp")
     sql = "select FID from \"WDPA_Feb2020-shapefile-polygons\""
@@ -115,6 +123,7 @@ function rasterize_protected()
     outfile = joinpath(datafolder, "protectedfields.csv")
     ogr2ogr = GDAL.gdal.ogr2ogr_path
     @time run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
+    cd(oldpath)
     nothing
 end
 
@@ -140,8 +149,11 @@ end
 
 function resample(infile::String, outfile::String, options::Vector{<:AbstractString})
     ENV["PROJ_LIB"] = abspath(dirname(pathof(GDAL)), "../deps/usr/share/proj") # hack to fix GDAL/PROJ path
+    oldpath = pwd()
+    cd(Sys.BINDIR)  # Another hack to access libs in BINDIR, e.g. libstdc++-6.dll
     gdal_translate = GDAL.gdal.gdal_translate_path
     @time run(`$gdal_translate $options -co COMPRESS=LZW $infile $outfile`)
+    cd(oldpath)
 end
 
 function downscale_landcover()
