@@ -78,7 +78,7 @@ end
 function regions2matlab(gisregion)
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
     datafolder = getconfig("datafolder")
-    matopen(joinpath(datafolder, "regions_$gisregion.mat"), "w") do file
+    matopen(joinpath(datafolder, "regions_$gisregion.mat"), "w", compress=true) do file
         write(file, "regions", regions)
         write(file, "offshoreregions", offshoreregions)
         write(file, "regionlist", string.(regionlist))
