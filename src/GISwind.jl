@@ -329,13 +329,13 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
     updateprogress = Progress(nlats, 1)
     @inbounds for j in randperm(nlats)
         eralat = eralats[j]
-        colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2+res/5, res)]
+        colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2, res)-1]
         for i = 1:nlons
             meanwind[i,j] == 0 && continue
             wind = rescale_to_wind_atlas ? windspeed[:, i, j] : speed2capacityfactor.(windspeed[:, i, j])
             eralon = eralons[i]
             # get all high resolution row and column indexes within this ERA5 cell         
-            rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2-res/5, res)]
+            rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2, res)-1]
 
             for c in colrange, r in rowrange
                 (c == 0 || r == 0) && continue
@@ -427,13 +427,13 @@ function calc_wind_map(options, windatlas, meanwind, windspeed, regions, offshor
     updateprogress = Progress(nlats, 1)
     @inbounds for j in randperm(nlats)
         eralat = eralats[j]
-        colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2+res/5, res)]
+        colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2, res)-1]
         for i = 1:nlons
             meanwind[i,j] == 0 && continue
             wind = rescale_to_wind_atlas ? windspeed[:, i, j] : speed2capacityfactor.(windspeed[:, i, j])
             eralon = eralons[i]
             # get all high resolution row and column indexes within this ERA5 cell         
-            rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2-res/5, res)]
+            rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2, res)-1]
 
             for c in colrange, r in rowrange
                 (c == 0 || r == 0) && continue

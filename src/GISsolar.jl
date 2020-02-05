@@ -280,14 +280,14 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
     updateprogress = Progress(nlats, 1)
     @inbounds for j in randperm(nlats)
         eralat = eralats[j]
-        colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2+res/5, res)]
+        colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2, res)-1]
         for i = 1:nlons
             meanGTI[i,j] == 0 && meanDNI[i,j] == 0 && continue
             GTI = solarGTI[:, i, j]
             DNI = solarDNI[:, i, j]
             eralon = eralons[i]
             # get all high resolution row and column indexes within this ERA5 cell         
-            rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2-res/5, res)]
+            rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2, res)-1]
 
             for c in colrange, r in rowrange
                 (c == 0 || r == 0) && continue
@@ -406,14 +406,14 @@ function calc_solar_map(options, meanGTI, solarGTI, meanDNI, solarDNI, regions, 
     updateprogress = Progress(nlats, 1)
     @inbounds for j in randperm(nlats)
         eralat = eralats[j]
-        colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2+res/5, res)]
+        colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2, res)-1]
         for i = 1:nlons
             meanGTI[i,j] == 0 && meanDNI[i,j] == 0 && continue
             GTI = solarGTI[:, i, j]
             DNI = solarDNI[:, i, j]
             eralon = eralons[i]
             # get all high resolution row and column indexes within this ERA5 cell         
-            rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2-res/5, res)]
+            rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2, res)-1]
 
             for c in colrange, r in rowrange
                 (c == 0 || r == 0) && continue
