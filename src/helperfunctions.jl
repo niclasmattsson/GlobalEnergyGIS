@@ -301,9 +301,7 @@ function drawregionmap(regionname)
     display(heatmap(reg .+ (reg.>0).*20, size=(1200, 900)))
 end
 
-function matlab2elin()
-    era_year = 2018
-    gisregion = "Europe54"
+function matlab2elin(; gisregion="Europe8", year=2018)
     filenamesuffix = ""
     _, _, regionlist, _, _ = loadregions(gisregion)
     
@@ -317,12 +315,12 @@ function matlab2elin()
 
     outputfolder = joinpath(getconfig("datafolder"), "output")
 
-    winddata = matread(joinpath(outputfolder, "GISdata_wind$(era_year)_$gisregion$filenamesuffix.mat"))
-    solardata = matread(joinpath(outputfolder, "GISdata_solar$(era_year)_$gisregion$filenamesuffix.mat"))
+    winddata = matread(joinpath(outputfolder, "GISdata_wind$(year)_$gisregion$filenamesuffix.mat"))
+    solardata = matread(joinpath(outputfolder, "GISdata_solar$(year)_$gisregion$filenamesuffix.mat"))
     data = merge(winddata, solardata)
 
     for t = 1:length(tech)
-        open(joinpath(outputfolder, "capacity_$(tech[t]).inc", "w")) do f
+        open(joinpath(outputfolder, "capacity_$(tech[t]).inc"), "w") do f
             for (r,reg) in enumerate(region)
                 for c = 1:nclass[t]
                     val = data[capvar[t]][r,c]
@@ -330,7 +328,7 @@ function matlab2elin()
                 end
             end
         end
-        open(joinpath(outputfolder, "cf_$(tech[t]).inc", "w")) do f
+        open(joinpath(outputfolder, "cf_$(tech[t]).inc"), "w") do f
             for (r,reg) in enumerate(region)
                 for c = 1:nclass[t]
                     for h = 1:8760
