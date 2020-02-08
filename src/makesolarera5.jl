@@ -4,7 +4,7 @@ export makesolarera5, clearvars_era5
 
 # Can optionally zero water cells in the landcover dataset to save a lot of disk space.
 # add options to save all three CSP variables: tower, trough-NS, trough-EW.
-function makesolarera5(year=2018, land_cells_only=true)
+function makesolarera5(; year=2018, land_cells_only=true)
     hours = 24*Dates.daysinyear(year)
     gridsize = (1280,640)
 

@@ -1,7 +1,7 @@
 export makewindera5
 
 # Can optionally zero cells that are zero in the Global Wind Atlas to save a lot of disk space.
-function makewindera5(year=2018, windatlas_only=true)
+function makewindera5(; year=2018, windatlas_only=true)
     hours = 24*Dates.daysinyear(year)
     gridsize = (1280,640)
 
