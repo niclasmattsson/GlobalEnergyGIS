@@ -19,9 +19,16 @@ function make_sspregionlookup(ssp)
     return sspregions # Vector{String}(length numcountries, indexed by gadm country code)
 end
 
+function getnationalpopulation(scenarioyear)
+	datafolder = getconfig("datafolder")
+	filename = joinpath(datafolder, "nationalpopulation_$scenarioyear.jld")
+	natpop = isfile(filename) ? JLD.load(filename, "natpop") : savenationalpopulation(scenarioyear)
+    return natpop
+end
+
 # load population dataset and sum globally by country
 # Vector{Float64}(length numcountries, indexed by gadm country code)
-function nationalpopulation(scenarioyear)
+function savenationalpopulation(scenarioyear)
     println("Calculating population in all GADM level 0 regions...")
     datafolder = getconfig("datafolder")
     pop = JLD.load(joinpath(datafolder, "population_$scenarioyear.jld"), "population")   # persons per pixel
@@ -35,6 +42,7 @@ function nationalpopulation(scenarioyear)
             end
         end
     end
+    JLD.save(joinpath(datafolder,"nationalpopulation_$scenarioyear.jld"), "natpop", natpop, compress=true)
     return natpop
 end
 
@@ -43,7 +51,7 @@ end
 function ieademand()
     println("Get current national electricity demand from IEA statistics...")
     datafolder = getconfig("datafolder")
-    iea = CSV.read(joinpath(datafolder, "ieademand_2016.csv"))
+    iea = CSV.read(joinpath(datafolder, "ieademand_2016.csv"))		# GWh/year
     _, _, regionlist, _, _ = loadregions("Global_GADM0")
     nationaldemand = zeros(length(regionlist))
     for row in eachrow(iea)
@@ -89,11 +97,11 @@ end
 
 function makesyntheticdemandinput(; optionlist...)
     options = WindOptions(merge(windoptions(), optionlist))
-    regions, _, regionlist, _, pop, _, _, _, lonrange, latrange = read_datasets(options)
+    regions, _, regionlist, _, pop, _, _, _, lonrange, latrange = read_datasets(options)			# pop unit: people/grid cell
 
-    @unpack scenarioyear, res = options
+    @unpack scenarioyear, res, era_year, gisregion = options
     datafolder = getconfig("datafolder")
-    gdp = JLD.load(joinpath(datafolder, "gdp_$(scenarioyear).jld"))["gdp"][lonrange,latrange]
+    gdp = JLD.load(joinpath(datafolder, "gdp_$(scenarioyear).jld"))["gdp"][lonrange,latrange]		# unit: USD(2010)/grid cell, PPP
 
     gadm0regions, _, gadm0regionlist, _, _ = loadregions("Global_GADM0")
     countrycodes = gadm0regions[lonrange,latrange]
@@ -102,12 +110,15 @@ function makesyntheticdemandinput(; optionlist...)
     cellarea = rastercellarea.(lats, res)
     popdens = pop ./ cellarea'
 
-    natpop = nationalpopulation(scenarioyear)           # million people (vector, length numGADMcountries)
-    demandpercapita = ieademand()./natpop               # MWh/year/capita (vector, length numGADMcountries)
+    natpop = getnationalpopulation(scenarioyear)        # people/GADMregion (vector, length numGADMcountries)
+    demandpercapita = ieademand()./natpop * 1e6         # MWh/year/capita (vector, length numGADMcountries)
     ssp5region = make_sspregionlookup(ssp5)             # SSP 5-region names (vector, length numGADMcountries)
     demandmult = calcdemandmultipliers(scenarioyear)    # Dict: SSP region name => multiplier 
 
-    demand = zeros(length(regionlist))
+    numreg = length(regionlist)
+    regionaldemand = zeros(numreg)
+    regionalpop = zeros(numreg)
+    regionalgdp = zeros(numreg)
 
     println("Calculating annual electricity demand for model regions...")
     nlons, nlats = size(regions)
@@ -121,14 +132,24 @@ function makesyntheticdemandinput(; optionlist...)
                     # error("Oops, no SSP region assigned to region $(gadm0regionlist[countrycode]).")
                     continue
                 end
-                demand[reg] += demandpercapita[countrycode] * pop[i,j]/1e6 * demandmult[sspreg]     # TWh/year
+                regionaldemand[reg] += demandpercapita[countrycode] * pop[i,j]/1e6 * demandmult[sspreg]     # TWh/year
+                regionalpop[reg] += pop[i,j]			# unit: people
+                regionalgdp[reg] += gdp[i,j]        # unit: USD(2010) 
             end
         end
     end
 
-    # matrices in MENA.mat are 2160×4320 and global in scope
+	datafolder = getconfig("datafolder")
+	syntheticdemanddata = joinpath(datafolder, "syntheticdemand", "data", "julia")
+	mkpath(syntheticdemanddata)
 
-    return regions, regionlist, demand, pop, popdens, gdp
-    #save('tillville_eu10.mat', 'regions', 'regionlist', 'demand', 'pop', 'popdens', 'gdp');
+    filename = joinpath(syntheticdemanddata, "regiondata_$(era_year)_$gisregion.h5")
+    h5open(filename, "w") do file
+        write(file, "regionlist", string.(regionlist))
+        write(file, "regionaldemand", regionaldemand)
+        write(file, "regionalpop", regionalpop)
+        write(file, "regionalgdp", regionalgdp)
+    end
 
+    return regionlist, regionaldemand, regionalpop, regionalgdp
 end
