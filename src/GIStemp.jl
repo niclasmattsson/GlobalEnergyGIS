@@ -42,7 +42,7 @@ function GIStemp(; optionlist...)
     numreg = length(regionlist)
     popcenters = [findpopcenters(erapop[i,:,:], 3, mindist) for i = 1:numreg]
 
-    hours = DateTime(2018, 1, 1, 0) : Hour(1) : DateTime(era_year, 12, 31, 23)
+    hours = DateTime(era_year, 1, 1, 0) : Hour(1) : DateTime(era_year, 12, 31, 23)
     numhours = length(hours)
     numhours != size(temp,1) && error("Inconsistent number of hours.")
 
