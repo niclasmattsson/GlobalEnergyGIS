@@ -70,7 +70,7 @@ Now we will download the auxiliary public datasets listed above. The following c
 julia> download_datasets()
 ```
 
-A total of 13 files will be downloaded and unpacked. This will probably take 15 minutes or so depending on your internet connection.
+A total of 16 files will be downloaded and unpacked. This will probably take 15 minutes or so depending on your internet connection.
 
 ### 4. Rasterization
 

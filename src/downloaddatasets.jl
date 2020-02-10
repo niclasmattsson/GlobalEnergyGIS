@@ -40,6 +40,8 @@ function download_datasets(startfile=1)
             "https://chalmersuniversity.box.com/shared/static/czkpqr0b6572bzdslyn76gsrxvc87vvc.csv"),
         ("Synthetic demand input data", "synthetic_demand_data.zip",
             "https://chalmersuniversity.box.com/shared/static/2xe2tdo4ylmldv7e2mc8p0fd1x15gcis.zip"),
+        ("IEA electricity demand 2016", "ieademand_2016.csv",
+            "https://chalmersuniversity.box.com/shared/static/1gz9nkhgteflunbinom7u8pc1r5qjglu.csv"),
         ("SSP v2 Final Energy/Electricity from IAM scenarios", "SSP v2 Final Energy - Electricity.csv",
             "https://chalmersuniversity.box.com/shared/static/hfrt1uq8slgucj3m22rv1j3yhe20d2sa.csv")
     ]
@@ -89,6 +91,7 @@ function download_datasets(startfile=1)
         joinpath(datafolder, "WRI - Global Power Plant Database v1.10"))
     rm(joinpath(datafolder, "tempWRI"))
     mv(joinpath(datafolder, "synthetic_demand_data", "data"), joinpath(syntheticdemandfolder, "data"))
+    rm(joinpath(datafolder, "synthetic_demand_data"))
 
     for datasetinfo in datasets
         name, filename, url = datasetinfo
