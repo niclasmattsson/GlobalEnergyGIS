@@ -309,7 +309,6 @@ function matlab2elin(; gisregion="Europe8", year=2018)
     region = string.(regionlist)
     tech = ["PVplant", "PVroof", "CSP", "onshore", "offshore"]
     classname = ["PVP", "PVR", "CSP", "WON", "WOFF"]
-    nclass = [5, 5, 5, 5, 5] 
     capvar = ["capacity_pvplantA", "capacity_pvrooftop", "capacity_cspplantA", "capacity_onshoreA", "capacity_offshore"]
     cfvar = ["CFtime_pvplantA", "CFtime_pvrooftop", "CFtime_cspplantA", "CFtime_windonshoreA", "CFtime_windoffshore"]
 
@@ -319,10 +318,15 @@ function matlab2elin(; gisregion="Europe8", year=2018)
     solardata = matread(joinpath(outputfolder, "GISdata_solar$(year)_$gisregion$filenamesuffix.mat"))
     data = merge(winddata, solardata)
 
+    # read number of classes from wind & solar GIS output 
+    nwindclasses = [size(winddata[varname], 2) for varname in capvar[4:5]] 
+    nsolarclasses = [size(solardata[varname], 2) for varname in capvar[1:3]] 
+    nclasses = [nsolarclasses; nwindclasses]
+
     for t = 1:length(tech)
         open(joinpath(outputfolder, "capacity_$(tech[t]).inc"), "w") do f
             for (r,reg) in enumerate(region)
-                for c = 1:nclass[t]
+                for c = 1:nclasses[t]
                     val = data[capvar[t]][r,c]
                     !isnan(val) && val > 0 && @printf(f, "%-3s . %s%-2d %12.6f\n", reg, classname[t], c, val)
                 end
@@ -330,7 +334,7 @@ function matlab2elin(; gisregion="Europe8", year=2018)
         end
         open(joinpath(outputfolder, "cf_$(tech[t]).inc"), "w") do f
             for (r,reg) in enumerate(region)
-                for c = 1:nclass[t]
+                for c = 1:nclasses[t]
                     for h = 1:8760
                         val = data[cfvar[t]][h,r,c]
                         !isnan(val) && val > 0 && @printf(f, "%-3s . %s%-2d . h%04d %10.6f\n", reg, classname[t], c, h, val)
