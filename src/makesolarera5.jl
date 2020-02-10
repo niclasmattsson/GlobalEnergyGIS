@@ -157,15 +157,16 @@ end
 # correction term to reduce horizon artifacts
 horizoncorrection(zen) = 1/50 * max(0, rad2deg(zen)-85).^2
 
-function clearvars_era5(solar_or_wind; year=2018)
-    if solar_or_wind == "all"
+function clearvars_era5(; year=2018, datasets=["wind", "solar", "temp"])
+    if datasets == "all"
         clearvars_era5("solar", year=year)
         clearvars_era5("wind", year=year)
+        clearvars_era5("temp", year=year)
         return
     end
     datafolder = getconfig("datafolder")
     downloadsfolder = joinpath(datafolder, "downloads")
-    for month = 1:12, monthhalf = 1:2
+    for dataset in datasets, month = 1:12, monthhalf = 1:2
         if monthhalf == 1
             firstday, lastday = "01", "15"
         else
@@ -174,10 +175,11 @@ function clearvars_era5(solar_or_wind; year=2018)
         end
         monthstr = lpad(month,2,'0')
         date = "$year-$monthstr-$firstday/$year-$monthstr-$lastday"
-        erafile = joinpath(downloadsfolder, "$solar_or_wind$year-$monthstr$firstday-$monthstr$lastday.nc")
-
-        println("Deleting $erafile...")
-        rm(erafile)
+        erafile = joinpath(downloadsfolder, "$dataset$year-$monthstr$firstday-$monthstr$lastday.nc")
+        if isfile(erafile)
+            println("Deleting $erafile...")
+            rm(erafile)
+        end
     end
 end
 

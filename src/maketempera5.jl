@@ -1,7 +1,7 @@
 export maketempera5
 
 # Can optionally zero cells that are zero in the Global Wind Atlas to save a lot of disk space.
-function maketempera5(year=2018, land_cells_only=true)
+function maketempera5(; year=2018, land_cells_only=true)
     hours = 24*Dates.daysinyear(year)
     gridsize = (1280,640)
 
