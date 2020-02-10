@@ -7,7 +7,7 @@ tempoptions() = Dict(
     :res => 0.01,                       # resolution of auxiliary datasets [degrees per pixel]
     :erares => 0.28125,                 # resolution of ERA5 datasets [degrees per pixel]
 
-    :mindist => 3.3                     # minimum distance between population centers
+    :mindist => 3.3                     # minimum distance between population centers [in ERA5 pixels]
 )
 
 mutable struct TempOptions

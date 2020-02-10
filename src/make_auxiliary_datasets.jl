@@ -41,7 +41,7 @@ function cleanup_datasets(; cleanup=:all)
 end
 
 function rasterize_GADM()
-    println("Rasterizing GADM shapefile for global administrative areas (10+ minute run time)...")
+    println("Rasterizing GADM shapefile for global administrative areas (2-10 minute run time)...")
     ENV["PROJ_LIB"] = abspath(dirname(pathof(GDAL)), "../deps/usr/share/proj") # hack to fix GDAL/PROJ path
     oldpath = pwd()
     cd(Sys.BINDIR)  # Another hack to access libs in BINDIR, e.g. libstdc++-6.dll
