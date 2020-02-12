@@ -114,11 +114,11 @@ end
 selfmap!(f,x) = map!(f,x,x)
 
 # Apply a function fn to the data matrix by chunks to avoid memory issues
-function gridsplit(data::AbstractArray, fn::Function, elemtype::DataType; nmax=9000, overlap=250)
+function gridsplit(data::AbstractArray, fn::Function, resulttype::DataType; nmax=9000, overlap=250)
     rows, cols = size(data)
     nparts = length(1:nmax:rows) * length(1:nmax:cols)
     nparts > 1 && println("\nSplitting data matrix into $nparts parts to avoid memory issues...")
-    result = zeros(elemtype, size(data))
+    result = zeros(resulttype, size(data))
     part = 0
     for r = 1:nmax:rows, c = 1:nmax:cols
         part += 1
