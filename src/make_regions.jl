@@ -12,45 +12,122 @@ struct NUTS{T}
 end
 NUTS(regionnames::T...) where T = NUTS(regionnames)
 
-function saveregions(regionname, regiondefinitionarray; autocrop=true, uselandcovermask=true, bbox=[-90 -180; 90 180])
+const NOREGION = typemax(Int16)
+
+function saveregions(regionname, regiondefinitionarray; autocrop=true, bbox=[-90 -180; 90 180])
     datafolder = getconfig("datafolder")
     land = JLD.load(joinpath(datafolder, "landcover.jld"), "landcover")
     if !all(bbox .== [-90 -180; 90 180])
         autocrop = false         # ignore supplied autocrop option if user changed bbox
     end
-    saveregions(regionname, regiondefinitionarray, land, autocrop, uselandcovermask, bbox)
+    saveregions(regionname, regiondefinitionarray, land, autocrop, bbox)
 end
 
-function saveregions(regionname, regiondefinitionarray, landcover, autocrop, uselandcovermask, bbox)
+function saveregions(regionname, regiondefinitionarray, landcover, autocrop, bbox)
     regions = makeregions(regiondefinitionarray)
-    if uselandcovermask
-        regions = regions .* (landcover.>0)
-    end
     if autocrop
         # get indexes of the bounding box containing onshore region data with 3 degrees of padding
         lonrange, latrange = getbboxranges(regions, round(Int, 3/0.01))
     else
-        latrange, lonrange = bbox2ranges(roundbbox(bbox,100), 100)      # TO DO: remove hardcoded raster density
+        latrange, lonrange = bbox2ranges(roundbbox(bbox,100), 100)          # TO DO: remove hardcoded raster density
     end
+    landcover = landcover[lonrange, latrange]
     regions = regions[lonrange, latrange]
-    offshoreregions = makeoffshoreregions(regions, landcover[lonrange, latrange])
-    regionlist = Symbol.(regiondefinitionarray[:,1])
+
+    if regionname != "Global_GADM0" && regionname != "Global_NUTS0"
+        regiontype = determineregiontype(regiondefinitionarray)
+        regiontype == :MIXED && error("Mixed GADM and NUTS region definitions not supported yet.")
+        level0_regions, _, level0_regionlist = loadregions("Global_$(regiontype)0")
+        level0_regions = level0_regions[lonrange, latrange]
+
+        current_level0_regions = unique(level0_regions[regions .> 0])
+        # return countmap(level0_regions[regions .> 0]), level0_regionlist
+
+        println("\nMark non-region land areas in $(regiontype) dataset...")
+        # set non-region land areas to NOREGION (a large positive integer), but skip pixels that have GADM region codes in active regions
+        # (to avoid misalignment problems between GADM and NUTS)
+        for (i, r) in enumerate(regions)
+            if r == 0 && level0_regions[i] > 0 && !in(level0_regions[i], current_level0_regions)
+                regions[i] = NOREGION
+            end
+        end
+        # regions[(regions .== 0) .& (gadm_level0_regions .> 0)] .= NOREGION
+    end
+
+    # Find the closest region pixel for all non-region pixels (land and ocean)
+    println("\nAllocate non-region pixels to the nearest region (for offshore wind and to fix misalignment of datasets)...")
+    territory = regions[feature_transform(regions.>0)]
+
+    # Use this to make a regions dataset that is pixel-compatible with the landcover dataset.
+    regions = territory .* (landcover.>0)
+
+    # Allocate ocean and (major) lake pixels to the region with the closest land region.
+    # Even VERY far offshore pixels will be allocated to whatever region is nearest, but
+    # those areas still won't be available for offshore wind power because of the
+    # requirement to be close enough to the electricity grid (or rather the grid proxy).
+    @time waterareas = gridsplit(landcover, identify_large_water, Bool)     # = identify_large_water(landcover), but chunked calculation
+    offshoreregions = territory .* waterareas
 
     println("\nSaving regions and offshoreregions...")
     datafolder = getconfig("datafolder")
+    regionlist = Symbol.(regiondefinitionarray[:,1])
+
     JLD.save(joinpath(datafolder, "regions_$regionname.jld"), "regions", regions, "offshoreregions", offshoreregions,
                 "regionlist", regionlist, "lonrange", lonrange, "latrange", latrange, compress=true)
 end
 
-function saveregions_global_gadm0()
-    println("Creating a global region file to identify countries and land areas later (5-15 minutes)...\n")
+function determineregiontype(regiondefinitionarray)
+    tuples = isa.(regiondefinitionarray[:,2], Tuple)
+    list = regiondefinitionarray[.!tuples, 2]
+    for tup in regiondefinitionarray[tuples, 2], t in tup
+        push!(list, t)
+    end
+    gadm = sum(isa.(list, GADM{String}))
+    nuts = sum(isa.(list, NUTS{String}))
+    if gadm > 0 && nuts == 0
+        return :GADM
+    elseif nuts > 0 && gadm == 0
+        return :NUTS
+    elseif nuts > 0 && gadm > 0
+        return :MIXED
+    else
+        error("Region definitions look fishy.")
+    end
+end
+
+# Use ImageSegmentation.jl to identify large bodies of water (large enough for offshore wind).
+# This will incorrectly trigger for some very long and wide rivers, but that's not a
+# big problem since near-shore areas are not allowed for offshore wind. 
+function identify_large_water(landcover)
+    println("Identifying oceans and major lakes (>1000 km2)...")
+    println("...segmenting...")
+    seg = fast_scanning(landcover.>0, 0.1)
+    println("...removing small segments and land areas...")
+    large_segments = prune_segments(seg, i -> segment_pixel_count(seg,i) < 1000, (i,j) -> -segment_pixel_count(seg,j))  # merge small segments with their largest neighbors
+    println("...classify as land or water...")
+    sm = segment_mean(large_segments)
+    waterareas = [(sm[i] < 0.5) for i in labels_map(large_segments)]
+    println("...identification complete.")    
+    return waterareas
+end
+
+function saveregions_global()
     datafolder = getconfig("datafolder")
+    println("Creating a global GADM region file to identify countries and land areas later...\n")
     g = readdlm(joinpath(datafolder, "gadmfields.csv"), ',', skipstart=1)
     gadm0 = unique(string.(g[:,2]))
     regiondefinitionarray = [gadm0 GADM.(gadm0)]
     # This map is used to identify country by pixel, so don't mask by landcover (i.e. set region=0 in lakes).
-    saveregions("Global_GADM0", regiondefinitionarray, autocrop=false, uselandcovermask=false)
-    println("\nGlobal region file saved.")
+    saveregions("Global_GADM0", regiondefinitionarray, autocrop=false)
+    println("\nGlobal GADM region file saved.")
+
+    println("\nCreating a global NUTS region file to identify countries and land areas later...\n")
+    n = readdlm(joinpath(datafolder, "nutsfields.csv"), ',', skipstart=1)
+    nuts0 = unique(string.(n[:,4]))
+    regiondefinitionarray = [nuts0 NUTS.(nuts0)]
+    # This map is used to identify country by pixel, so don't mask by landcover (i.e. set region=0 in lakes).
+    saveregions("Global_NUTS0", regiondefinitionarray, autocrop=false)
+    println("\nGlobal NUTS region file saved.")
 end
 
 function loadregions(regionname)
@@ -152,34 +229,4 @@ function build_inverseregionlookup(regiondefinitions)
         end
     end
     return d
-end
-
-# Find the closest region pixel for each ocean pixel and major lake.
-# Even VERY far offshore pixels will be allocated to whatever region is nearest, but
-# those areas still won't be available for offshore wind power because of the
-# requirement to be close enough to the electricity grid (or rather the grid proxy).
-function makeoffshoreregions(regions, landcover)
-    @time lakes = gridsplit(regions, majorlakes, Bool)  # = majorlakes(regions), but chunked calculation
-    println("\nMaking offshore region index matrix...")
-    closest_region = regions[feature_transform(regions.>0)]
-    return closest_region .* ((regions .== 0) .| lakes) .* (landcover.==0)
-end
-
-# Use ImageSegmentation.jl to identify large lakes (large enough for offshore wind).
-# This will incorrectly trigger for some very long and wide rivers, but that's not a
-# big problem since near-shore areas are not allowed for offshore wind. 
-function majorlakes(regions)
-    println("Identifying major lakes (>1000 km2)...")
-    println("...segmenting regions...")
-    seg = fast_scanning(regions.>0, 0.1)
-    println("...removing small segments and land areas...")
-    large_water_segments = prune_segments(seg, i -> (segment_pixel_count(seg,i)<1000 || segment_mean(seg,i)>0.8),
-                                            (i,j) -> -segment_pixel_count(seg,j))
-    lakes = labels_map(large_water_segments)
-    println("...removing the largest land segment...")
-    pixelcount = countmap(lakes, alg=:dict)
-    # the most common index will (almost certainly) be the sole non-lake segment
-    mostcommonindex = sort(collect(pixelcount), by=x->x[2], rev=true)[1][1]
-    println("...lake identification complete.")    
-    return lakes .!= mostcommonindex
 end

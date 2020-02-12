@@ -10,7 +10,7 @@ function rasterize_datasets(; cleanup=:all)
     downscale_landcover()
     savelandcover()
     upscale_topography()
-    saveregions_global_gadm0()
+    saveregions_global()
     cleanup_datasets(cleanup=cleanup)
 end
 
