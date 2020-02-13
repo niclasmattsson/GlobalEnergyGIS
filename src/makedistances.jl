@@ -69,22 +69,21 @@ end
 
 function getneighbors(regions, r, numreg)
     regmask = (regions.==r)
-    regmask_expanded = (imfilter(regmask, diskfilterkernel(1)) .> 0)    # expand mask with 1 pixel
+    regmask_expanded = (imfilter(regmask, diskfilterkernel(2)) .> 0)    # expand mask with 1 pixel
     neighbormask = regmask_expanded .& .!regmask
     neighbors = unique(regions[neighbormask])
-    return neighbors[neighbors.>0 .& neighbors.<=numreg .& neighbors.!=r]
+    return neighbors[(neighbors.>0) .& (neighbors.!=NOREGION) .& (neighbors.<=numreg) .& (neighbors.!=r)]
 end
 
 function connectedregions(regions, offshoreregions, numreg)
     println("\nDetermining onshore and offshore region connections...")
     connected, connectedoffshore = zeros(Bool, numreg, numreg), zeros(Bool, numreg, numreg)
-    mergeregions = [(r > 0) ? r : offshoreregions[i] for (i,r) in enumerate(regions)]
     updateprogress = Progress(numreg, 1)
     for r = 1:numreg     
         neighbors = getneighbors(regions, r, numreg)
         connected[r, neighbors] .= true
 
-        neighborsoffshore = getneighbors(mergeregions, r, numreg)
+        neighborsoffshore = getneighbors(offshoreregions, r, numreg)
         connectedoffshore[r, neighborsoffshore] .= .!connected[r, neighborsoffshore]
         next!(updateprogress)
     end
