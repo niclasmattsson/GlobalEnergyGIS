@@ -278,7 +278,7 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
     # To improve the estimated time of completing the progress bar, iterate over latitudes in random order.
     Random.seed!(1)
     updateprogress = Progress(nlats, 1)
-    @inbounds for j in randperm(nlats)
+    for j in randperm(nlats)
         eralat = eralats[j]
         colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2, res)-1]
         for i = 1:nlons
@@ -292,13 +292,14 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
             for c in colrange, r in rowrange
                 (c == 0 || r == 0) && continue
                 reg = regions[r,c]
-                area = cellarea[c]
+                (reg == 0 || reg == NOREGION) && continue 
 
+                area = cellarea[c]
                 class = pvclass[i,j]
                 # can't use elseif here, probably some overlap in the masks
                 # @views is needed to make sure increment_windCF!() works with matrix slices
                 # also faster since it avoids making copies
-                @views if reg > 0 && class > 0
+                @views if class > 0
                     if mask_rooftop[r,c] > 0
                         capacity_pvrooftop[reg,class] += 1/1000 * pv_density * pvroof_area * area
                         increment_solarCF!(CF_pvrooftop[:,reg,class], GTI)
@@ -318,7 +319,7 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
                 class = cspclass[i,j]
                 # @views is needed to make sure increment_windCF!() works with matrix slices
                 # also faster since it avoids making copies
-                @views if reg > 0 && class > 0
+                @views if class > 0
                     if mask_plantA[r,c] > 0
                         capacity_cspplantA[reg,class] += 1/1000 * csp_density * plant_area * area
                         increment_solarCF!(CF_cspplantA[:,reg,class], DNI)
@@ -330,7 +331,7 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
                     end
                 end
 
-                if reg > 0 && class_pv > 0 && class > 0
+                if class_pv > 0 && class > 0
                     if mask_plantA[r,c] > 0
                         solar_overlap_areaA[reg,class_pv,class] += 1/1000 * plant_area * area
                     elseif mask_plantB[r,c] > 0

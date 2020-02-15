@@ -327,7 +327,7 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
     # To improve the estimated time of completing the progress bar, iterate over latitudes in random order.
     Random.seed!(1)
     updateprogress = Progress(nlats, 1)
-    @inbounds for j in randperm(nlats)
+    for j in randperm(nlats)
         eralat = eralats[j]
         colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2, res)-1]
         for i = 1:nlons
@@ -340,26 +340,31 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
             for c in colrange, r in rowrange
                 (c == 0 || r == 0) && continue
                 reg = regions[r,c]
-                area = cellarea[c]
-                class = onshoreclass[r,c]
                 offreg = offshoreregions[r,c]
-                offclass = offshoreclass[r,c]
-                
-                # can't use elseif here, probably some overlap in the masks
-                # @views is needed to make sure increment_windCF!() works with matrix slices
-                # also faster since it avoids making copies
-                @views if reg > 0 && class > 0 && mask_onshoreA[r,c] > 0
-                    capacity_onshoreA[reg,class] += 1/1000 * onshore_density * area_onshore * area
-                    increment_windCF!(windCF_onshoreA[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
-                    count_onshoreA[reg,class] += 1
-                elseif reg > 0 && class > 0 && mask_onshoreB[r,c] > 0
-                    capacity_onshoreB[reg,class] += 1/1000 * onshore_density * 2 * area_onshore * area
-                    increment_windCF!(windCF_onshoreB[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
-                    count_onshoreB[reg,class] += 1
-                elseif offreg > 0 && offclass > 0 && mask_offshore[r,c] > 0
-                    capacity_offshore[offreg,offclass] += 1/1000 * offshore_density * area_offshore * area
-                    increment_windCF!(windCF_offshore[:,offreg,offclass], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
-                    count_offshore[offreg,offclass] += 1
+                area = cellarea[c]
+
+                if reg > 0 && reg != NOREGION
+                    class = onshoreclass[r,c]
+                    # can't use elseif here, probably some overlap in the masks
+                    # @views is needed to make sure increment_windCF!() works with matrix slices
+                    # also faster since it avoids making copies
+                    @views if reg > 0 && class > 0 && mask_onshoreA[r,c] > 0
+                        capacity_onshoreA[reg,class] += 1/1000 * onshore_density * area_onshore * area
+                        increment_windCF!(windCF_onshoreA[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
+                        count_onshoreA[reg,class] += 1
+                    elseif reg > 0 && class > 0 && mask_onshoreB[r,c] > 0
+                        capacity_onshoreB[reg,class] += 1/1000 * onshore_density * 2 * area_onshore * area
+                        increment_windCF!(windCF_onshoreB[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
+                        count_onshoreB[reg,class] += 1
+                    end
+                end
+                if offreg > 0 && offreg != NOREGION
+                    offclass = offshoreclass[r,c]
+                    @views if offreg > 0 && offclass > 0 && mask_offshore[r,c] > 0
+                        capacity_offshore[offreg,offclass] += 1/1000 * offshore_density * area_offshore * area
+                        increment_windCF!(windCF_offshore[:,offreg,offclass], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
+                        count_offshore[offreg,offclass] += 1
+                    end
                 end
             end
         end

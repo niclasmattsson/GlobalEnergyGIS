@@ -126,7 +126,7 @@ function makesyntheticdemandinput(; optionlist...)
         for i = 1:nlons
             reg = regions[i,j]
             countrycode = countrycodes[i,j]
-            if reg > 0 && countrycode > 0
+            if reg > 0 && reg != NOREGION && countrycode > 0
                 sspreg = ssp5region[countrycode]
                 if isempty(sspreg)
                     # error("Oops, no SSP region assigned to region $(gadm0regionlist[countrycode]).")

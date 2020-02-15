@@ -224,7 +224,7 @@ function existinginflow(existing, countries, countrynames, regions, regionlist, 
     for i = 1:size(hydroplants,1)
         country = getregion(hydroplants[i,:longitude], hydroplants[i,:latitude], countries)
         i == 4867 && continue   # weird data point in the Indian Ocean
-        country == 0 && println(hydroplants[i,:])
+        (country == 0 || country == NOREGION) && error("Can't identify country: $(hydroplants[i,:])")
         capacwri[country] += hydroplants[i,:capacity_mw] / 1e3    # GW
     end
 
@@ -232,7 +232,7 @@ function existinginflow(existing, countries, countrynames, regions, regionlist, 
     # calculate annual cf for each country from WEC data
     for i = 1:size(WECcapacity,1)-1     # last row is "World"
         cty = findfirst(countrynames .== Symbol(WECcapacity[i,:Country]))
-        cty == nothing && println(Symbol(WECcapacity[i,:Country]))
+        cty == nothing && error("Can't find country name: $(Symbol(WECcapacity[i,:Country]))")
         scalefactor_capacwri[cty] = capacwri[cty] / WECcapacity[i,:Capacity_MW] * 1000
         annualcf[cty] = WECcapacity[i,:Generation_GWh] / WECcapacity[i,:Capacity_MW] * 1000/8760
     end
@@ -247,7 +247,7 @@ function existinginflow(existing, countries, countrynames, regions, regionlist, 
     for i = 1:size(hydroplants,1)
         cty = getregion(hydroplants[i,:longitude], hydroplants[i,:latitude], countries)
         reg = getregion(hydroplants[i,:longitude], hydroplants[i,:latitude], regions, lonrange, latrange) 
-        reg == 0 && continue
+        (reg == 0 || reg == NOREGION || cty == 0 || cty == NOREGION) && continue
         scalefactor = scalefactor_capacwri[cty] > 0 ? scalefactor_capacwri[cty] : 1.0 
         existingcapacity = hydroplants[i,:capacity_mw] / 1e3 / scalefactor      # GW
         annualgeneration = existingcapacity * annualcf[cty] * 8760              # GWh/year
@@ -293,7 +293,7 @@ function potentialinflow(options, potential, capacity, regions, regionlist, lonr
 
     for i = 1:size(potential,1)
         reg = getregion(potential[i,:lon], potential[i,:lat], regions, lonrange, latrange)
-        reg == 0 && continue
+        (reg == 0 || reg == NOREGION) && continue
 
         weeks = dischargetime[i] / 168
         storageclass = findfirst((weeks .>= storageclasses_min) .& (weeks .< storageclasses_max))

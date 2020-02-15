@@ -106,7 +106,7 @@ function rescale_population_to_ERA5_res(options, regions, offshoreregions, regio
     # To improve the estimated time of completing the progress bar, iterate over latitudes in random order.
     Random.seed!(1)
     updateprogress = Progress(nlats, 1)
-    @inbounds for j in randperm(nlats)
+    for j in randperm(nlats)
         eralat = eralats[j]
         colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2, res)-1]
         for i = 1:nlons
@@ -117,7 +117,7 @@ function rescale_population_to_ERA5_res(options, regions, offshoreregions, regio
             for c in colrange, r in rowrange
                 (c == 0 || r == 0) && continue
                 reg = regions[r,c]
-                if reg > 0
+                if reg > 0 && reg != NOREGION
                     erapop[reg,i,j] += pop[r,c]
                 end
             end
