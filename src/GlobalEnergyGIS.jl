@@ -3,7 +3,7 @@ module GlobalEnergyGIS
 export GISwind, GISsolar, GIShydro, makedistances
 
 using MAT, HDF5, ProgressMeter, Random, Interpolations, BenchmarkTools, Images, Statistics, DelimitedFiles, Dates,
-        NCDatasets, JLD, Parameters, ImageSegmentation, StatsBase, CSV, Distances, Printf, Plots
+        NCDatasets, JLD, Parameters, ImageSegmentation, StatsBase, CSV, Distances, Printf
 
 include("rasterize_shapefiles.jl")
 include("make_auxiliary_datasets.jl")
@@ -22,6 +22,7 @@ include("GIStemp.jl")
 include("era5download.jl")
 include("downloaddatasets.jl")
 include("sspregiondefinitions.jl")
+include("mapping.jl")
 include("syntheticdemandinput.jl")
 
 end
