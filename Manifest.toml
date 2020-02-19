@@ -14,9 +14,9 @@ version = "0.2.1"
 
 [[AbstractPlotting]]
 deps = ["AbstractNumbers", "ColorBrewer", "ColorSchemes", "ColorTypes", "Colors", "Contour", "DocStringExtensions", "FFMPEG", "FileIO", "FixedPointNumbers", "FreeType", "FreeTypeAbstraction", "GeometryTypes", "ImageMagick", "IntervalSets", "LinearAlgebra", "Markdown", "Observables", "Packing", "PlotUtils", "Printf", "Random", "Serialization", "Showoff", "SignedDistanceFields", "SparseArrays", "StaticArrays", "Statistics", "StructArrays", "UnicodeFun"]
-git-tree-sha1 = "0eff266c4f150bace8bb67208633c728b6739975"
+git-tree-sha1 = "f311861ee1efbac5be1dfd1176e7e5ea57c291c4"
 uuid = "537997a7-5e4e-5d89-9595-2241ea00577e"
-version = "0.9.19"
+version = "0.9.21"
 
 [[Animations]]
 deps = ["Colors"]
@@ -434,9 +434,11 @@ version = "3.3.2+0"
 
 [[GLMakie]]
 deps = ["AbstractPlotting", "ColorTypes", "Colors", "FileIO", "FixedPointNumbers", "GLFW", "GeometryTypes", "LinearAlgebra", "Markdown", "MeshIO", "ModernGL", "Observables", "Printf", "Serialization", "StaticArrays"]
-git-tree-sha1 = "36e3e0bfcab936f1bd21489a4c5b90f25bf8439f"
+git-tree-sha1 = "1cf76482febd0778f035a1e932e0ac799d529b25"
+repo-rev = "master"
+repo-url = "https://github.com/JuliaPlots/GLMakie.jl.git"
 uuid = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
-version = "0.0.13"
+version = "0.0.14"
 
 [[GeoInterface]]
 deps = ["RecipesBase"]
@@ -452,9 +454,11 @@ version = "0.5.1"
 
 [[GeoMakie]]
 deps = ["AbstractPlotting", "Colors", "EarCut", "GeoInterface", "GeoJSON", "GeometryTypes", "Glob", "ImageMagick", "MakieLayout", "NASAEarthObservations", "Proj4", "Reexport", "StructArrays"]
-git-tree-sha1 = "17efce36f1c38db8ecb2e4164ab751c43d87abf0"
+git-tree-sha1 = "afd832772836fde3fd8d7bd1c43c3717661243ed"
+repo-rev = "v0.1.3"
+repo-url = "https://github.com/JuliaPlots/GeoMakie.jl.git"
 uuid = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
-version = "0.1.1"
+version = "0.1.3"
 
 [[GeometryTypes]]
 deps = ["ColorTypes", "FixedPointNumbers", "LinearAlgebra", "StaticArrays"]
@@ -768,15 +772,17 @@ version = "0.5.4"
 
 [[Makie]]
 deps = ["AbstractPlotting", "FileIO", "GLMakie", "ImageMagick", "StatsMakie"]
-git-tree-sha1 = "82c3e000788930bd3e7e957c2149cbaa7b59960d"
+git-tree-sha1 = "87362c763fa5b88dd814cb90118d7a937f62c199"
+repo-rev = "master"
+repo-url = "https://github.com/JuliaPlots/Makie.jl.git"
 uuid = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 version = "0.9.5"
 
 [[MakieLayout]]
 deps = ["AbstractPlotting", "Animations", "Formatting", "Match", "Observables"]
-git-tree-sha1 = "77f26d4de0fa9cf0af4efbca93ce82b2f77b1182"
+git-tree-sha1 = "b348fc4f7ea603e24303c7328efe878eee120f07"
 uuid = "5a521ce4-ebb9-4793-b5b7-b334dfe8393c"
-version = "0.2.16"
+version = "0.2.17"
 
 [[MappedArrays]]
 git-tree-sha1 = "e2a02fe7ee86a10c707ff1756ab1650b40b140bb"
@@ -1006,10 +1012,10 @@ uuid = "189a3867-3050-52da-a836-e630ba90ab69"
 version = "0.2.0"
 
 [[RegionTrees]]
-deps = ["IterTools", "LinearAlgebra", "StaticArrays", "Test"]
-git-tree-sha1 = "2b53f2cbfc7dff34e0e4feed12da7ad85f738c13"
+deps = ["IterTools", "LinearAlgebra", "StaticArrays"]
+git-tree-sha1 = "c103368232a786cc6f73480842bc471eb24c8fed"
 uuid = "dee08c22-ab7f-5625-9660-a9af2021b33f"
-version = "0.2.0"
+version = "0.3.1"
 
 [[Requires]]
 deps = ["UUIDs"]
