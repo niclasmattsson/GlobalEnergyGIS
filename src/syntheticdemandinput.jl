@@ -20,9 +20,9 @@ function make_sspregionlookup(ssp)
 end
 
 function getnationalpopulation(scenarioyear)
-	datafolder = getconfig("datafolder")
-	filename = joinpath(datafolder, "nationalpopulation_$scenarioyear.jld")
-	natpop = isfile(filename) ? JLD.load(filename, "natpop") : savenationalpopulation(scenarioyear)
+    datafolder = getconfig("datafolder")
+    filename = joinpath(datafolder, "nationalpopulation_$scenarioyear.jld")
+    natpop = isfile(filename) ? JLD.load(filename, "natpop") : savenationalpopulation(scenarioyear)
     return natpop
 end
 
@@ -32,7 +32,7 @@ function savenationalpopulation(scenarioyear)
     println("Calculating population in all GADM level 0 regions...")
     datafolder = getconfig("datafolder")
     pop = JLD.load(joinpath(datafolder, "population_$scenarioyear.jld"), "population")   # persons per pixel
-    regions, offshoreregions, regionlist, lonrange, latrange = loadregions("Global_GADM0")
+    regions, _, regionlist, lonrange, latrange = loadregions("Global_GADM0")
     natpop = zeros(length(regionlist))
     for j in latrange
         for i in lonrange
@@ -51,7 +51,7 @@ end
 function ieademand()
     println("Get current national electricity demand from IEA statistics...")
     datafolder = getconfig("datafolder")
-    iea = CSV.read(joinpath(datafolder, "ieademand_2016.csv"))		# GWh/year
+    iea = CSV.read(joinpath(datafolder, "ieademand_2016.csv"))      # GWh/year
     _, _, regionlist, _, _ = loadregions("Global_GADM0")
     nationaldemand = zeros(length(regionlist))
     for row in eachrow(iea)
@@ -95,13 +95,21 @@ function calcdemandmultipliers(scenarioyear)
     return demandmult2050
 end
 
+# function getsyntheticdemandregions()
+#   datafolder = getconfig("datafolder")
+#   filename = joinpath(datafolder, "regions_syntheticdemandregions.jld")
+#   !isfile(filename) && saveregions("syntheticdemandregions", syntheticdemandregions)
+#   demandregions, _, demandregionlist, _, _ = loadregions("syntheticdemandregions")
+#     return demandregions, demandregionlist
+# end
+
 function makesyntheticdemandinput(; optionlist...)
     options = WindOptions(merge(windoptions(), optionlist))
-    regions, _, regionlist, _, pop, _, _, _, lonrange, latrange = read_datasets(options)			# pop unit: people/grid cell
+    regions, _, regionlist, _, pop, _, _, _, lonrange, latrange = read_datasets(options)            # pop unit: people/grid cell
 
     @unpack scenarioyear, res, era_year, gisregion = options
     datafolder = getconfig("datafolder")
-    gdp = JLD.load(joinpath(datafolder, "gdp_$(scenarioyear).jld"))["gdp"][lonrange,latrange]		# unit: USD(2010)/grid cell, PPP
+    gdp = JLD.load(joinpath(datafolder, "gdp_$(scenarioyear).jld"))["gdp"][lonrange,latrange]       # unit: USD(2010)/grid cell, PPP
 
     gadm0regions, _, gadm0regionlist, _, _ = loadregions("Global_GADM0")
     countrycodes = gadm0regions[lonrange,latrange]
@@ -122,6 +130,7 @@ function makesyntheticdemandinput(; optionlist...)
 
     println("Calculating annual electricity demand for model regions...")
     nlons, nlats = size(regions)
+    updateprogress = Progress(nlats, 1)
     for j = 1:nlats
         for i = 1:nlons
             reg = regions[i,j]
@@ -133,15 +142,16 @@ function makesyntheticdemandinput(; optionlist...)
                     continue
                 end
                 regionaldemand[reg] += demandpercapita[countrycode] * pop[i,j]/1e6 * demandmult[sspreg]     # TWh/year
-                regionalpop[reg] += pop[i,j]			# unit: people
+                regionalpop[reg] += pop[i,j]            # unit: people
                 regionalgdp[reg] += gdp[i,j]        # unit: USD(2010) 
             end
         end
+        next!(updateprogress)
     end
 
-	datafolder = getconfig("datafolder")
-	syntheticdemanddata = joinpath(datafolder, "syntheticdemand", "data", "julia")
-	mkpath(syntheticdemanddata)
+    datafolder = getconfig("datafolder")
+    syntheticdemanddata = joinpath(datafolder, "syntheticdemand", "data", "julia")
+    mkpath(syntheticdemanddata)
 
     filename = joinpath(syntheticdemanddata, "regiondata_$(era_year)_$gisregion.h5")
     h5open(filename, "w") do file
