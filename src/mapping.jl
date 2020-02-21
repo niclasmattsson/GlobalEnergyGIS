@@ -99,22 +99,24 @@ function firstcolor(columncolors, colorlist)
             colorcounts[colorlist[c]] += 1
         end
     end
-    for (i,c) in enumerate(colorcounts)
-        if c == 0
-            return i
-        end
-    end
-    error("all colors used")
+    goodcolors = colorlist[colorcounts.==0]
+    return isempty(goodcolors) ? 0 : rand(goodcolors)
 end
 
-function greedycolor(connected, colorlist, order)
+function greedycolor(connected, colorlist, order; randseed=0)
+    randseed > 0 && Random.seed!(randseed)
     n = size(connected, 1)
     colors = zeros(Int, n)
     for i in order
         columncolors = colors[connected[:,i]]
         col = firstcolor(columncolors, colorlist)
+        if col == 0
+            println("All colors used, retrying...")
+            return greedycolor(connected, colorlist, order; randseed=randseed+1)
+        end
         colors[i] = col
     end
+    # display(countmap(colors))
     return colors
 end
 
