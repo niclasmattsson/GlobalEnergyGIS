@@ -45,7 +45,10 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     end
 
     println("...saving...")
-    filename = "$gisregion.png"
+    datafolder = getconfig("datafolder")
+    outputfolder = joinpath(datafolder, "output")
+    mkpath(outputfolder)
+    filename = joinpath(outputfolder, "$gisregion.png")
     isfile(filename) && rm(filename)
     Makie.save(filename, scene, resolution=pngsize)
     # return scene
