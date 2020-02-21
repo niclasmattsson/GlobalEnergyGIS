@@ -37,31 +37,21 @@ function saveregions(regionname, regiondefinitionarray, landcover, autocrop, bbo
     # Make sure the regions dataset is pixel-compatible with the landcover dataset.
     regions = regions .* (landcover .> 0)
 
-    if regionname == "Global_GADM0"
-        offshoreregions = zeros(Int16, (2,2))   # not needed, so just make a dummy (wrong size so it should error if I actually use it) 
-    else
-        # Prune small segments to also take care of NUTS/GADM differences.
-        println("Prune small non-region land segments to identify major non-region land areas...")
-        println("(This also fixes pixel-scale misalignments of GADM, NUTS and land cover datasets.)")
-        @time otherland = gridsplit((regions .== 0) .& (landcover .> 0), x->prune_areas(x, prunesize), Bool)    # = prune_areas(..., prunesize), but chunked calculation
-        regions[otherland] .= NOREGION
+    # Prune small segments to also take care of NUTS/GADM differences.
+    println("Prune small non-region land segments to identify major non-region land areas...")
+    println("(This also fixes pixel-scale misalignments of GADM, NUTS and land cover datasets.)")
+    @time otherland = gridsplit((regions .== 0) .& (landcover .> 0), x->prune_areas(x, prunesize), Bool)    # = prune_areas(..., prunesize), but chunked calculation
+    regions[otherland] .= NOREGION
 
-        # Find the closest region pixel for all non-region pixels (land and ocean)
-        println("\nAllocate non-region pixels to the nearest region (for offshore wind)...")
-        territory = regions[feature_transform(regions.>0)]
+    # Find the closest region pixel for all non-region pixels (land and ocean)
+    println("\nAllocate non-region pixels to the nearest region (for offshore wind)...")
+    territory = regions[feature_transform(regions.>0)]
 
-        # Identify large bodies of water (large enough for offshore wind).
-        # This will incorrectly trigger for some very long and wide rivers, but that's not a
-        # big problem since near-shore areas are not allowed for offshore wind.
-        println("Identifying oceans and major lakes (>$maxlakesize km2)...")
-        @time waterareas = gridsplit(landcover.==0, x->prune_areas(x, maxlakesize), Bool)   # = prune_areas(landcover.==0, maxlakesize), but chunked calculation
-
-        # Allocate ocean and (major) lake pixels to the region with the closest land region.
-        # Even VERY far offshore pixels will be allocated to whatever region is nearest, but
-        # those areas still won't be available for offshore wind power because of the
-        # requirement to be close enough to the electricity grid (or rather the grid proxy).
-        offshoreregions = territory .* waterareas
-    end
+    # Allocate ocean and lake pixels to the region with the closest land region.
+    # Even VERY far offshore pixels will be allocated to whatever region is nearest, but
+    # those areas still won't be available for offshore wind power because of the
+    # requirement to be close enough to the electricity grid (or rather the grid proxy).
+    offshoreregions = territory .* (landcover .== 0)
 
     println("\nSaving regions and offshoreregions...")
     datafolder = getconfig("datafolder")
