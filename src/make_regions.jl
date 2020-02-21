@@ -78,12 +78,14 @@ end
 
 function makeregions(regiondefinitionarray)
     regionnames, nutsdef, gadmdef = splitregiondefinitions(regiondefinitionarray)
+    use_nuts, use_gadm = !all(isempty.(nutsdef)), !all(isempty.(gadmdef))
+    use_nuts && use_gadm && error("Sorry, mixed NUTS & GADM definitions are not supported yet.")
     region = zeros(Int16, (36000,18000))    # hard code size for now
-    if !all(isempty.(nutsdef))
+    if use_nuts
         nuts, subregionnames = read_nuts()
         makeregions_nuts!(region, nuts, subregionnames, nutsdef)
     end
-    if !all(isempty.(gadmdef))
+    if use_gadm
         gadm, subregionnames = read_gadm()
         makeregions_gadm!(region, gadm, subregionnames, gadmdef)
     end
