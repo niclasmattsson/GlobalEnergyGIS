@@ -1,47 +1,27 @@
 using GeoMakie, Makie, ColorSchemes
 
-export savemaps, coastdemo
+export createmaps
 
-function coastdemo()
-    lons = LinRange(-179.5, 179.5, 360)
-    lats = LinRange(-89.5, 89.5, 180)
-
-    field = [exp(cosd(l)) + 3(y/90) for l in lons, y in lats]
-
-    source = LonLat()
-    dest = WinkelTripel()
-
-    xs, ys = xygrid(lons, lats)
-    Proj4.transform!(source, dest, vec(xs), vec(ys))
-
-    scene = surface(xs, ys; color = field, shading = false, show_axis = false, scale_plot = false)
-
-    ga = geoaxis!(scene, -180, 180, -90, 90; crs = (src = source, dest = dest,))[end]
-    ga.x.tick.color = RGBA(colorant"gray", 0.3)
-    ga.y.tick.color = RGBA(colorant"gray", 0.3)
-
-    coastlines!(scene; crs = (src = source, dest = dest,))
-    text!(scene, "France"; position=Proj4.transform(source, dest, Point2f0(3,47)), align=(:center,:center), textsize=500000, font="Arial")
-    return scene
-end
-
-function savemap(gisregion, regions, regionlist, lons, lats, colors, source, dest, xs, ys,
-                    geocenters, popcenters, connected, connectedoffshore; lines=false, labels=false, scale=1)
+function createmap(gisregion, regions, regionlist, lons, lats, colors, source, dest, xs, ys,
+                    geocenters, popcenters, connected, connectedoffshore; lines=false, labels=false, resolutionscale=1, textscale=1)
     nreg = length(regionlist)
+    scale = maximum(size(regions))/6500
 
     regions[regions.==NOREGION] .= nreg + 1
 
     xmin, xmax = extrema(xs)
     ymin, ymax = extrema(ys)
     aspect_ratio = (ymax - ymin) / (xmax - xmin)
-    pngwidth = round(Int, scale*1.02*size(regions,1))                 # allow for margins (+1% on both sides)
+    pngwidth = round(Int, resolutionscale*1.02*size(regions,1))                 # allow for margins (+1% on both sides)
     pngsize = pngwidth, round(Int, pngwidth * aspect_ratio)     # use aspect ratio after projection transformation
 
     println("...constructing map...")
     scene = surface(xs, ys; color=float.(regions), colormap=colors, shading=false, show_axis=false, scale_plot=false)
     ga = geoaxis!(scene, lons[1], lons[end], lats[end], lats[1]; crs=(src=source, dest=dest,))[end]
-    ga.x.tick.color = RGBA(colorant"black", 0.2)
-    ga.y.tick.color = RGBA(colorant"black", 0.2)
+    ga.x.tick.color = RGBA(colorant"black", 0.4)
+    ga.y.tick.color = RGBA(colorant"black", 0.4)
+    ga.x.tick.width = scale
+    ga.y.tick.width = scale
 
     if lines
         println("...drawing transmission lines...")
@@ -53,14 +33,14 @@ function savemap(gisregion, regions, regionlist, lons, lats, colors, source, des
                 line = greatcircletrack(popcenters[reg1,:], popcenters[reg2,:], 50)             # great circle segments
                 projectedline = Point2f0.(transform.(source, dest, line))
                 color = (i == 1) ? :black : :white
-                lines!(scene, projectedline, color=color, linewidth=3.5*scale)
+                lines!(scene, projectedline, color=color, linewidth=resolutionscale*scale*3.5)
             end
         end
     end
     if labels
         for reg = 1:nreg
             pos = Point2f0(transform(source, dest, lonlatpoint(geocenters[reg,:])))
-            text!(scene, string(regionlist[reg]); position=pos, align=(:center,:center), textsize=50000)
+            text!(scene, string(regionlist[reg]); position=pos, align=(:center,:center), textsize=textscale*scale*50000)
         end
     end
 
@@ -68,10 +48,10 @@ function savemap(gisregion, regions, regionlist, lons, lats, colors, source, des
     filename = "$gisregion.png"
     isfile(filename) && rm(filename)
     Makie.save(filename, scene, resolution=pngsize)
-    return scene
+    # return scene
 end
 
-function savemaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true, scale=1)
+function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true, resolutionscale=1, textscale=1)
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
     nreg = length(regionlist)
 
@@ -89,7 +69,7 @@ function savemaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true, 
     lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
     lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
     source = LonLat()
-    dest = Projection("+proj=moll +lon_0=0")
+    dest = Projection("+proj=moll +lon_0=$(mean(lons))")
     xs, ys = xygrid(lons, lats)
     Proj4.transform!(source, dest, vec(xs), vec(ys))
 
@@ -100,11 +80,11 @@ function savemaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true, 
     connectedoffshore[connected] .= false
 
     println("\nOnshore map...")
-    scene = savemap(gisregion, regions, regionlist, lons, lats, onshorecolors, source, dest, xs, ys,
-        geocenters, popcenters, connected, connectedoffshore, lines=lines, labels=labels, scale=scale)
+    scene = createmap(gisregion, regions, regionlist, lons, lats, onshorecolors, source, dest, xs, ys,
+        geocenters, popcenters, connected, connectedoffshore, lines=lines, labels=labels, resolutionscale=resolutionscale, textscale=textscale)
     println("\nOffshore map...")
-    savemap("$(gisregion)_offshore", offshoreregions, regionlist, lons, lats, offshorecolors, source, dest, xs, ys,
-        geocenters, popcenters, connected, connectedoffshore, lines=false, labels=false, scale=scale)
+    createmap("$(gisregion)_offshore", offshoreregions, regionlist, lons, lats, offshorecolors, source, dest, xs, ys,
+        geocenters, popcenters, connected, connectedoffshore, lines=false, labels=false, resolutionscale=resolutionscale, textscale=textscale)
     return nothing
 end
 

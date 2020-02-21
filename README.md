@@ -145,7 +145,11 @@ julia> makedistances("Europe8")
 
 ```
 
-Here `europe8` is a region matrix defined in `regiondefinitions.jl`.
+Here `europe8` is a region matrix defined in `regiondefinitions.jl`, but you can refer to your own region matrices defined elsewhere. See next bullet item for syntax examples. To get visual confirmation of the results, run `createmaps(regionset_name)` to create images of onshore and offshore region territories (in `/GISdata_folder_path/output`).
+
+```
+julia> createmaps("Europe8")
+```
 
 ### Region definition matrix syntax
 
