@@ -14,16 +14,16 @@ NUTS(regionnames::T...) where T = NUTS(regionnames)
 
 const NOREGION = typemax(Int16)
 
-function saveregions(regionname, regiondefinitionarray; autocrop=true, bbox=[-90 -180; 90 180], maxlakesize=1000, prunesize=100)
+function saveregions(regionname, regiondefinitionarray; autocrop=true, bbox=[-90 -180; 90 180])
     datafolder = getconfig("datafolder")
     land = JLD.load(joinpath(datafolder, "landcover.jld"), "landcover")
     if !all(bbox .== [-90 -180; 90 180])
         autocrop = false         # ignore supplied autocrop option if user changed bbox
     end
-    saveregions(regionname, regiondefinitionarray, land, autocrop, bbox, maxlakesize, prunesize)
+    saveregions(regionname, regiondefinitionarray, land, autocrop, bbox)
 end
 
-function saveregions(regionname, regiondefinitionarray, landcover, autocrop, bbox, maxlakesize, prunesize)
+function saveregions(regionname, regiondefinitionarray, landcover, autocrop, bbox)
     regions = makeregions(regiondefinitionarray)
     if autocrop
         # get indexes of the bounding box containing onshore region data with 3 degrees of padding
@@ -55,19 +55,6 @@ function saveregions(regionname, regiondefinitionarray, landcover, autocrop, bbo
 
     JLD.save(joinpath(datafolder, "regions_$regionname.jld"), "regions", regions, "offshoreregions", offshoreregions,
                 "regionlist", regionlist, "lonrange", lonrange, "latrange", latrange, compress=true)
-end
-
-# Use ImageSegmentation.jl to prune areas with small contiguous segments. 
-function prune_areas(dataset, minpixelcount)
-    println("...pruning segments smaller than $(minpixelcount) pixels...")
-    seg = fast_scanning(dataset, 0.1)
-    # merge small segments with their largest neighbors
-    large_segments = prune_segments(seg, i -> segment_pixel_count(seg,i) < minpixelcount, (i,j) -> -segment_pixel_count(seg,j))
-    indices = labels_map(large_segments)
-    println("...rebuilding pruned dataset...")
-    sm = segment_mean(large_segments)
-    areas = [(sm[i] > 0.5) for i in indices]
-    return areas
 end
 
 function saveregions_global(; args...)
