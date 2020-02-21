@@ -34,18 +34,14 @@ function saveregions(regionname, regiondefinitionarray, landcover, autocrop, bbo
     landcover = landcover[lonrange, latrange]
     regions = regions[lonrange, latrange]
 
-    # Make sure the regions dataset is pixel-compatible with the landcover dataset.
-    regions = regions .* (landcover .> 0)
-
-    # Prune small segments to also take care of NUTS/GADM differences.
-    println("Prune small non-region land segments to identify major non-region land areas...")
-    println("(This also fixes pixel-scale misalignments of GADM, NUTS and land cover datasets.)")
-    @time otherland = gridsplit((regions .== 0) .& (landcover .> 0), x->prune_areas(x, prunesize), Bool)    # = prune_areas(..., prunesize), but chunked calculation
-    regions[otherland] .= NOREGION
-
     # Find the closest region pixel for all non-region pixels (land and ocean)
     println("\nAllocate non-region pixels to the nearest region (for offshore wind)...")
+    println("(This also fixes pixel-scale misalignments of GADM, NUTS and land cover datasets.)")
     territory = regions[feature_transform(regions.>0)]
+
+    # Allocate land pixels with region==0 to the closest land region.
+    # This ensures that the regions dataset is pixel-compatible with the landcover dataset.
+    regions = territory .* (landcover .> 0)
 
     # Allocate ocean and lake pixels to the region with the closest land region.
     # Even VERY far offshore pixels will be allocated to whatever region is nearest, but
@@ -130,15 +126,17 @@ end
 function makeregions_gadm!(region, gadm, subregionnames, regiondefinitions)
     println("Making region index matrix...")
     regionlookup = build_inverseregionlookup(regiondefinitions)
-    updateprogress = Progress(prod(size(region)), 1)
-    for (i, g_uid) in enumerate(gadm)
-        next!(updateprogress)
-        g_uid == 0 && continue
-        reg0, reg1, reg2 = subregionnames[g_uid,:]
-        regid = lookup_regionnames(regionlookup, reg0, reg1, reg2)
-        if regid > 0
-            region[i] = regid
+    rows, cols = size(region)
+    updateprogress = Progress(cols, 1)
+    for c in randperm(cols)
+        for r = 1:rows
+            gadm_uid = gadm[r,c]
+            gadm_uid == 0 && continue
+            reg0, reg1, reg2 = subregionnames[gadm_uid,:]
+            regid = lookup_regionnames(regionlookup, reg0, reg1, reg2)
+            region[r,c] = (regid > 0) ? regid : NOREGION
         end
+        next!(updateprogress)
     end
 end
 
@@ -146,19 +144,23 @@ function makeregions_nuts!(region, nuts, subregionnames, regiondefinitions)
     println("Making region index matrix...")
     regionlookup = Dict(r => i for (i,tuptup) in enumerate(regiondefinitions)
                                     for ntup in tuptup for r in ntup.subregionnames)
-    updateprogress = Progress(prod(size(region)), 1)
-    for (i, g_uid) in enumerate(nuts)
-        next!(updateprogress)
-        g_uid == 0 && continue
-        reg = subregionnames[g_uid]
-        while length(reg) >= 2
-            regid = get(regionlookup, reg, 0)
-            if regid > 0
-                region[i] = regid
-                break
+    rows, cols = size(region)
+    updateprogress = Progress(cols, 1)
+    for c in randperm(cols)
+        for r = 1:rows
+            nuts_id = nuts[r,c]
+            nuts_id == 0 && continue
+            reg = subregionnames[nuts_id]
+            while length(reg) >= 2
+                regid = get(regionlookup, reg, 0)
+                if regid > 0
+                    region[r,c] = regid
+                    break
+                end
+                reg = reg[1:end-1]
             end
-            reg = reg[1:end-1]
         end
+        next!(updateprogress)
     end
 end
 

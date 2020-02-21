@@ -184,7 +184,7 @@ end
 # Automatically detect the "bounding box" of nonzero data in a matrix.
 # Returns a tuple of indexes of the box containing data, (lon,lat) or (row,col).
 function getbboxranges(regions::AbstractMatrix, padding::Int=0)
-    data = regions .> 0
+    data = (regions .> 0) .& (regions .!= NOREGION)
     lonrange = dataindexes_lon(vec(any(data, dims=2)), padding)     # all longitudes with region data
     latrange = dataindexes_lat(vec(any(data, dims=1)), padding)     # all latitudes with region data
     return lonrange, latrange
