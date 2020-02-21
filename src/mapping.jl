@@ -61,7 +61,7 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
     println("Mapping colors to regions (avoid same color in adjacent regions)...")
     mergeregions = regions + offshoreregions
     mergeconnected = connectedregions(mergeregions, nreg)
-    colorindices = greedycolor(mergeconnected, 1:7, 1:nreg)
+    colorindices = greedycolor(mergeconnected, 1:7, 1:nreg, randseed=1)
     onshorecolors = [RGB(0.3,0.3,0.45); colorschemes[:Set2_7].colors[colorindices]; RGB(0.5,0.5,0.5)]
     offshorecolors = [RGB(0.5,0.5,0.5); colorschemes[:Set2_7].colors[colorindices]; RGB(0.3,0.3,0.45)]
 

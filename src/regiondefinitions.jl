@@ -1,4 +1,4 @@
-export europe8, eurasia38, scand3, eurasia21, china6, europe13, europe21, europe22, europe54, syntheticdemandregions, testreg
+export europe8, eurasia38, scand3, eurasia21, china6, europe13, europe21, europe22, europe54, syntheticdemandregions, testreg, caspian
 
 const scand3 = [
     "SWE"   GADM("Sweden")
@@ -217,6 +217,14 @@ const testreg = [
     "NO"     GADM("Norway")
     "DK"     NUTS("DK")
     "ISL"    (NUTS("SE214"), GADM("Åland"), GADM(["Sweden","Kalmar"], "Borgholm","Mörbylånga"))  # Gotland, Åland, Öland
+]
+
+const caspian = [
+    "RU_SW"  GADM(["Russia"], "Astrakhan'","Kalmyk", "Dagestan")
+    "KZK"    GADM(["Kazakhstan"], "Atyrau", "Mangghystau")
+    "AZR"    GADM("Azerbaijan")
+    "IRN"    GADM(["Iran"], "Gilan", "Golestan", "Mazandaran")
+    "TRK"    GADM(["Turkmenistan"], "Balkan")
 ]
 
 const mapregions = [

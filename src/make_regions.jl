@@ -131,7 +131,7 @@ function makeregions_gadm!(region, gadm, subregionnames, regiondefinitions)
     for c in randperm(cols)
         for r = 1:rows
             gadm_uid = gadm[r,c]
-            gadm_uid == 0 && continue
+            (gadm_uid == 0 || gadm_uid == 78413) && continue    # ignore Caspian Sea (weirdly classified as a region in GADM)
             reg0, reg1, reg2 = subregionnames[gadm_uid,:]
             regid = lookup_regionnames(regionlookup, reg0, reg1, reg2)
             region[r,c] = (regid > 0) ? regid : NOREGION
