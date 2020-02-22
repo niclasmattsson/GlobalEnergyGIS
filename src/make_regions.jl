@@ -24,7 +24,7 @@ function saveregions(regionname, regiondefinitionarray; autocrop=true, bbox=[-90
 end
 
 function saveregions(regionname, regiondefinitionarray, landcover, autocrop, bbox)
-    regions = makeregions(regiondefinitionarray)
+    regions, regiontype = makeregions(regiondefinitionarray; allowmixed=(regionname=="Europe_background"))
     if autocrop
         # get indexes of the bounding box containing onshore region data with 3 degrees of padding
         lonrange, latrange = getbboxranges(regions, round(Int, 3/0.01))
@@ -34,20 +34,33 @@ function saveregions(regionname, regiondefinitionarray, landcover, autocrop, bbo
     landcover = landcover[lonrange, latrange]
     regions = regions[lonrange, latrange]
 
+    if regionname != "Global_GADM0" && regionname != "Europe_background"
+        if regiontype == :NUTS
+            println("\nNUTS region definitions detected (using Europe_background region file)...")
+            europeregions = loadregions("Europe_background")[1][lonrange, latrange]
+            regions[(regions.==0) .& (europeregions.>0)] .= NOREGION
+        elseif regiontype == :GADM
+            println("\nGADM region definitions detected (using Global_GADM0 region file)...")
+            globalregions = loadregions("Global_GADM0")[1][lonrange, latrange]
+            regions[(regions.==0) .& (globalregions.>0)] .= NOREGION
+        end
+    end
+
     # Find the closest region pixel for all non-region pixels (land and ocean)
     println("\nAllocate non-region pixels to the nearest region (for offshore wind)...")
-    println("(This also fixes pixel-scale misalignments of GADM, NUTS and land cover datasets.)")
     territory = regions[feature_transform(regions.>0)]
-
-    # Allocate land pixels with region==0 to the closest land region.
-    # This ensures that the regions dataset is pixel-compatible with the landcover dataset.
-    regions = territory .* (landcover .> 0)
 
     # Allocate ocean and lake pixels to the region with the closest land region.
     # Even VERY far offshore pixels will be allocated to whatever region is nearest, but
     # those areas still won't be available for offshore wind power because of the
     # requirement to be close enough to the electricity grid (or rather the grid proxy).
     offshoreregions = territory .* (landcover .== 0)
+
+    if regionname != "Global_GADM0" && regionname != "Europe_background"
+        # Allocate land pixels with region==0 to the closest land region.
+        # This ensures that the regions dataset is pixel-compatible with the landcover dataset.
+        regions = territory .* (landcover .> 0)
+    end
 
     println("\nSaving regions and offshoreregions...")
     datafolder = getconfig("datafolder")
@@ -63,9 +76,13 @@ function saveregions_global(; args...)
     g = readdlm(joinpath(datafolder, "gadmfields.csv"), ',', skipstart=1)
     gadm0 = unique(string.(g[:,2]))
     regiondefinitionarray = [gadm0 GADM.(gadm0)]
-    # This map is used to identify country by pixel, so don't mask by landcover (i.e. set region=0 in lakes).
     saveregions("Global_GADM0", regiondefinitionarray; args..., autocrop=false)
     println("\nGlobal GADM region file saved.")
+
+    println("\nCreating a 'background' NUTS region file to identify non-European land areas later...\n")
+    regiondefinitionarray = [NUTS_Europe; non_NUTS_Europe]
+    saveregions("Europe_background", regiondefinitionarray; args..., autocrop=false)
+    println("\nEurope_background region file saved.")
 end
 
 function loadregions(regionname)
@@ -76,10 +93,13 @@ function loadregions(regionname)
     end
 end
 
-function makeregions(regiondefinitionarray)
+function makeregions(regiondefinitionarray; allowmixed=false)
     regionnames, nutsdef, gadmdef = splitregiondefinitions(regiondefinitionarray)
     use_nuts, use_gadm = !all(isempty.(nutsdef)), !all(isempty.(gadmdef))
-    use_nuts && use_gadm && error("Sorry, mixed NUTS & GADM definitions are not supported yet.")
+    regiontype =  (use_gadm && !use_nuts) ? :GADM  :
+                  (use_nuts && !use_gadm) ? :NUTS  :
+                  (use_nuts && use_gadm) ? :MIXED  :  :WEIRD
+    !allowmixed && regiontype==:MIXED && error("Sorry, mixed NUTS & GADM definitions are not supported yet.")
     region = zeros(Int16, (36000,18000))    # hard code size for now
     if use_nuts
         nuts, subregionnames = read_nuts()
@@ -89,7 +109,7 @@ function makeregions(regiondefinitionarray)
         gadm, subregionnames = read_gadm()
         makeregions_gadm!(region, gadm, subregionnames, gadmdef)
     end
-    return region
+    return region, regiontype
 end
 
 function regions2matlab(gisregion)
@@ -120,10 +140,12 @@ function makeregions_gadm!(region, gadm, subregionnames, regiondefinitions)
     for c in randperm(cols)
         for r = 1:rows
             gadm_uid = gadm[r,c]
-            (gadm_uid == 0 || gadm_uid == 78413) && continue    # ignore Caspian Sea (weirdly classified as a region in GADM)
+            (gadm_uid == 0 || gadm_uid == 78413 || region[r,c] > 0) && continue    # ignore Caspian Sea (weirdly classified as a region in GADM)
             reg0, reg1, reg2 = subregionnames[gadm_uid,:]
             regid = lookup_regionnames(regionlookup, reg0, reg1, reg2)
-            region[r,c] = (regid > 0) ? regid : NOREGION
+            if regid > 0
+                region[r,c] = regid
+            end
         end
         next!(updateprogress)
     end
@@ -138,7 +160,7 @@ function makeregions_nuts!(region, nuts, subregionnames, regiondefinitions)
     for c in randperm(cols)
         for r = 1:rows
             nuts_id = nuts[r,c]
-            nuts_id == 0 && continue
+            (nuts_id == 0 || region[r,c] > 0) && continue
             reg = subregionnames[nuts_id]
             while length(reg) >= 2
                 regid = get(regionlookup, reg, 0)

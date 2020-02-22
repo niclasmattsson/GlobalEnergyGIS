@@ -1,4 +1,4 @@
-export europe8, eurasia38, scand3, eurasia21, china6, europe13, europe21, europe22, europe54, syntheticdemandregions, testreg, caspian
+export europe8, eurasia38, scand3, eurasia21, china6, europe13, europe21, europe22, europe54, syntheticdemandregions, testreg, caspian, NUTS_Europe
 
 const scand3 = [
     "SWE"   GADM("Sweden")
@@ -176,6 +176,27 @@ const europe54 = [
                  "UKK1","UKK2","UKK3","UKK4","UKJ1","UKJ2","UKJ3","UKJ4")
     "UK2"   NUTS("UKM5","UKM6","UKM7","UKM8","UKM9")
     "UK3"   NUTS("UKN0", "UKN1")
+]
+
+# https://ec.europa.eu/eurostat/statistics-explained/index.php/Glossary:EU_enlargements
+# https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Glossary:Candidate_countries
+const NUTS_Europe = [
+    "EU12"  NUTS("BE","DK","FR","DE","EL","IE","IT","LU","NL","PT","ES","UK")
+    "EU15"  NUTS("AT","FI","SE")
+    "EFTA"  NUTS("IS","LI","NO","CH")
+    "EU25"  NUTS("CY","CZ","EE","HU","LV","LT","MT","PL","SK","SI")
+    "EU28"  NUTS("BG","RO","HR")
+    "CAND"  NUTS("ME","MK","AL","RS","TR","BA","XK")
+]
+
+# Non NUTS regions and neighboring countries to European regions (onshore or offshore)
+# https://ec.europa.eu/eurostat/statistical-atlas/gis/viewer/?config=typologies.json
+const non_NUTS_Europe = [
+    "mainland"  GADM("Monaco", "Andorra", "San Marino", "Vatican City")
+    "islands"   GADM("Faroe Islands", "Isle of Man", "Guernsey", "Jersey", "Svalbard and Jan Mayen")
+    "east"      GADM("Moldova", "Ukraine", "Belarus", "Russia")
+    "south"     GADM("Morocco", "Algeria", "Tunisia", "Libya", "Egypt", "Israel", "Jordan", "Lebanon", "Syria")
+    "west"      GADM("Greenland")
 ]
 
 const europe22 = [
