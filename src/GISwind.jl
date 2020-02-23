@@ -110,11 +110,8 @@ function GISwind(; savetodisk=true, optionlist...)
                 mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
 
     if savetodisk
-        datafolder = getconfig("datafolder")
-        outputfolder = joinpath(datafolder, "output")
-        mkpath(outputfolder)
-        filename = joinpath(outputfolder, "GISdata_wind$(era_year)_$gisregion$filenamesuffix.mat")
-        matopen(filename, "w") do file
+        mkpath(in_datafolder("output"))
+        matopen(in_datafolder("output", "GISdata_wind$(era_year)_$gisregion$filenamesuffix.mat"), "w") do file
             write(file, "CFtime_windonshoreA", windCF_onshoreA)
             write(file, "CFtime_windonshoreB", windCF_onshoreB)
             write(file, "CFtime_windoffshore", windCF_offshore)
@@ -136,12 +133,11 @@ function read_datasets(options)
     lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
     cellarea = rastercellarea.(lats, res)
 
-    datafolder = getconfig("datafolder")
-    gridaccess = JLD.load(joinpath(datafolder, "gridaccess_$scenarioyear.jld"), "gridaccess")[lonrange,latrange]
-    pop = JLD.load(joinpath(datafolder, "population_$scenarioyear.jld"), "population")[lonrange,latrange]
-    topo = JLD.load(joinpath(datafolder, "topography.jld"), "topography")[lonrange,latrange]
-    land = JLD.load(joinpath(datafolder, "landcover.jld"), "landcover")[lonrange,latrange]
-    protected = JLD.load(joinpath(datafolder, "protected.jld"), "protected")[lonrange,latrange]
+    gridaccess = JLD.load(in_datafolder("gridaccess_$scenarioyear.jld"), "gridaccess")[lonrange,latrange]
+    pop = JLD.load(in_datafolder("population_$scenarioyear.jld"), "population")[lonrange,latrange]
+    topo = JLD.load(in_datafolder("topography.jld"), "topography")[lonrange,latrange]
+    land = JLD.load(in_datafolder("landcover.jld"), "landcover")[lonrange,latrange]
+    protected = JLD.load(in_datafolder("protected.jld"), "protected")[lonrange,latrange]
 
     popdens = pop ./ cellarea'
 
@@ -157,9 +153,7 @@ function read_wind_datasets(options, lonrange, latrange)
     println("Reading ERA5 wind speeds and calculating capacity factors...")
     eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
 
-    datafolder = getconfig("datafolder")
-    filename = joinpath(datafolder, "era5wind$era_year.h5")
-    @time meanwind, windspeed = h5open(filename, "r") do file
+    @time meanwind, windspeed = h5open(in_datafolder("era5wind$era_year.h5"), "r") do file
         if length(eralonranges) == 1
             file["meanwind"][eralonranges[1], eralatrange],
                 file["wind"][:, eralonranges[1], eralatrange]

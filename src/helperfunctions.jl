@@ -312,10 +312,8 @@ function matlab2elin(; gisregion="Europe8", year=2018)
     capvar = ["capacity_pvplantA", "capacity_pvrooftop", "capacity_cspplantA", "capacity_onshoreA", "capacity_offshore"]
     cfvar = ["CFtime_pvplantA", "CFtime_pvrooftop", "CFtime_cspplantA", "CFtime_windonshoreA", "CFtime_windoffshore"]
 
-    outputfolder = joinpath(getconfig("datafolder"), "output")
-
-    winddata = matread(joinpath(outputfolder, "GISdata_wind$(year)_$gisregion$filenamesuffix.mat"))
-    solardata = matread(joinpath(outputfolder, "GISdata_solar$(year)_$gisregion$filenamesuffix.mat"))
+    winddata = matread(in_datafolder("output", "GISdata_wind$(year)_$gisregion$filenamesuffix.mat"))
+    solardata = matread(in_datafolder("output", "GISdata_solar$(year)_$gisregion$filenamesuffix.mat"))
     data = merge(winddata, solardata)
 
     # read number of classes from wind & solar GIS output 
@@ -324,7 +322,7 @@ function matlab2elin(; gisregion="Europe8", year=2018)
     nclasses = [nsolarclasses; nwindclasses]
 
     for t = 1:length(tech)
-        open(joinpath(outputfolder, "capacity_$(tech[t]).inc"), "w") do f
+        open(in_datafolder("output", "capacity_$(tech[t]).inc"), "w") do f
             for (r,reg) in enumerate(region)
                 for c = 1:nclasses[t]
                     val = data[capvar[t]][r,c]
@@ -332,7 +330,7 @@ function matlab2elin(; gisregion="Europe8", year=2018)
                 end
             end
         end
-        open(joinpath(outputfolder, "cf_$(tech[t]).inc"), "w") do f
+        open(in_datafolder("output", "cf_$(tech[t]).inc"), "w") do f
             for (r,reg) in enumerate(region)
                 for c = 1:nclasses[t]
                     for h = 1:8760
@@ -356,3 +354,5 @@ end
 
 # Capital recovery factor for investments
 CRF(r, T) = r / (1 - 1/(1+r)^T)
+
+in_datafolder(names...) = joinpath(getconfig("datafolder"), names...)

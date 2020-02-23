@@ -68,11 +68,8 @@ function GIShydro(; optionlist...)
     println("\nSaving...")
 
     @unpack gisregion = options
-    datafolder = getconfig("datafolder")
-    outputfolder = joinpath(datafolder, "output")
-    mkpath(outputfolder)
-    filename = joinpath(outputfolder, "GISdata_hydro_$gisregion.mat")
-    matopen(filename, "w") do file
+    mkpath(in_datafolder("output"))
+    matopen(in_datafolder("output", "GISdata_hydro_$gisregion.mat"), "w") do file
         write(file, "existingcapac", existingcapac)
         write(file, "existinginflowcf", existinginflowcf)
         write(file, "potentialcapac", potentialcapac)
@@ -86,7 +83,6 @@ end
 
 function readhydrodatabases()
     println("\nReading hydro databases...")
-    datafolder = getconfig("datafolder")
 
     # lat,lon,COE,Production_GWh,Lake_surface_m2,Lake_volume_m3,
     #   Qm1,Qm2,Qm3,Qm4,Qm5,Qm6,Qm7,Qm8,Qm9,Qm10,Qm11,Qm12,Qm13,ContID,BasinID,SysID,CapCost
@@ -94,15 +90,15 @@ function readhydrodatabases()
     # lat,lon,COE ($/kWh),Production (GWh),Lake surface (m2),Lake volume (m3),
     #   Qm1,Qm2,Qm3,Qm4,Qm5,Qm6,Qm7,Qm8,Qm9,Qm10,Qm11,Qm12,Qm13,ContID,BasinID,
     #   SysID (1=DiversionalCanalPower/2=RiverPower), CapCost ($/kW)
-    potential = CSV.read(joinpath(datafolder, "Hydro database (Gernaat) - potential.csv"))
+    potential = CSV.read(in_datafolder("Hydro database (Gernaat) - potential.csv"))
 
     # GrandID,lat,lon,Production_kWh,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13
     # original headers:
     # GrandID,lat,lon,Production_GWh,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13
-    existing = CSV.read(joinpath(datafolder, "Hydro database (Gernaat) - existing (GRanD).csv"))
+    existing = CSV.read(in_datafolder("Hydro database (Gernaat) - existing (GRanD).csv"))
 
     # country,country_long,name,gppd_idnr,capacity_mw,latitude,longitude,fuel1,fuel2,fuel3,fuel4,commissioning_year,owner,source,url,geolocation_source,year_of_capacity_data,generation_gwh_2013,generation_gwh_2014,generation_gwh_2015,generation_gwh_2016,estimated_generation_gwh
-    elecplants = CSV.read(joinpath(datafolder, "WRI - Global Power Plant Database v1.10", "global_power_plant_database.csv"), copycols=true)
+    elecplants = CSV.read(in_datafolder("WRI - Global Power Plant Database v1.10", "global_power_plant_database.csv"), copycols=true)
 
     # clean up wrong coordinates
     wrong = findall((elecplants.fuel1 .== "Hydro") .& (
@@ -128,12 +124,12 @@ function readhydrodatabases()
     # Country, Capacity_MW, Pumped_MW, Other_MW, Generation_GWh, Generation_BP_GWh   % [0 = no data]
     # original headers:
     # Country, Total Hydropower Capacity (MW) in 2015, Pumped Storage Capacity (MW) in 2015, Excluding Pumped Storage (MW) in 2015, Estimated Net Hydropower Generation (GWh) in 2015, Consumption of Hydroelectricity (GWh) in 2015 (BP 2016)
-    WECcapacity = CSV.read(joinpath(datafolder, "WEC hydro capacity 2015.csv"))
+    WECcapacity = CSV.read(in_datafolder("WEC hydro capacity 2015.csv"))
 
     # Country, Undeveloped_GWh, Potential_GWh, Utilisation
     # original headers:
     # Country, Undeveloped (GWh/year), Total Potential (GWh/year), Current Utilisation (%)
-    WECpotential = CSV.read(joinpath(datafolder, "WEC hydro potentials.csv"))
+    WECpotential = CSV.read(in_datafolder("WEC hydro potentials.csv"))
 
     return potential, existing, hydroplants, WECcapacity, WECpotential
 end

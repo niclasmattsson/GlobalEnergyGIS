@@ -127,11 +127,8 @@ function GISsolar(; savetodisk=true, optionlist...)
                 mask_rooftop, mask_plantA, mask_plantB, lonrange, latrange)
 
     if savetodisk
-        datafolder = getconfig("datafolder")
-        outputfolder = joinpath(datafolder, "output")
-        mkpath(outputfolder)
-        filename = joinpath(outputfolder, "GISdata_solar$(era_year)_$gisregion$filenamesuffix.mat")
-        matopen(filename, "w") do file
+        mkpath(in_datafolder("output"))
+        matopen(in_datafolder("output", "GISdata_solar$(era_year)_$gisregion$filenamesuffix.mat"), "w") do file
             write(file, "CFtime_pvrooftop", CF_pvrooftop)
             write(file, "CFtime_pvplantA", CF_pvplantA)
             write(file, "CFtime_pvplantB", CF_pvplantB)
@@ -160,9 +157,7 @@ function read_solar_datasets(options, lonrange, latrange)
     println("Reading ERA5 solar datasets...")
     eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
 
-    datafolder = getconfig("datafolder")
-    filename = joinpath(datafolder, "era5solar$era_year.h5")
-    @time meanGTI, solarGTI, meanDNI, solarDNI = h5open(filename, "r") do file
+    @time meanGTI, solarGTI, meanDNI, solarDNI = h5open(in_datafolder("era5solar$era_year.h5"), "r") do file
         if length(eralonranges) == 1
             file["meanGTI"][eralonranges[1], eralatrange],
                 file["GTI"][:,eralonranges[1], eralatrange],

@@ -39,11 +39,9 @@ function getregioncenters(regions, numreg, lonrange, latrange, res, scenarioyear
     lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
     cellarea = rastercellarea.(lats, res)
 
-    datafolder = getconfig("datafolder")
-    outputfolder = joinpath(datafolder, "output")
-    mkpath(outputfolder)
+    mkpath(in_datafolder("output"))
 
-    pop = JLD.load(joinpath(datafolder, "population_$scenarioyear.jld"), "population")[lonrange,latrange]
+    pop = JLD.load(in_datafolder("population_$scenarioyear.jld"), "population")[lonrange,latrange]
     popdens = pop ./ cellarea'
 
     geocenters, popcenters = regioncenters(regions, numreg, popdens, lonrange, latrange, res)

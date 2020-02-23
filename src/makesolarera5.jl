@@ -164,8 +164,6 @@ function clearvars_era5(; year=2018, datasets=["wind", "solar", "temp"])
         clearvars_era5("temp", year=year)
         return
     end
-    datafolder = getconfig("datafolder")
-    downloadsfolder = joinpath(datafolder, "downloads")
     for dataset in datasets, month = 1:12, monthhalf = 1:2
         if monthhalf == 1
             firstday, lastday = "01", "15"
@@ -175,7 +173,7 @@ function clearvars_era5(; year=2018, datasets=["wind", "solar", "temp"])
         end
         monthstr = lpad(month,2,'0')
         date = "$year-$monthstr-$firstday/$year-$monthstr-$lastday"
-        erafile = joinpath(downloadsfolder, "$dataset$year-$monthstr$firstday-$monthstr$lastday.nc")
+        erafile = in_datafolder("downloads", "$dataset$year-$monthstr$firstday-$monthstr$lastday.nc")
         if isfile(erafile)
             println("Deleting $erafile...")
             rm(erafile)

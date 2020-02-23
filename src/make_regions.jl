@@ -15,8 +15,7 @@ NUTS(regionnames::T...) where T = NUTS(regionnames)
 const NOREGION = typemax(Int16)
 
 function saveregions(regionname, regiondefinitionarray; autocrop=true, bbox=[-90 -180; 90 180])
-    datafolder = getconfig("datafolder")
-    land = JLD.load(joinpath(datafolder, "landcover.jld"), "landcover")
+    land = JLD.load(in_datafolder("landcover.jld"), "landcover")
     if !all(bbox .== [-90 -180; 90 180])
         autocrop = false         # ignore supplied autocrop option if user changed bbox
     end
@@ -63,17 +62,15 @@ function saveregions(regionname, regiondefinitionarray, landcover, autocrop, bbo
     end
 
     println("\nSaving regions and offshoreregions...")
-    datafolder = getconfig("datafolder")
     regionlist = Symbol.(regiondefinitionarray[:,1])
 
-    JLD.save(joinpath(datafolder, "regions_$regionname.jld"), "regions", regions, "offshoreregions", offshoreregions,
+    JLD.save(in_datafolder("regions_$regionname.jld"), "regions", regions, "offshoreregions", offshoreregions,
                 "regionlist", regionlist, "lonrange", lonrange, "latrange", latrange, compress=true)
 end
 
 function saveregions_global(; args...)
-    datafolder = getconfig("datafolder")
     println("Creating a global GADM region file to identify countries and land areas later...\n")
-    g = readdlm(joinpath(datafolder, "gadmfields.csv"), ',', skipstart=1)
+    g = readdlm(in_datafolder("gadmfields.csv"), ',', skipstart=1)
     gadm0 = unique(string.(g[:,2]))
     regiondefinitionarray = [gadm0 GADM.(gadm0)]
     saveregions("Global_GADM0", regiondefinitionarray; args..., autocrop=false)
@@ -86,8 +83,7 @@ function saveregions_global(; args...)
 end
 
 function loadregions(regionname)
-    datafolder = getconfig("datafolder")
-    jldopen(joinpath(datafolder, "regions_$regionname.jld"), "r") do file
+    jldopen(in_datafolder("regions_$regionname.jld"), "r") do file
         return read(file, "regions"), read(file, "offshoreregions"), read(file, "regionlist"),
                     read(file, "lonrange"), read(file, "latrange")
     end
@@ -114,8 +110,7 @@ end
 
 function regions2matlab(gisregion)
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
-    datafolder = getconfig("datafolder")
-    matopen(joinpath(datafolder, "regions_$gisregion.mat"), "w", compress=true) do file
+    matopen(in_datafolder("regions_$gisregion.mat"), "w", compress=true) do file
         write(file, "regions", regions)
         write(file, "offshoreregions", offshoreregions)
         write(file, "regionlist", string.(regionlist))

@@ -36,8 +36,7 @@ function cds_id(uid::Int, api_key::AbstractString)
 end
 
 function era5download(year=2018; datasets=["wind", "solar", "temp"])
-    downloadsfolder = joinpath(getconfig("datafolder"), "downloads")
-    mkpath(downloadsfolder)
+    mkpath(in_datafolder("downloads"))
     count = 0
     for dataset in datasets, month = 1:12, monthhalf = 1:2
         if dataset == "wind"
@@ -55,7 +54,7 @@ function era5download(year=2018; datasets=["wind", "solar", "temp"])
         end
         monthstr = lpad(month,2,'0')
         date1, date2 = "$year-$monthstr-$firstday", "$year-$monthstr-$lastday"
-        outfile = joinpath(downloadsfolder, "$dataset$year-$monthstr$firstday-$monthstr$lastday.nc")
+        outfile = in_datafolder("downloads", "$dataset$year-$monthstr$firstday-$monthstr$lastday.nc")
         count += 1
         println("\nFile $count of $(24*length(datasets)):")
         request_era5_vars(outfile, vars, date1, date2)
