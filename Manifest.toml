@@ -335,9 +335,9 @@ version = "1.2.0"
 
 [[FFTW_jll]]
 deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "05674f209a6e3387dd103a945b0113eeb64b1a58"
+git-tree-sha1 = "ddb57f4cf125243b4aa4908c94d73a805f3cbf2c"
 uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
-version = "3.3.9+3"
+version = "3.3.9+4"
 
 [[FileIO]]
 deps = ["Pkg"]
@@ -353,15 +353,15 @@ version = "0.7.0"
 
 [[FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays"]
-git-tree-sha1 = "fec413d4fc547992eb62a5c544cedb6d7853c1f5"
+git-tree-sha1 = "85c6b57e2680fa28d5c8adc798967377646fbf66"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "0.8.4"
+version = "0.8.5"
 
 [[FiniteDiff]]
 deps = ["ArrayInterface", "LinearAlgebra", "Requires", "SparseArrays", "StaticArrays"]
-git-tree-sha1 = "eb90294af97b564e6036b49296479d7f667763c0"
+git-tree-sha1 = "aa78e468afa6a0fde472c3dba0782d1ab60b203d"
 uuid = "6a86dc24-6348-571c-b903-95158fe2bd41"
-version = "2.2.0"
+version = "2.2.1"
 
 [[FixedPointNumbers]]
 git-tree-sha1 = "4aaea64dd0c30ad79037084f8ca2b94348e65eaa"
@@ -403,22 +403,13 @@ deps = ["Random"]
 uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
 [[GDAL]]
-deps = ["CEnum", "GDAL_jll", "PROJ_jll"]
-git-tree-sha1 = "19f19ed857ef5551ec600935e209c2ceaace0f01"
+deps = ["BinaryProvider", "CEnum", "Libdl"]
+git-tree-sha1 = "9bf43e21980e4723d8e57b90cfdf66337a4d40c8"
+pinned = true
+repo-rev = "v1.0.2"
+repo-url = "https://github.com/JuliaGeo/GDAL.jl.git"
 uuid = "add2ef01-049f-52c4-9ee2-e494f65e021a"
-version = "1.1.0"
-
-[[GDAL_jll]]
-deps = ["GEOS_jll", "LibCURL_jll", "Libdl", "PROJ_jll", "Pkg", "SQLite_jll", "Zlib_jll"]
-git-tree-sha1 = "b73c63b05036d90de4561bae34cf1462157020e9"
-uuid = "a7073274-a066-55f0-b90d-d619367d196c"
-version = "3.0.4+0"
-
-[[GEOS_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "c846f97f9114974e4b49ed51a6060853e6b1dd39"
-uuid = "d604d12d-fa86-5845-992e-78dc15976526"
-version = "3.8.0+4"
+version = "1.0.2"
 
 [[GLFW]]
 deps = ["GLFW_jll"]
@@ -673,20 +664,8 @@ git-tree-sha1 = "d4b9bde2694c552fe579cc4462733f1ce08733fe"
 uuid = "1b4a561d-cfcb-5daf-8433-43fcf8b4bea3"
 version = "0.4.1"
 
-[[LibCURL_jll]]
-deps = ["LibSSH2_jll", "Libdl", "MbedTLS_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "62151403feb8e7869f049832e0d68a3e72d96497"
-uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
-version = "7.68.0+0"
-
 [[LibGit2]]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
-
-[[LibSSH2_jll]]
-deps = ["Libdl", "MbedTLS_jll", "Pkg"]
-git-tree-sha1 = "2daf0a757293e5355904b96262fcc54cf45d8fd3"
-uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
-version = "1.9.0+1"
 
 [[Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -804,12 +783,6 @@ git-tree-sha1 = "85f5947b53c8cfd53ccfa3f4abae31faa22c2181"
 uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
 version = "0.7.0"
 
-[[MbedTLS_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "066a4467008745eed36dad973ceb66405785a621"
-uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
-version = "2.16.0+1"
-
 [[MeshIO]]
 deps = ["ColorTypes", "FileIO", "GeometryTypes", "Printf", "Test"]
 git-tree-sha1 = "3e01e12c4c626578a9d47fac0d15c9fe8dad5139"
@@ -900,12 +873,6 @@ deps = ["Arpack", "LinearAlgebra", "SparseArrays", "SuiteSparse", "Test"]
 git-tree-sha1 = "5f303510529486bb02ac4d70da8295da38302194"
 uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
 version = "0.9.11"
-
-[[PROJ_jll]]
-deps = ["Libdl", "Pkg", "SQLite_jll"]
-git-tree-sha1 = "8847ec182cf2ab66527cedd602b701f04adcb079"
-uuid = "58948b4f-47e0-5654-a9ad-f609743f8632"
-version = "6.3.0+0"
 
 [[Packing]]
 deps = ["GeometryTypes", "Test"]
@@ -1038,12 +1005,6 @@ version = "0.13.0"
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
-[[SQLite_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "25675b6872c3fcbe2034510db3a467405b6dc79e"
-uuid = "76ed43ae-9a5d-5a62-8c75-30186b810ce8"
-version = "3.31.1+0"
-
 [[Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
@@ -1130,9 +1091,9 @@ version = "0.4.2"
 
 [[StructTypes]]
 deps = ["Dates", "UUIDs"]
-git-tree-sha1 = "d88e0663126771e7ad2f944bd927e4c29fc09ae9"
+git-tree-sha1 = "1ed04f622a39d2e5a6747c3a70be040c00333933"
 uuid = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
-version = "1.0.2"
+version = "1.1.0"
 
 [[SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
