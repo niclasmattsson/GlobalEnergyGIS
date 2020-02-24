@@ -255,48 +255,9 @@ const mapregions = [
 ]
 
 const syntheticdemandregions = [
-    "ARG"    GADM("Argentina")
-    "AUS"    GADM("Australia")
-    "AUT"    GADM("Austria")
-    "BEL"    GADM("Belgium")
-    "BIH"    GADM("Bosnia and Herzegovina")
-    "BRA"    GADM("Brazil")
-    "BGR"    GADM("Bulgaria")
-    "CAN"    GADM("Canada")
-    "CHL"    GADM("Chile")
-    "HRV"    GADM("Croatia")
-    "CYP"    GADM("Cyprus")
-    "CZE"    GADM("Czech Republic")
-    "DNK"    GADM("Denmark")
-    "EST"    GADM("Estonia")
-    "FIN"    GADM("Finland")
-    "FRA"    GADM("France")
-    "DEU"    GADM("Germany")
-    "GRC"    GADM("Greece")
-    "HUN"    GADM("Hungary")
-    "ICL"    GADM("Iceland")
-    "IRL"    GADM("Ireland")
-    "ITA"    GADM("Italy")
-    "KEN"    GADM("Kenya")
-    "KOR"    GADM("South Korea")
-    "LVA"    GADM("Latvia")
-    "LTU"    GADM("Lithuania")
-    "MKD"    GADM("Macedonia")
-    "MEX"    GADM("Mexico")
-    "NLD"    GADM("Netherlands")
-    "NZL"    GADM("New Zealand")
-    "NOR"    GADM("Norway")
-    "POL"    GADM("Poland")
-    "PRT"    GADM("Portugal")
-    "ROU"    GADM("Romania")
-    "SAU"    GADM("Saudi Arabia")
-    "SRB"    GADM("Serbia")
-    "SVK"    GADM("Slovakia")
-    "SVN"    GADM("Slovenia")
-    "ESP"    GADM("Spain")
-    "LKA"    GADM("Sri Lanka")
-    "SWE"    GADM("Sweden")
-    "CHE"    GADM("Switzerland")
-    "TUR"    GADM("Turkey")
-    "GBR"    GADM("United Kingdom")
+    "Argentina", "Australia", "Austria", "Belgium", "Bosnia and Herzegovina", "Brazil", "Bulgaria", "Canada", "Chile",
+    "Croatia", "Cyprus", "Czech Republic", "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hungary",
+    "Iceland", "Ireland", "Italy", "Kenya", "Latvia", "Lithuania", "Macedonia", "Mexico", "Netherlands", "New Zealand",
+    "Norway", "Poland", "Portugal", "Romania", "Saudi Arabia", "Serbia", "Slovakia", "Slovenia", "South Korea", "Spain",
+    "Sri Lanka", "Sweden", "Switzerland", "Turkey", "United Kingdom"
 ]

@@ -1157,6 +1157,12 @@ git-tree-sha1 = "bbb9f7fd6fbdd9582e77c0b698312c543de5eb71"
 uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
 version = "0.5.0"
 
+[[XGBoost]]
+deps = ["BinaryProvider", "Libdl", "Printf", "Random", "SparseArrays", "Statistics", "Test"]
+git-tree-sha1 = "b1299fe4d279e2a5ca67406a5eb640e5f71d19ce"
+uuid = "009559a3-9522-5dbb-924b-0b6ed2b22bb9"
+version = "0.4.2"
+
 [[XML2_jll]]
 deps = ["Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
 git-tree-sha1 = "ed5603a695aefe3e9e404fc7b052e02cc72cfab6"

@@ -80,6 +80,11 @@ function saveregions_global(; args...)
     regiondefinitionarray = [NUTS_Europe; non_NUTS_Europe]
     saveregions("Europe_background", regiondefinitionarray; args..., autocrop=false)
     println("\nEurope_background region file saved.")
+
+    println("\nCreating a region file for the 44 countries with synthetic demand training data...\n")
+    regiondefinitionarray = [syntheticdemandregions GADM.(syntheticdemandregions)]
+    saveregions("SyntheticDemandRegions", regiondefinitionarray; args...)
+    println("\nSyntheticDemandRegions file saved.")
 end
 
 function loadregions(regionname)
