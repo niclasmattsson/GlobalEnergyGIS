@@ -307,18 +307,20 @@ function matlab2elin(; gisregion="Europe8", year=2018)
     
     # CF_pvrooftop, capacity_pvrooftop
     region = string.(regionlist)
-    tech = ["PVplant", "PVroof", "CSP", "onshore", "offshore"]
-    classname = ["PVP", "PVR", "CSP", "WON", "WOFF"]
-    capvar = ["capacity_pvplantA", "capacity_pvrooftop", "capacity_cspplantA", "capacity_onshoreA", "capacity_offshore"]
-    cfvar = ["CFtime_pvplantA", "CFtime_pvrooftop", "CFtime_cspplantA", "CFtime_windonshoreA", "CFtime_windoffshore"]
+    tech = ["PVplantA", "PVplantB", "PVroof", "CSPA", "CSPB", "WindonshoreA", "WindonshoreB", "Windoffshore"]
+    classname = ["PVPA", "PVPB", "PVR", "CSPA", "CSPB", "WONA", "WONB", "WOFF"]
+    capvar = ["capacity_pvplantA", "capacity_pvplantB", "capacity_pvrooftop", "capacity_cspplantA", "capacity_cspplantB",
+                "capacity_onshoreA", "capacity_onshoreB", "capacity_offshore"]
+    cfvar = ["CFtime_pvplantA", "CFtime_pvplantB", "CFtime_pvrooftop", "CFtime_cspplantA", "CFtime_cspplantB",
+                "CFtime_windonshoreA", "CFtime_windonshoreB", "CFtime_windoffshore"]
 
     winddata = matread(in_datafolder("output", "GISdata_wind$(year)_$gisregion$filenamesuffix.mat"))
     solardata = matread(in_datafolder("output", "GISdata_solar$(year)_$gisregion$filenamesuffix.mat"))
     data = merge(winddata, solardata)
 
     # read number of classes from wind & solar GIS output 
-    nwindclasses = [size(winddata[varname], 2) for varname in capvar[4:5]] 
-    nsolarclasses = [size(solardata[varname], 2) for varname in capvar[1:3]] 
+    nwindclasses = [size(winddata[varname], 2) for varname in capvar[6:8]] 
+    nsolarclasses = [size(solardata[varname], 2) for varname in capvar[1:5]] 
     nclasses = [nsolarclasses; nwindclasses]
 
     for t = 1:length(tech)
