@@ -62,45 +62,50 @@ function download_datasets(startfile=1)
     for datasetinfo in datasets
         name, filename, url = datasetinfo
         foldername, extension = splitext(filename)
+        fullpath = joinpath(datafolder, filename)
 
-        if extension in [".zip", ".tar"]
+        if extension in [".zip", ".tar"] && isfile(fullpath)
             println("\nUnpacking archive: $filename")
-            unpack(joinpath(datafolder, filename), joinpath(datafolder, foldername), extension)
+            unpack(fullpath, joinpath(datafolder, foldername), extension)
         end
     end
 
-    filename = "NUTS_RG_01M_2016_4326_LEVL_3.shp.zip"
-    println("\nUnpacking archive: $filename")
-    unpack(joinpath(datafolder, "nuts-2016-01m.shp", filename), joinpath(datafolder, "nuts2016-level3"), ".zip")
-
-    syntheticdemandfolder = joinpath(datafolder, "syntheticdemand")
-    mkpath(syntheticdemandfolder)
-    mkpath(joinpath(syntheticdemandfolder, "output"))
-    cp(joinpath(dirname(@__FILE__), "synthetic_demand_demo.py"), joinpath(syntheticdemandfolder, "synthetic_demand_demo.py"))
+    if startfile <= 4
+        filename = "NUTS_RG_01M_2016_4326_LEVL_3.shp.zip"
+        println("\nUnpacking archive: $filename")
+        unpack(joinpath(datafolder, "nuts-2016-01m.shp", filename), joinpath(datafolder, "nuts2016-level3"), ".zip")
+        rm(joinpath(datafolder, "nuts-2016-01m.shp"), force=true, recursive=true)
+    end
 
     println("\n\n\nCleaning up...")
 
-    mv(joinpath(datafolder, "ETOPO1_Ice_c_geotiff", "ETOPO1_Ice_c_geotiff.tif"), joinpath(datafolder, "ETOPO1_Ice_c_geotiff.tif"))
-    rm(joinpath(datafolder, "ETOPO1_Ice_c_geotiff"))
-    mv(joinpath(datafolder, "temp_popgdp", "data"), joinpath(datafolder, "global_population_and_gdp"))
-    rm(joinpath(datafolder, "temp_popgdp"))
-    mv(joinpath(datafolder, "temp_ssp2", "SSP2_1km"), joinpath(datafolder, "SSP2_1km"))
-    rm(joinpath(datafolder, "temp_ssp2"), force=true, recursive=true)
-    rm(joinpath(datafolder, "SSP2_1km", "PaxHeaders.62069"), force=true, recursive=true)
-    rm(joinpath(datafolder, "nuts-2016-01m.shp"), force=true, recursive=true)
-    mv(joinpath(datafolder, "WRI - Global Power Plant Database v1.10"), joinpath(datafolder, "tempWRI"))
-    mv(joinpath(datafolder, "tempWRI", "WRI - Global Power Plant Database v1.10"),
-        joinpath(datafolder, "WRI - Global Power Plant Database v1.10"))
-    rm(joinpath(datafolder, "tempWRI"))
-    mv(joinpath(datafolder, "synthetic_demand_data", "data"), joinpath(syntheticdemandfolder, "data"))
-    rm(joinpath(datafolder, "synthetic_demand_data"))
+    if startfile <= 6
+        mv(joinpath(datafolder, "ETOPO1_Ice_c_geotiff", "ETOPO1_Ice_c_geotiff.tif"), joinpath(datafolder, "ETOPO1_Ice_c_geotiff.tif"))
+        rm(joinpath(datafolder, "ETOPO1_Ice_c_geotiff"))
+    end
+    if startfile <= 7
+        mv(joinpath(datafolder, "temp_ssp2", "SSP2_1km"), joinpath(datafolder, "SSP2_1km"))
+        rm(joinpath(datafolder, "temp_ssp2"), force=true, recursive=true)
+        rm(joinpath(datafolder, "SSP2_1km", "PaxHeaders.62069"), force=true, recursive=true)
+    end
+    if startfile <= 8
+        mv(joinpath(datafolder, "temp_popgdp", "data"), joinpath(datafolder, "global_population_and_gdp"))
+        rm(joinpath(datafolder, "temp_popgdp"))
+    end
+    if startfile <= 9
+        mv(joinpath(datafolder, "WRI - Global Power Plant Database v1.10"), joinpath(datafolder, "tempWRI"))
+        mv(joinpath(datafolder, "tempWRI", "WRI - Global Power Plant Database v1.10"),
+            joinpath(datafolder, "WRI - Global Power Plant Database v1.10"))
+        rm(joinpath(datafolder, "tempWRI"))
+    end
 
     for datasetinfo in datasets
         name, filename, url = datasetinfo
         foldername, extension = splitext(filename)
 
         if extension in [".zip", ".tar"]
-            rm(joinpath(datafolder, filename))
+            fullpath = joinpath(datafolder, filename)
+            isfile(fullpath) && rm(fullpath)
         end
     end
     println("\n\nDone.")
