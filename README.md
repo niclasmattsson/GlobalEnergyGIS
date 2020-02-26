@@ -221,46 +221,90 @@ julia> GISwind(gisregion="Europe13", scenarioyear="ssp2_2020", era_year=2016, pe
 
 The parameters that can be changed are listed in the section "GIS options" below.
 
-## Synthetic demand demo
+## Synthetic electricity demand
 
-The synthetic demand code still requires a few more days of development before it can generate demand for arbitrary world regions. All components are in place except hourly temperature data for model regions. When completed, the code will sample hourly temperatures from the three most highly populated pixels of each model region. This will require downloading a temperature dataset from the ERA5 reanalysis in addition to the solar and wind data. 
+The synthetic demand module estimates the profile of hourly electricity demand in each model region given the
+total annual demand (determined by current national electricity demand per capita extrapolated using the SSP
+background scenario and target year). This is done using machine learning, specifically a method called gradient
+boosting tree regression. This is similar to ordinary regression, except that underlying mathematical relationships
+between variables are determined automatically using a black box approach.
 
-This will be completed in the week of January 20-24. For now, we have hardcoded temperature data for two sample regions, MENA (Middle East and North Africa) and EU10. Below are instructions for generating synthetic demand for these regions.
+We train the model based on real electricity demand in 44 countries for the year 2015. Regression variables include
+calendar effects (e.g. hour of day and weekday/weekend indicators), temperature variables (e.g. hourly temperature
+series in the most populated areas of each model region, or monthly averages as seasonality indicators) and economic
+indicators, e.g. local GDP per capita or electricity demand per capita (using the latter variable is not "cheating",
+since we are merely interested in predicting hourly profiles of normalized demand, not the demand level).
 
-### Installation of Python and geopandas
+### Easy version using our default parameters and regression variables
 
-Download and install Anaconda (Python 3.7). Accept the default options in the installer.
-https://www.anaconda.com/distribution
-
-Open the Anaconda prompt (from the start menu on a Windows system) and install geopandas. Accept default options if prompted.
-
-```
-(base) C:\Users\niclas>conda install geopandas
-```
-
-### Creating input data for synthetic demand
-
-Skip this step for now. The requisite input data for MENA and EU10 are already included.
-
-In Julia:
+Assuming you have already downloaded the requisite temperature data for the year you want to study
+(see `era5download()` and `maketempera5()`), and created population and GDP datasets for the SSP scenario
+(see `create_scenario_datasets()`):
 
 ```
-julia> using GlobalEnergyGIS
-
-julia> regions, regionlist, demand, pop, popdens, gdp = makesyntheticdemandinput(gisregion="Europe8");
+julia> predictdemand(gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018)
 ```
 
-### Running the synthetic demand module
+This will create a matrix (size 8760x`number_of_regions`) with the predicted electricity demand for each
+model region and hour of the year. This data is saved in a new JLD file in `/GISdata_folder_path/output`.
 
-In the Anaconda prompt, change to the synthetic demand folder and start the script, using the region name as a command line argument (MENA or EU10).
+### Selecting variables to train on
+
+These are the default nine variables (so this will produce the exact same result as the previous example).
 
 ```
-(base) C:\Users\niclas> cd D:\GISdata\syntheticdemand
+julia> selectedvars = [:hour, :weekend01, :temp_monthly, :ranked_month, :temp_top3, :temp1_mean, :temp1_qlow, :temp1_qhigh, :demandpercapita]
 
-(base) D:\GISdata\syntheticdemand>python synthetic_demand_demo.py MENA
+julia> predictdemand(variables=selectedvars, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018)
 ```
 
-The machine learning code runs for about 5-10 minutes. The resulting output files will be placed in `D:/GISdata/syntheticdemand/output/`. 
+And here is a simpler example using seven variables:
+
+```
+julia> selectedvars = [:hour, :weekend01, :ranked_month, :temp_top3, :temp1_qlow, :temp1_qhigh, :gdppercapita]
+
+julia> predictdemand(variables=selectedvars, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018)
+```
+
+Currently we calculate data for 12 different variables. Any combination of these can be used to train on. The full
+list along with brief explanations appears below near the bottom of this README.
+
+### Selecting custom learning parameters
+
+These are the default parameters:
+
+```
+julia> predictdemand(variables=defaultvariables, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018,
+            nrounds=100, max_depth=8, eta=0.05, subsample=0.75, metrics=["mae"])         
+```
+
+And here we modify them:
+
+```
+julia> predictdemand(variables=defaultvariables, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018,
+            nrounds=40, max_depth=12, eta=0.30, subsample=0.85, metrics=["rmse"])         
+```
+
+These parameters are explained briefly below. Additionally, any other [XGBoost parameters](https://xgboost.readthedocs.io/en/latest/parameter.html)
+can be specified.
+
+### Cross-validation of the training demand dataset (44 countries)
+
+Cross-validation of the training dataset can help determine which variables to train on and what values of learning
+parameters to use. This will predict the demand for all 44 countries in the demand dataset, but the model built for
+each country will only use data from the other 43 countries.
+
+Iterations appear significantly slower than `predictdemand()` because it trains 44 models in parallel. 
+
+```
+julia> crossvalidate(variables=[:hour, :weekend01, :temp_monthly, :temp1_mean, :temp1_qlow, :temp1_qhigh, :demandpercapita, :temp_top3],
+                        nrounds=100, max_depth=8, eta=0.05, subsample=0.75, metrics=["mae"])
+```
+
+Note that there is no `gisregion` argument since we are both training and predicting the same 44 country dataset.
+The log will show two columns of training errors. The right column `cv-train-mae` will have lower errors, but this
+results from evaluating the model on the same data it trained on (i.e "cheating"). The column `cv-test-mae` on the left
+is the real (non-cheating) result. Resist the temptation of adapting parameters to the right column.
 
 ## GIS options
 
@@ -399,3 +443,46 @@ To do.
 * describe output file formats
 
  -->
+
+### Synthetic demand: list of training variables
+
+List of variables in the training dataset that can be use for the regression:
+
+```
+Calendar variables
+   :hour               hour of day
+   :month              month of year
+   :weekend01          weekend indicator
+
+Hourly temperatures:
+   :temp1              temperature in the largest population center of each region
+   :temp_top3          average temperature in the three largest population centers of each region
+
+Monthly temperatures (season indicators):
+   :temp_monthly       average monthly temperature in the largest population center of each region
+   :ranked_month       rank of the average monthly temperature of each month (1-12)
+
+Annual temperature levels and variability:
+   :temp1_mean         average annual temperature in the largest population center of each region
+   :temp1_qlow         low annual temperature - 5% quantile of hourly temperatures
+   :temp1_qhigh        high annual temperature - 95% quantile of hourly temperatures
+
+Economic indicators:
+   :demandpercapita    level of annual average electricity demand [MWh/year/capita] in each region
+   :gdppercapita       level of annual average GDP per capita [USD(2010)/capita] in each region
+```
+
+### Default learning parameters for the synthetic demand regression
+
+Our default values are adapted to our data and differ from the default XGBoost parameters. The parameters also need
+to be adapted to each other. For example, a lower `eta` value may require a higher `nrounds` value to reach full benefit. 
+
+```
+nrounds=100      # number of rounds of learning improvements
+max_depth=8      # tree depth, i.e. complexity of the underlying black box model. Increasing this may lead to overfitting.
+eta=0.05         # learning rate. Higher values will improve faster, but may ultimately lead to a less efficient model.
+subsample=0.75   # how much of the training data to use in each iteration. Same tradeoff as 'eta' parameter.
+metrics=["mae"]  # "mae" = mean absolute error, "rmse" = root mean square error, or both. Note the brackets (it's a vector).
+```
+
+For more information on these and other selectable parameters, see https://xgboost.readthedocs.io/en/latest/parameter.html.
