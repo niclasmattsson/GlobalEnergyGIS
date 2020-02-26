@@ -1,49 +1,19 @@
 using XGBoost, Printf
 
-export predict, trainmodel, crossvalidate
+export predictdemand, trainmodel, crossvalidate, defaultvariables
 
-# List of variables in the training dataset that can be use for the regression:
-#
-# Calendar variables:
-#   :hour               hour of day
-#   :month              month of year
-#   :weekend01          weekend indicator
-#
-# Hourly temperatures:
-#   :temp1              temperature in the largest population center of each region
-#   :temp_top3          average temperature in the three largest population centers of each region
-# 
-# Monthly temperatures (season indicators):
-#   :temp_monthly       average monthly temperature in the largest population center of each region
-#   :ranked_month       rank of the average monthly temperature of each month (1-12)
-#
-# Annual temperature levels and variability:
-#   :temp1_mean         average annual temperature in the largest population center of each region
-#   :temp1_qlow         low annual temperature - 5% quantile of hourly temperatures
-#   :temp1_qhigh        high annual temperature - 95% quantile of hourly temperatures
-#
-# Economic indicators:
-#   :demandpercapita    level of annual average electricity demand [MWh/year/capita] in each region
-#   :gdppercapita       level of annual average GDP per capita [USD(2010)/capita] in each region
-# 
-# Other variables (don't use these):
-#    :time
-#    :country
+const defaultvariables = [:hour, :weekend01, :temp_monthly, :ranked_month, :temp_top3,
+                            :temp1_mean, :temp1_qlow, :temp1_qhigh, :demandpercapita]
+# const defaultvariables = [:hour, :weekend01, :ranked_month, :temp_top3, :temp1_mean, :temp1_qlow, :temp1_qhigh, :gdppercapita]
 
-# training tests:
-# ranked month  13-24  (test 1-12)
-# try adding: month, temp1, temp_monthly, demandpercapita
-
-const defaultvariables = [:hour, :weekend01, :temp_top3, :ranked_month, :temp1_mean, :temp1_qlow, :temp1_qhigh, :gdppercapita]
-
-function predict(; variables=defaultvariables, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018, numcenters=3, mindist=3.3,
-                    nrounds=100, xgoptions...)
+function predictdemand(; variables=defaultvariables, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018, numcenters=3, mindist=3.3,
+                    nrounds=100, max_depth=8, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
     df = buildtrainingdata(; gisregion=gisregion, scenarioyear=scenarioyear, era_year=era_year, numcenters=numcenters, mindist=mindist)
     regionlist = unique(df[:, :country])
     demandpercapita = df[1:8760:end, :demandpercapita]
     select!(df, variables)
     traindata = Matrix(df)
-    model = trainmodel(; nrounds=nrounds, xgoptions...)
+    model = trainmodel(; nrounds=nrounds, max_depth=max_depth, eta=eta, subsample=subsample, metrics=metrics, more_xgoptions...)
     normdemand = XGBoost.predict(model, traindata)
     numreg = length(regionlist)
     numhours = length(normdemand) ÷ numreg
@@ -63,7 +33,7 @@ function trainmodel(; variables=defaultvariables, nrounds=100, xgoptions...)
     model = xgboost(traindata, nrounds; label=normdemand, xgoptions...)
 end
 
-function crossvalidate(; variables=defaultvariables, nrounds=100, metrics=["mae"], xgoptions...)
+function crossvalidate(; variables=defaultvariables, nrounds=100, max_depth=8, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
     df_train = gettrainingdata()
     regionlist = unique(df_train[:, :country])
     select!(df_train, variables)
@@ -71,7 +41,7 @@ function crossvalidate(; variables=defaultvariables, nrounds=100, metrics=["mae"
     normdemand = gettrainingdemand()[:, :normdemand]
 
     numreg = length(regionlist)
-    params = Any[xgoptions...]
+    params = Any["max_depth"=>round(Int, max_depth), "eta"=>eta, "subsample"=>subsample, "metrics"=>metrics, more_xgoptions...]
 
     models = nfold_cv_return(traindata, nrounds, numreg, label=normdemand, metrics=metrics, param=params)   # "rmse" or "mae"
     # pp = XGBoost.predict(models[1], traindata)
