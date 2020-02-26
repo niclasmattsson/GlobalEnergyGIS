@@ -38,12 +38,14 @@ function download_datasets(startfile=1)
             "https://chalmersuniversity.box.com/shared/static/0kmxcatjzt8ivo4ktw65yoybts2uht76.csv"),
         ("Country-level hydropower potential (WEC)", "WEC hydro potentials.csv",
             "https://chalmersuniversity.box.com/shared/static/czkpqr0b6572bzdslyn76gsrxvc87vvc.csv"),
-        ("Synthetic demand input data", "synthetic_demand_data.zip",
-            "https://chalmersuniversity.box.com/shared/static/2xe2tdo4ylmldv7e2mc8p0fd1x15gcis.zip"),
         ("IEA electricity demand 2016", "ieademand_2016.csv",
             "https://chalmersuniversity.box.com/shared/static/1gz9nkhgteflunbinom7u8pc1r5qjglu.csv"),
         ("SSP v2 Final Energy/Electricity from IAM scenarios", "SSP v2 Final Energy - Electricity.csv",
-            "https://chalmersuniversity.box.com/shared/static/hfrt1uq8slgucj3m22rv1j3yhe20d2sa.csv")
+            "https://chalmersuniversity.box.com/shared/static/hfrt1uq8slgucj3m22rv1j3yhe20d2sa.csv"),
+        ("Synthetic demand training data", "syntheticdemand_trainingdata.csv",
+            "https://chalmersuniversity.box.com/shared/static/e1kfo9qioe87r34aq6693w1ed69rd2lu.csv"),
+        ("Synthetic demand demand data", "syntheticdemand_demanddata.csv",
+            "https://chalmersuniversity.box.com/shared/static/yuguu9c083pqjdf00ljw7hh9ekofg8t7.csv"),
     ]
 
     for (i, datasetinfo) in enumerate(datasets)
