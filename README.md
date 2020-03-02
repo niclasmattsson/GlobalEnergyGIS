@@ -9,6 +9,10 @@ public datasets. Written in Julia.
 Supergridmodel. Link paper.
 -->
 
+## Paper
+
+The work here has been described in a [scientific paper](Mattsson et al. 2019 - An autopilot for energy models.pdf) submitted to Energy Strategy Reviews along with its [supplementary material](Mattsson et al. 2019 - Supplementary - An autopilot for energy models.pdf).
+
 ## Disk space requirements
 
 This package uses several large datasets and requires a lot of disk space: roughly 10 GB + 21 GB/year of
