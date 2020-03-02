@@ -11,7 +11,7 @@ Supergridmodel. Link paper.
 
 ## Paper
 
-The work here has been described in a [scientific paper](Mattsson et al. 2019 - An autopilot for energy models.pdf) submitted to Energy Strategy Reviews along with its [supplementary material](Mattsson et al. 2019 - Supplementary - An autopilot for energy models.pdf).
+The work here has been described in a [scientific paper](Mattsson%20et%20al.%202019%20-%20An%20autopilot%20for%20energy%20models.pdf) submitted to Energy Strategy Reviews along with its [supplementary material](Mattsson%20et%20al.%202019%20-%20Supplementary%20-%20An%20autopilot%20for%20energy%20models.pdf).
 
 ## Disk space requirements
 
