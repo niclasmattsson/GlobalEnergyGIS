@@ -15,12 +15,18 @@ function rasterize_datasets(; cleanup=:all)
 end
 
 function create_scenario_datasets(scen, year)
-    println("\nCreate population dataset...")
-    downscale_population(scen, year)
-    println("\nCreate GDP dataset...")
-    createGDP(scen, year)
-    println("\nCreate grid access dataset...")
-    creategridaccess(scen, year)
+    if !isfile(in_datafolder("population_$(scen)_$year.jld"))
+        println("\nCreating population dataset for $scen $year...")
+        downscale_population(scen, year)
+    end
+    if !isfile(in_datafolder("gdp_$(scen)_$year.jld"))
+        println("\nCreating GDP dataset for $scen $year...")
+        createGDP(scen, year)
+    end
+    if !isfile(in_datafolder("gridaccess_$(scen)_$year.jld"))
+        println("\nCreating grid access dataset for $scen $year...")
+        creategridaccess(scen, year)
+    end
 end
 
 # cleanup options: :none, :limited, :all
