@@ -1,4 +1,4 @@
-export GADM, NUTS, makeregions, makeregions_nuts, makeoffshoreregions, saveregions, loadregions
+export GADM, NUTS, makeregions, makeregions_nuts, makeoffshoreregions, saveregions, loadregions, saveregions_global
 
 struct GADM{T}
     parentregions::Vector{T}
