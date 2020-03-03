@@ -1,4 +1,4 @@
-using DataDeps
+using BinDeps
 
 export download_datasets
 
@@ -127,4 +127,4 @@ function download_curl(curl_exe::AbstractString, url::AbstractString, filename::
     return filename
 end
 
-unpack(inputfilename, outputpath, extension) = run(DataDeps.unpack_cmd(inputfilename, outputpath, extension, ""))
+unpack(inputfilename, outputpath, extension) = run(BinDeps.unpack_cmd(inputfilename, outputpath, extension, ""))
