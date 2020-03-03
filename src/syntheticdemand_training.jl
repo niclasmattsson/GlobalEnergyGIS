@@ -20,12 +20,12 @@ function predictdemand(; variables=defaultvariables, gisregion="Europe8", scenar
     demand = reshape(normdemand, (numhours, numreg)) .* demandpercapita'
     println("\nSaving synthetic demand...")
     JLD.save(in_datafolder("output", "SyntheticDemand_$(gisregion)_$era_year.jld"), "demand", demand, compress=true)
-    return demand
+    nothing
 end
 
 function trainmodel(; variables=defaultvariables, nrounds=100, xgoptions...)
-    println("\nTraining model...")
     df_train = gettrainingdata()
+    println("\nTraining model...")
     select!(df_train, variables)
     traindata = Matrix(df_train)
     normdemand = gettrainingdemand()[:, :normdemand]

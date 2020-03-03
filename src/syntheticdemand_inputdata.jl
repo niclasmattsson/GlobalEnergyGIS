@@ -179,25 +179,24 @@ function buildtrainingdata(; gisregion="Europe8", scenarioyear="ssp2_2050", era_
 
     # get rid of columns not used for the training
     # select!(df, Not([:temp1, :month]))
-    println("\n\nDon't forget to create SSP2_2020 dataset.\n\n")
 
     return df
 end
 
 function gettrainingdata()
-    # filename = in_datafolder("syntheticdemand_trainingdata.jld")
-    # df_train = isfile(filename) ? JLD.load(filename, "df_train") : savetrainingdata()
     filename = in_datafolder("syntheticdemand_trainingdata.csv")
     df_train = isfile(filename) ? CSV.read(filename) : savetrainingdata()
     return df_train
 end
 
 function savetrainingdata(; numcenters=3, mindist=3.3)
+    create_scenario_datasets("SSP2", 2020)
     println("\nCreating training dataset for synthetic demand...")
     println("(This requires ERA5 temperature data for the year 2015 and scenario datasets for SSP2 2020.)")
     df_train = buildtrainingdata(gisregion="SyntheticDemandRegions", scenarioyear="SSP2_2020", era_year=2015, numcenters=numcenters, mindist=mindist)
     # JLD.save(in_datafolder("syntheticdemand_trainingdata.jld"), "df_train", df_train, compress=true)
-    CSV.write(in_datafolder("syntheticdemand_trainingdata.csv"), df_train) 
+    CSV.write(in_datafolder("syntheticdemand_trainingdata.csv"), df_train)
+    return df_train
 end
 
 gettrainingdemand() = CSV.read(in_datafolder("syntheticdemand_demanddata.csv"))
