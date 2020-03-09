@@ -32,11 +32,6 @@ function GIStemp(gisregion::String, scenarioyear::String, era_year::Int, numcent
     eralons = (-180+erares/2:erares:180-erares/2)[eralonrange]     # longitude values (pixel center)
     eralats = (90-erares/2:-erares:-90+erares/2)[eralatrange]      # latitude values (pixel center)
 
-    # tz, tznames = loadtimezones(lonrange, latrange)
-    # tzindex_popcenters = [getregion(eralons[popcenters[r][i][1]], eralats[popcenters[r][i][2]], tz, lonrange, latrange)
-    #                         for r = 1:numreg, i = 1:numcenters]
-    # tz_popcenters = TimeZone.(tznames[tzindex_popcenters])
-
     hours = DateTime(era_year, 1, 1, 0) : Hour(1) : DateTime(era_year, 12, 31, 23)
     numhours = length(hours)
     numhours != size(temp,1) && error("Inconsistent number of hours.")

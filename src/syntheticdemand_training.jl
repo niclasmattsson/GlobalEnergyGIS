@@ -4,7 +4,6 @@ export predictdemand, trainmodel, crossvalidate, defaultvariables
 
 const defaultvariables = [:localhour, :weekend01, :temp_monthly, :ranked_month, :temp_top3,
                             :temp1_mean, :temp1_qlow, :temp1_qhigh, :demandpercapita]
-# const defaultvariables = [:localhour, :weekend01, :ranked_month, :temp_top3, :temp1_mean, :temp1_qlow, :temp1_qhigh, :gdppercapita]
 
 function predictdemand(; variables=defaultvariables, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018, numcenters=3, mindist=3.3,
                     nrounds=100, max_depth=8, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
@@ -44,10 +43,9 @@ function crossvalidate(; variables=defaultvariables, nrounds=100, max_depth=8, e
     params = Any["max_depth"=>round(Int, max_depth), "eta"=>eta, "subsample"=>subsample, "metrics"=>metrics, more_xgoptions...]
 
     models = nfold_cv_return(traindata, nrounds, numreg; label=normdemand, metrics=metrics, param=params)   # "rmse" or "mae"
-    # pp = XGBoost.predict(models[1], traindata)
-    # pp2 = XGBoost.predict(models[end], traindata)
     display(importance(models[1], string.(variables)))
-    # return showstats(y, pp, pp2)
+
+    return models
 end
 
 
