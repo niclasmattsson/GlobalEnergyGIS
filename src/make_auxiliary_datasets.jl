@@ -11,6 +11,8 @@ function rasterize_datasets(; cleanup=:all)
     savelandcover()
     upscale_topography()
     saveregions_global()
+    rasterize_timezones()
+    maketimezones()
     cleanup_datasets(cleanup=cleanup)
 end
 
@@ -36,12 +38,15 @@ function cleanup_datasets(; cleanup=:all)
     rm(in_datafolder("protectedfields.csv"), force=true)
     rm(in_datafolder("landcover.tif"), force=true)
     rm(in_datafolder("topography.tif"), force=true)
+    rm(in_datafolder("timezones.tif"), force=true)
+    rm(in_datafolder("timezone_names.csv"), force=true)
     if cleanup == :all
         rm(in_datafolder("Landcover - USGS MODIS.tif"), force=true)
         rm(in_datafolder("ETOPO1_Ice_c_geotiff.tif"), force=true)
         rm(in_datafolder("gadm36"), force=true, recursive=true)
         rm(in_datafolder("nuts2016-level3"), force=true, recursive=true)
         rm(in_datafolder("WDPA_Mar2020"), force=true, recursive=true)
+        rm(in_datafolder("timezones-with-oceans.shapefile"), force=true, recursive=true)
     end
 end
 
@@ -151,7 +156,7 @@ function rasterize_timezones()
     ENV["PROJ_LIB"] = abspath(dirname(pathof(GDAL)), "../deps/usr/share/proj") # hack to fix GDAL/PROJ path
     oldpath = pwd()
     cd(Sys.BINDIR)  # Another hack to access libs in BINDIR, e.g. libstdc++-6.dll
-    shapefile = in_datafolder("timezones-with-oceans.shapefile", "combined-shapefile-with-oceans.shp")
+    shapefile = in_datafolder("timezones-with-oceans.shapefile", "dist", "combined-shapefile-with-oceans.shp")
     sql = "select FID+1 as FID from \"combined-shapefile-with-oceans\""
     outfile = in_datafolder("timezones.tif")
     options = "-a FID -a_nodata 0 -ot Int16 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
