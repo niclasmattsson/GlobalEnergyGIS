@@ -46,6 +46,8 @@ function download_datasets(startfile=1)
             "https://chalmersuniversity.box.com/shared/static/e1kfo9qioe87r34aq6693w1ed69rd2lu.csv"),
         ("Synthetic demand demand data", "syntheticdemand_demanddata.csv",
             "https://chalmersuniversity.box.com/shared/static/yuguu9c083pqjdf00ljw7hh9ekofg8t7.csv"),
+        ("Time zone shape file", "timezones-with-oceans.shapefile.zip",
+            "https://github.com/evansiroky/timezone-boundary-builder/releases/download/2019b/timezones-with-oceans.shapefile.zip")
     ]
 
     for (i, datasetinfo) in enumerate(datasets)
