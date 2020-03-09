@@ -219,8 +219,11 @@ function existinginflow(existing, countries, countrynames, regions, regionlist, 
     for i = 1:size(hydroplants,1)
         country = getregion(hydroplants[i,:longitude], hydroplants[i,:latitude], countries)
         i == 4867 && continue   # weird data point in the Indian Ocean
-        (country == 0 || country == NOREGION) && error("Can't identify country: $(hydroplants[i,:])")
-        capacwri[country] += hydroplants[i,:capacity_mw] / 1e3    # GW
+        if country > 0 && country != NOREGION
+            capacwri[country] += hydroplants[i,:capacity_mw] / 1e3    # GW
+        else
+            println("Can't identify country: $(hydroplants[i,:])")
+        end
     end
 
     # calculate scale factor for national hydro capacity (WRI capac/WEC capac)
