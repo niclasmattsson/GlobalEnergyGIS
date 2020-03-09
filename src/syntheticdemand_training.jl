@@ -17,7 +17,11 @@ function predictdemand(; variables=defaultvariables, gisregion="Europe8", scenar
     normdemand = XGBoost.predict(model, traindata)
     numreg = length(regionlist)
     demand = reshape(normdemand, (numhours, numreg)) .* demandpercapita'
-    println("\nSaving synthetic demand...")
+    println("\nConverting synthetic demand to UTC...")
+    for r = 1:numreg
+        demand[:,r] = circshift(demand[:,r], round(Int, -offsets[r]))
+    end
+    println("\nSaving...")
     JLD.save(in_datafolder("output", "SyntheticDemand_$(gisregion)_$era_year.jld"), "demand", demand, compress=true)
     nothing
 end
