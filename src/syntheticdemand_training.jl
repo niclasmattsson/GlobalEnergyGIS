@@ -3,11 +3,11 @@ using XGBoost, Printf
 export predictdemand, trainmodel, crossvalidate, defaultvariables
 
 const defaultvariables = [:localhour, :weekend01, :temp_monthly, :ranked_month, :temp_top3,
-                            :temp1_mean, :temp1_qlow, :temp1_qhigh, :demandpercapita]
+                            :temp1_mean, :temp1_qlow, :temp1_qhigh, :demandpercapita, :gdppercapita]
 
 function predictdemand(; variables=defaultvariables, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018, numcenters=3, mindist=3.3,
-                    nrounds=100, max_depth=8, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
-    df, offsets = buildtrainingdata(; gisregion=gisregion, scenarioyear=scenarioyear, era_year=era_year, numcenters=numcenters, mindist=mindist)
+                    nrounds=1000, max_depth=7, eta=0.005, subsample=0.05, metrics=["mae"], more_xgoptions...)
+    df, offsets, pop = buildtrainingdata(; gisregion=gisregion, scenarioyear=scenarioyear, era_year=era_year, numcenters=numcenters, mindist=mindist)
     regionlist = unique(df[:, :country])
     numhours = 24*daysinyear(era_year)
     demandpercapita = df[1:numhours:end, :demandpercapita]      # MWh/year/capita
