@@ -2,21 +2,21 @@ using XGBoost, Printf
 
 export predictdemand, trainmodel, crossvalidate, defaultvariables
 
-const defaultvariables = [:hour, :weekend01, :temp_monthly, :ranked_month, :temp_top3,
+const defaultvariables = [:localhour, :weekend01, :temp_monthly, :ranked_month, :temp_top3,
                             :temp1_mean, :temp1_qlow, :temp1_qhigh, :demandpercapita]
-# const defaultvariables = [:hour, :weekend01, :ranked_month, :temp_top3, :temp1_mean, :temp1_qlow, :temp1_qhigh, :gdppercapita]
+# const defaultvariables = [:localhour, :weekend01, :ranked_month, :temp_top3, :temp1_mean, :temp1_qlow, :temp1_qhigh, :gdppercapita]
 
 function predictdemand(; variables=defaultvariables, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018, numcenters=3, mindist=3.3,
                     nrounds=100, max_depth=8, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
     df = buildtrainingdata(; gisregion=gisregion, scenarioyear=scenarioyear, era_year=era_year, numcenters=numcenters, mindist=mindist)
     regionlist = unique(df[:, :country])
-    demandpercapita = df[1:8760:end, :demandpercapita]
+    numhours = 24*daysinyear(era_year)
+    demandpercapita = df[1:numhours:end, :demandpercapita]
     select!(df, variables)
     traindata = Matrix(df)
     model = trainmodel(; nrounds=nrounds, max_depth=max_depth, eta=eta, subsample=subsample, metrics=metrics, more_xgoptions...)
     normdemand = XGBoost.predict(model, traindata)
     numreg = length(regionlist)
-    numhours = length(normdemand) ÷ numreg
     demand = reshape(normdemand, (numhours, numreg)) .* demandpercapita'
     println("\nSaving synthetic demand...")
     JLD.save(in_datafolder("output", "SyntheticDemand_$(gisregion)_$era_year.jld"), "demand", demand, compress=true)
@@ -24,26 +24,26 @@ function predictdemand(; variables=defaultvariables, gisregion="Europe8", scenar
 end
 
 function trainmodel(; variables=defaultvariables, nrounds=100, xgoptions...)
-    df_train = gettrainingdata()
+    df_train = loadtrainingdata()
     println("\nTraining model...")
     select!(df_train, variables)
     traindata = Matrix(df_train)
-    normdemand = gettrainingdemand()[:, :normdemand]
+    normdemand = loaddemanddata()[:, :normdemand]
 
     model = xgboost(traindata, nrounds; label=normdemand, xgoptions...)
 end
 
 function crossvalidate(; variables=defaultvariables, nrounds=100, max_depth=8, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
-    df_train = gettrainingdata()
+    df_train = loadtrainingdata()
     regionlist = unique(df_train[:, :country])
     select!(df_train, variables)
     traindata = Matrix(df_train)
-    normdemand = gettrainingdemand()[:, :normdemand]
+    normdemand = loaddemanddata()[:, :normdemand]
 
     numreg = length(regionlist)
     params = Any["max_depth"=>round(Int, max_depth), "eta"=>eta, "subsample"=>subsample, "metrics"=>metrics, more_xgoptions...]
 
-    models = nfold_cv_return(traindata, nrounds, numreg, label=normdemand, metrics=metrics, param=params)   # "rmse" or "mae"
+    models = nfold_cv_return(traindata, nrounds, numreg; label=normdemand, metrics=metrics, param=params)   # "rmse" or "mae"
     # pp = XGBoost.predict(models[1], traindata)
     # pp2 = XGBoost.predict(models[end], traindata)
     display(importance(models[1], string.(variables)))

@@ -11,7 +11,7 @@
 function GIStemp(gisregion::String, scenarioyear::String, era_year::Int, numcenters::Int, mindist::Float64)
     println("\nReading temperature data for $gisregion...")
 
-    regions, offshoreregions, regionlist, lonrange, latrange, pop, meantemp, temp =
+    regions, offshoreregions, regionlist, lonrange, latrange, pop, meantemp, temp, eralonranges, eralatrange =
                 read_temperature_datasets(gisregion, scenarioyear, era_year)
 
     erapop = rescale_population_to_ERA5_res(era_year, regions, offshoreregions, regionlist, lonrange, latrange, pop, temp)
@@ -26,6 +26,16 @@ function GIStemp(gisregion::String, scenarioyear::String, era_year::Int, numcent
             popcenters[i] = repeat(p, outer=numcenters)[1:numcenters]
         end
     end
+
+    eralonrange = vcat(eralonranges...)
+    erares = 0.28125
+    eralons = (-180+erares/2:erares:180-erares/2)[eralonrange]     # longitude values (pixel center)
+    eralats = (90-erares/2:-erares:-90+erares/2)[eralatrange]      # latitude values (pixel center)
+
+    # tz, tznames = loadtimezones(lonrange, latrange)
+    # tzindex_popcenters = [getregion(eralons[popcenters[r][i][1]], eralats[popcenters[r][i][2]], tz, lonrange, latrange)
+    #                         for r = 1:numreg, i = 1:numcenters]
+    # tz_popcenters = TimeZone.(tznames[tzindex_popcenters])
 
     hours = DateTime(era_year, 1, 1, 0) : Hour(1) : DateTime(era_year, 12, 31, 23)
     numhours = length(hours)
@@ -56,7 +66,7 @@ function read_temperature_datasets(gisregion, scenarioyear, era_year)
                 [file["temp"][:, eralonranges[1], eralatrange] file["temp"][:, eralonranges[2], eralatrange]]
         end
     end
-    return regions, offshoreregions, regionlist, lonrange, latrange, pop, meantemp, temp
+    return regions, offshoreregions, regionlist, lonrange, latrange, pop, meantemp, temp, eralonranges, eralatrange
 end
 
 function rescale_population_to_ERA5_res(era_year, regions, offshoreregions, regionlist, lonrange, latrange, pop, temp)

@@ -1,6 +1,6 @@
 using GeoMakie, Makie, ColorSchemes
 
-export createmaps
+export createmaps, plotmap
 
 function createmap(gisregion, regions, regionlist, lons, lats, colors, source, dest, xs, ys,
                     geocenters, popcenters, connected, connectedoffshore; lines=false, labels=false, resolutionscale=1, textscale=1)
@@ -109,7 +109,7 @@ function greedycolor(connected, colorlist, order; randseed=0)
         columncolors = colors[connected[:,i]]
         col = firstcolor(columncolors, colorlist)
         if col == 0
-            println("All colors used, retrying...")
+            println("All colors used, retrying with randseed=$(randseed+1)...")
             return greedycolor(connected, colorlist, order; randseed=randseed+1)
         end
         colors[i] = col
@@ -162,4 +162,40 @@ function intermediatepoint(point1::Tuple, point2::Tuple, fraction)
     lat = atand(z, sqrt(x^2 + y^2))
     lon = atand(y, x)
     return (lat, lon)
+end
+
+plotmap(x; args...) = heatmap(reverse(x, dims=2); scale_plot=false, args...)
+
+function plottraining(countryname)
+    df = loadtrainingdata()
+    cc = df[:, :country] .== countryname
+    normdemand = loaddemanddata()[cc, :normdemand]
+    # normalize temp1 to the range [0.5, 1.5] for the 5%-95% quantiles
+    normtemp1 = (df[cc,:temp1] .- df[cc,:temp1_qlow]) ./ (df[cc,:temp1_qhigh] .- df[cc,:temp1_qlow]) .+ 0.5
+    t = 1:8760
+    plot(t, normdemand, color=:black, limits=FRect(0,0,9000,50))
+    plot!(t, normtemp1, color=:blue)
+end
+
+function plottimezones()
+    tzindices, tznames = loadtimezones(1:36000, 1:18000)
+    nreg = length(tznames)
+    cc = connectedregions(tzindices, nreg)
+    colorindices = greedycolor(cc, 1:12, 1:nreg, randseed=494)
+    cs = colorschemes[:Set3_12].colors[colorindices]
+    plotmap(tzindices[1:5:end, 1:5:end], colormap=cs)
+end
+
+function plottimeoffsets()
+    tzindices, tznames = loadtimezones(1:36000, 1:18000)
+    tz = [n[1:3] == "Etc" ? TimeZone(n, TimeZones.Class(:LEGACY)) : TimeZone(n) for n in tznames]
+    offsetlist = tzoffset.(tz)
+    offsetvalues = sort(unique(offsetlist))
+    offsetdata = [offsetlist[tzi] for tzi in tzindices]
+    offsetindices = indexin(offsetdata, offsetvalues)
+    nreg = length(offsetvalues)
+    cc = connectedregions(offsetindices, nreg)
+    colorindices = greedycolor(cc, 1:12, 1:nreg, randseed=1)
+    cs = colorschemes[:Set3_12].colors[colorindices]
+    plotmap(offsetindices[1:5:end, 1:5:end], colormap=cs)
 end

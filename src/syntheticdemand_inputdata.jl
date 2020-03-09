@@ -1,6 +1,6 @@
 using DataFrames
 
-export buildtrainingdata, gettrainingdata, savetrainingdata
+export buildtrainingdata, loadtrainingdata, loaddemanddata, savetrainingdata
 
 # Can call this with ssp5 or ssp32 (global constants)
 # Since not all GADM level 0 regions are assigned to SSP regions, some regions are missed
@@ -148,26 +148,37 @@ function buildtrainingdata(; gisregion="Europe8", scenarioyear="ssp2_2050", era_
     println("\nBuilding training data for $gisregion...")
     regionlist, demandpercapita, gdppercapita = makeregionaldemanddata(gisregion, scenarioyear)
     hours, temp_popcenters = GIStemp(gisregion, scenarioyear, era_year, numcenters, mindist)
+    offsets, zone_maxpop = regional_timezone_offsets_Jan1(gisregion=gisregion, scenarioyear=scenarioyear, era_year=era_year)
 
     numreg, numhours = length(regionlist), length(hours)
+    firsttime = ZonedDateTime.(hours[1], zone_maxpop)
+    zonedtime = hcat(collect.([firsttime[i]:Hour(1):firsttime[i]+Hour(8759) for i = 1:numreg])...)[:]
+
+    println("\nShifting hourly temperatures from UTC to local time...")
     temperature_top3_mean = dropdims(mean(temp_popcenters, dims=3), dims=3)
     quantiles = hcat([quantile(temp_popcenters[:,c,1], [0.05, 0.5, 0.95]) for c = 1:numreg]...)
+    shifted_temperature_top3_mean = similar(temperature_top3_mean)
+    shifted_temp1 = similar(temperature_top3_mean)
+    for r = 1:numreg
+        shifted_temperature_top3_mean[:,r] = circshift(temperature_top3_mean[:,r], round(Int, offsets[r]))
+        shifted_temp1[:,r] = circshift(temp_popcenters[:,r,1], round(Int, offsets[r]))
+    end
 
     # dataframe with hourly data
     df_time = DataFrame(
-        time = repeat(hours, outer=numreg),
+        localtime = DateTime.(zonedtime, Local),
         country = repeat(string.(regionlist), inner=numhours),
-        temp_top3 = temperature_top3_mean[:],
-        temp1 = temp_popcenters[:,:,1][:],
-        hour = repeat(hour.(hours), outer=numreg),
-        month = repeat(month.(hours), outer=numreg),
-        weekend01 = repeat(Int.(dayofweek.(hours).>=6), outer=numreg)
+        temp_top3 = shifted_temperature_top3_mean[:],
+        temp1 = shifted_temp1[:],
+        localhour = hour.(zonedtime),
+        month = month.(zonedtime),
+        weekend01 = Int.(dayofweek.(zonedtime) .>= 6)
     )
 
     # sort by average monthly temperature (in popcenter 1), store rank in ranked_month
     df_monthlytemp = by(df_time, [:country, :month], temp_monthly = :temp1 => mean) |>
             d -> sort!(d, [:country, :temp_monthly]) |>
-            d -> insertcols!(d, 4, ranked_month=repeat(13:24, outer=numreg))
+            d -> insertcols!(d, 4, ranked_month=repeat(1:12, outer=numreg))
 
     # dataframe with regional data
     df_reg = DataFrame(country=string.(regionlist), demandpercapita=demandpercapita, gdppercapita=gdppercapita,
@@ -175,15 +186,11 @@ function buildtrainingdata(; gisregion="Europe8", scenarioyear="ssp2_2050", era_
 
     # join everything together
     df = join(df_time, df_monthlytemp, on=[:country, :month]) |>
-                d -> join(d, df_reg, on=:country)
-
-    # get rid of columns not used for the training
-    # select!(df, Not([:temp1, :month]))
-
+                    d -> join(d, df_reg, on=:country)
     return df
 end
 
-function gettrainingdata()
+function loadtrainingdata()
     filename = in_datafolder("syntheticdemand_trainingdata.csv")
     df_train = isfile(filename) ? CSV.read(filename) : savetrainingdata()
     return df_train
@@ -193,32 +200,120 @@ function savetrainingdata(; numcenters=3, mindist=3.3)
     create_scenario_datasets("SSP2", 2020)
     println("\nCreating training dataset for synthetic demand...")
     println("(This requires ERA5 temperature data for the year 2015 and scenario datasets for SSP2 2020.)")
-    df_train = buildtrainingdata(gisregion="SyntheticDemandRegions", scenarioyear="SSP2_2020", era_year=2015, numcenters=numcenters, mindist=mindist)
+    df_train = buildtrainingdata(gisregion="SyntheticDemandRegions", scenarioyear="SSP2_2020", era_year=2015,
+                    numcenters=numcenters, mindist=mindist)
     # JLD.save(in_datafolder("syntheticdemand_trainingdata.jld"), "df_train", df_train, compress=true)
     CSV.write(in_datafolder("syntheticdemand_trainingdata.csv"), df_train)
     return df_train
 end
 
-gettrainingdemand() = CSV.read(in_datafolder("syntheticdemand_demanddata.csv"))
-# gettrainingdemand() = JLD.load(in_datafolder("syntheticdemand_demanddata.jld"), "demand")
+loaddemanddata() = CSV.read(in_datafolder("syntheticdemand_demanddata.csv"))
+# loaddemanddata() = JLD.load(in_datafolder("syntheticdemand_demanddata.jld"), "demand")
+
+# value2datetime(value) = DateTime(Dates.UTInstant(Millisecond(round(Int64, value))))
+# datetime2hours(dt::DateTime) = hour(dt) + minute(dt)/60 + second(dt)/3600
+
+function regional_timezone_offsets_Jan1(; gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018)
+    println("\nCalculating population-weighted regional time zone offsets...")
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
+    tzindices, tznames = loadtimezones(lonrange, latrange)
+    pop = JLD.load(in_datafolder("population_$scenarioyear.jld"), "population")[lonrange,latrange] ./ 1e5   # scale down for better precision
+    numreg = length(regionlist)
+    numhours = 24*daysinyear(era_year)
+    offsets = zeros(numreg)
+    zone_maxpop = fill(tz"Europe/London", numreg)
+    # reghours = zeros(numhours, numreg)
+    updateprogress = Progress(numreg, 1)
+    for r = 1:numreg
+        reg = (regions .== r)
+        regindices = tzindices[reg]
+        regpop = pop[reg]
+        zoneindices = unique(regindices)
+        weightedoffset = 0.0
+        # weightedtime = zeros(numhours)
+        zones = TimeZone[]
+        pops = Float64[]
+        for idx in zoneindices
+            tzname = tznames[idx]
+            zone = tzname[1:3] == "Etc" ? TimeZone(tzname, TimeZones.Class(:LEGACY)) : TimeZone(tzname)
+            push!(zones, zone)
+            firsthour = ZonedDateTime(DateTime(era_year,1,1,0), zone)
+            hours = firsthour : Hour(1) : firsthour + Hour(numhours-1)
+            offset = tzoffset(hours[1])
+            localpop = sum(regpop[regindices.==idx])
+            push!(pops, localpop)
+            weightedoffset += localpop * offset
+            # shiftedhours = circshift(hours, round(Int, offset))
+            # weightedtime .+= localpop * Dates.value.(DateTime.(shiftedhours, Local))
+        end
+        _, i = findmax(pops)    # find time zone with the most population
+        zone_maxpop[r] = zones[i]
+        offsets[r] = weightedoffset / sum(pops)
+        # regtime = value2datetime.(weightedtime / sum(pops))
+        # localhours = datetime2hours.(regtime)
+        # reghours[:,r] = round.(localhours, digits=3)
+        next!(updateprogress)
+    end
+    # # clean up artifacts at top and bottom caused by circshift()
+    # newhours = reghours[10,:]' .- (9:-1:1)
+    # reghours[1:9,:] .= newhours .+ 24*(newhours.<0)
+    # newhours = reghours[end-4,:]' .+ (1:5)
+    # reghours[end-4:end,:] .= newhours .- 24*(newhours.>=24)
+
+    return offsets, zone_maxpop
+end
 
 function saveVilledemand()
-    vv = CSV.read("C:/GISdata/syntheticdemand/data/df_model_features.csv")
+    vv = CSV.read(in_datafolder("syntheticdemand", "data", "df_model_features.csv"))
     hours = DateTime(2015, 1, 1, 0) : Hour(1) : DateTime(2015, 12, 31, 23)
-    dem = hcat(DataFrame(time=repeat(hours, outer=44)), select(vv, [:country, :demand_total_mwh]))
-    un_dem = unstack(dem, :country, :demand_total_mwh)
-    rename!(un_dem, Dict("Bosnia and Herz." => "Bosnia and Herzegovina",
+    demand1D = hcat(DataFrame(hours=repeat(hours, outer=44)), select(vv, [:country, :demand_total_mwh]))
+    demand2D = unstack(demand1D, :country, :demand_total_mwh)
+    rename!(demand2D, Dict("Bosnia and Herz." => "Bosnia and Herzegovina",
                                 "Czech Rep." => "Czech Republic",
                                 "Korea" => "South Korea"))
-    select!(un_dem, [:time; sort(names(un_dem)[2:end])])
-    dem2 = stack(un_dem, variable_name=:country, value_name=:demand_MW)
+    select!(demand2D, [:hours; sort(names(demand2D)[2:end])])
+
+    # offsets, zone_maxpop = regional_timezone_offsets_Jan1(gisregion="SyntheticDemandRegions", scenarioyear="SSP2_2020", era_year=2015)
+    # hourmat = repeat(float.(hour.(hours)), outer=(1,44))
+    # for c = 1:44
+    #     demand2D[:,c+1] = circshift(demand2D[:,c+1], round(Int, offsets[c]))
+    #     hourmat[:,c] = circshift(hourmat[:,c], round(Int, offsets[c]))
+    # end
+
+    dem2 = stack(demand2D, variable_name=:country, value_name=:demand_MW)
     select!(dem2, [3,1,2])
     meandemand = by(dem2, :country, meandemand = :demand_MW => mean)
     demand = join(dem2, meandemand, on=:country)
+
+    # firsttime = ZonedDateTime.(hours[1], zone_maxpop)
+    # numreg = length(zone_maxpop)
+    # zonedtime = hcat(collect.([firsttime[i]:Hour(1):firsttime[i]+Hour(8759) for i = 1:numreg])...)[:]
+    # demand[:, :localtime] .= DateTime.(zonedtime, Local)
+    # insertcols!(demand, 2, localhour=hour.(zonedtime))
+    # insertcols!(demand, 2, localhour=reghours[:])   # original version: pop weighted time zone hours respecting DST shifts
+    # insertcols!(demand, 2, localhour=hourmat[:])    # simplified version: just shift hours based on regional offsets (no DST)
     insertcols!(demand, 5, normdemand=demand[:,:demand_MW]./demand[:,:meandemand])
-    # CSV.write("tempdemand.csv", demand)     # next lines to get around subtype weirdness in original dataframes
-    # demand = CSV.read("tempdemand.csv")
-    # rm("tempdemand.csv")
-    # JLD.save(in_datafolder("syntheticdemand_demanddata.jld"), "demand", demand, compress=true)
-    CSV.write(in_datafolder("syntheticdemand_demanddata.csv"), demand) 
+    CSV.write(in_datafolder("syntheticdemand_demanddata.csv"), demand)
+end
+
+tzoffset(tz::FixedTimeZone) = tz.offset.std.value / 3600
+tzoffset(tz::VariableTimeZone) = tzoffset(tz.transitions[end].zone)
+tzoffset(dt::ZonedDateTime) = TimeZones.value(dt.zone.offset) / 3600
+
+function timezonetest()
+    # zones = TimeZone.(["Europe/London", "Europe/Stockholm", "Europe/Helsinki", "Europe/Minsk"])
+    zones = TimeZone.(["Australia/Perth", "Australia/Adelaide", "Australia/Darwin", "Australia/Brisbane", "Australia/Sydney"])
+    # all hours in 2015 for each zone in local time
+    hours = hcat([ZonedDateTime(DateTime(2015,1,1,0), z) : Hour(1) : ZonedDateTime(DateTime(2015,12,31,23), z) for z in zones]...)
+    # shift hours by the time zone offset to ensure simultaneous rows
+    # take the offset of ZonedDateTime in hour 1 (in case hour 1 is DST), not the UTC time zone offset
+    shifted = hcat([circshift(hours[:,i], round(Int, -tzoffset(hours[1,i]))) for i = 1:length(zones)]...)
+    # convert to UTC and ensure all columns identical (except last 24 hours because of shifted hours from previous year)
+    utctime = DateTime.(shifted, UTC)
+    # @assert all([all(utctime[1:end-24,1] .== utctime[1:end-24,i]) for i=2:length(zones)])  # doesn't work for non-integer time offsets
+    # show the local time in each zone around the shift to summer time (daylight savings) in the EU
+    localtime = Time.(DateTime.(shifted, Local))
+    # display(localtime[2085:2095,:])   # EU
+    display(localtime[6615:6620,:])     # Australia
+    return hours, shifted, utctime, localtime
 end

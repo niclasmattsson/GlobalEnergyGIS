@@ -129,7 +129,6 @@ end
 
 function makeprotected()
     println("Reading protected area rasters...")
-    datafolder = getconfig("datafolder")
     protectedfields = readdlm(in_datafolder("protectedfields.csv"), ',', header=true)[1]
     IUCNcodes = ["Ia", "Ib", "II", "III", "IV", "V", "VI", "Not Reported", "Not Applicable", "Not Assigned"]
     IUCNlookup = Dict(c => i for (i,c) in enumerate(IUCNcodes))
@@ -145,6 +144,47 @@ function makeprotected()
 
     println("Saving protected area dataset...")
     JLD.save(in_datafolder("protected.jld"), "protected", protected, compress=true)
+end
+
+function rasterize_timezones()
+    println("Rasterizing shapefile of time zones...")
+    ENV["PROJ_LIB"] = abspath(dirname(pathof(GDAL)), "../deps/usr/share/proj") # hack to fix GDAL/PROJ path
+    oldpath = pwd()
+    cd(Sys.BINDIR)  # Another hack to access libs in BINDIR, e.g. libstdc++-6.dll
+    shapefile = in_datafolder("timezones-with-oceans.shapefile", "combined-shapefile-with-oceans.shp")
+    sql = "select FID+1 as FID from \"combined-shapefile-with-oceans\""
+    outfile = in_datafolder("timezones.tif")
+    options = "-a FID -a_nodata 0 -ot Int16 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
+    gdal_rasterize = GDAL.gdal.gdal_rasterize_path
+    @time run(`$gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile`)
+
+    println("Creating .csv file for time zone index and name lookup...")
+    sql = "select FID+1 as FID,tzid from \"combined-shapefile-with-oceans\""
+    outfile = in_datafolder("timezone_names.csv")
+    ogr2ogr = GDAL.gdal.ogr2ogr_path
+    @time run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
+    cd(oldpath)
+    nothing
+end
+
+function maketimezones()
+    println("Reading time zone raster file...")
+    tznames = string.(readdlm(in_datafolder("timezone_names.csv"), ',', header=true)[1][:,2])
+    timezones = readraster(in_datafolder("timezones.tif"))
+
+    f0 = findall(timezones.==0)     # find any "no data" pixels (should only be one pixel in Canada near Halifax)
+    for f in f0
+        timezones[f] = maximum(timezones[f .+ CartesianIndices((-1:1, -1:1))])  # replace with largest neighbor
+    end
+
+    println("Saving time zones dataset...")
+    JLD.save(in_datafolder("timezones.jld"), "timezones", timezones, "tznames", tznames, compress=true)
+end
+
+function loadtimezones(lonrange, latrange)
+    jldopen(in_datafolder("timezones.jld"), "r") do file
+        return read(file, "timezones")[lonrange, latrange], read(file, "tznames")
+    end
 end
 
 function resample(infile::String, outfile::String, options::Vector{<:AbstractString})
