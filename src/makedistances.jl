@@ -16,7 +16,7 @@ function makedistances(gisregion; scenarioyear="ssp2_2050", res=0.01)
     # regionpop = [sum(pop.==r) for r = 1:numreg]
 
     println("\nSaving results...")
-    matopen(joinpath(outputfolder, "distances_$gisregion.mat"), "w") do file
+    matopen(in_datafolder("output", "distances_$gisregion.mat"), "w") do file
         write(file, "distances", distances)
         write(file, "connected", connected)
         write(file, "connectedoffshore", connectedoffshore)

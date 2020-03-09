@@ -148,7 +148,7 @@ function buildtrainingdata(; gisregion="Europe8", scenarioyear="ssp2_2050", era_
     println("\nBuilding training data for $gisregion...")
     regionlist, demandpercapita, gdppercapita = makeregionaldemanddata(gisregion, scenarioyear)
     hours, temp_popcenters = GIStemp(gisregion, scenarioyear, era_year, numcenters, mindist)
-    offsets, zone_maxpop = regional_timezone_offsets_Jan1(gisregion=gisregion, scenarioyear=scenarioyear, era_year=era_year)
+    offsets, zone_maxpop, population = regional_timezone_offsets_Jan1(gisregion=gisregion, scenarioyear=scenarioyear, era_year=era_year)
 
     numreg, numhours = length(regionlist), length(hours)
     firsttime = ZonedDateTime.(hours[1], zone_maxpop)
@@ -187,7 +187,7 @@ function buildtrainingdata(; gisregion="Europe8", scenarioyear="ssp2_2050", era_
     # join everything together
     df = join(df_time, df_monthlytemp, on=[:country, :month]) |>
                     d -> join(d, df_reg, on=:country)
-    return df, offsets
+    return df, offsets, population
 end
 
 function loadtrainingdata()
@@ -204,7 +204,7 @@ function savetrainingdata(; numcenters=3, mindist=3.3)
     create_scenario_datasets("SSP2", 2020)
     println("\nCreating training dataset for synthetic demand...")
     println("(This requires ERA5 temperature data for the year 2015 and scenario datasets for SSP2 2020.)")
-    df_train, offsets = buildtrainingdata(gisregion="SyntheticDemandRegions", scenarioyear="SSP2_2020", era_year=2015,
+    df_train, offsets, _ = buildtrainingdata(gisregion="SyntheticDemandRegions", scenarioyear="SSP2_2020", era_year=2015,
                     numcenters=numcenters, mindist=mindist)
     CSV.write(in_datafolder("syntheticdemand_timezoneoffsets.csv"), DataFrame(offsets=offsets))
     CSV.write(in_datafolder("syntheticdemand_trainingdata.csv"), df_train)
@@ -216,10 +216,12 @@ function regional_timezone_offsets_Jan1(; gisregion="Europe8", scenarioyear="ssp
     println("\nCalculating population-weighted regional time zone offsets...")
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
     tzindices, tznames = loadtimezones(lonrange, latrange)
-    pop = JLD.load(in_datafolder("population_$scenarioyear.jld"), "population")[lonrange,latrange] ./ 1e5   # scale down for better precision
+    popscale = 1e5
+    pop = JLD.load(in_datafolder("population_$scenarioyear.jld"), "population")[lonrange,latrange] ./ popscale   # scale down for better precision
     numreg = length(regionlist)
     numhours = 24*daysinyear(era_year)
     offsets = zeros(numreg)
+    population = zeros(numreg)
     zone_maxpop = fill(tz"Europe/London", numreg)
     updateprogress = Progress(numreg, 1)
     for r = 1:numreg
@@ -243,11 +245,12 @@ function regional_timezone_offsets_Jan1(; gisregion="Europe8", scenarioyear="ssp
         end
         _, i = findmax(pops)    # find time zone with the most population
         zone_maxpop[r] = zones[i]
+        population[r] = sum(pops) * popscale    # scale up again
         offsets[r] = weightedoffset / sum(pops)
         next!(updateprogress)
     end
 
-    return offsets, zone_maxpop
+    return offsets, zone_maxpop, population
 end
 
 function saveVilledemand()

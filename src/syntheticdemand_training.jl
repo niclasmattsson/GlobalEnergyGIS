@@ -10,13 +10,13 @@ function predictdemand(; variables=defaultvariables, gisregion="Europe8", scenar
     df, offsets = buildtrainingdata(; gisregion=gisregion, scenarioyear=scenarioyear, era_year=era_year, numcenters=numcenters, mindist=mindist)
     regionlist = unique(df[:, :country])
     numhours = 24*daysinyear(era_year)
-    demandpercapita = df[1:numhours:end, :demandpercapita]
+    demandpercapita = df[1:numhours:end, :demandpercapita]      # MWh/year/capita
     select!(df, variables)
     traindata = Matrix(df)
     model = trainmodel(; nrounds=nrounds, max_depth=max_depth, eta=eta, subsample=subsample, metrics=metrics, more_xgoptions...)
-    normdemand = XGBoost.predict(model, traindata)
+    normdemand = XGBoost.predict(model, traindata)              # mean(normdemand) == 1
     numreg = length(regionlist)
-    demand = reshape(normdemand, (numhours, numreg)) .* demandpercapita'
+    demand = reshape(normdemand, (numhours, numreg)) .* (demandpercapita/8760)' .* pop'    # MW
     println("\nConverting synthetic demand to UTC...")
     for r = 1:numreg
         demand[:,r] = circshift(demand[:,r], round(Int, -offsets[r]))
