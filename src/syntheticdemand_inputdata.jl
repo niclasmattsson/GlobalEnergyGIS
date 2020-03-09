@@ -187,23 +187,27 @@ function buildtrainingdata(; gisregion="Europe8", scenarioyear="ssp2_2050", era_
     # join everything together
     df = join(df_time, df_monthlytemp, on=[:country, :month]) |>
                     d -> join(d, df_reg, on=:country)
-    return df
+    return df, offsets
 end
 
 function loadtrainingdata()
     filename = in_datafolder("syntheticdemand_trainingdata.csv")
-    df_train = isfile(filename) ? CSV.read(filename) : savetrainingdata()
-    return df_train
+    if !isfile(filename)
+        savetrainingdata()
+    end
+    df_train = CSV.read(filename)
+    offsets = CSV.read(in_datafolder("syntheticdemand_timezoneoffsets.csv"))[:,1]
+    return df_train, offsets
 end
 
 function savetrainingdata(; numcenters=3, mindist=3.3)
     create_scenario_datasets("SSP2", 2020)
     println("\nCreating training dataset for synthetic demand...")
     println("(This requires ERA5 temperature data for the year 2015 and scenario datasets for SSP2 2020.)")
-    df_train = buildtrainingdata(gisregion="SyntheticDemandRegions", scenarioyear="SSP2_2020", era_year=2015,
+    df_train, offsets = buildtrainingdata(gisregion="SyntheticDemandRegions", scenarioyear="SSP2_2020", era_year=2015,
                     numcenters=numcenters, mindist=mindist)
+    CSV.write(in_datafolder("syntheticdemand_timezoneoffsets.csv"), DataFrame(offsets=offsets))
     CSV.write(in_datafolder("syntheticdemand_trainingdata.csv"), df_train)
-    return df_train
 end
 
 loaddemanddata() = CSV.read(in_datafolder("syntheticdemand_demanddata.csv"))

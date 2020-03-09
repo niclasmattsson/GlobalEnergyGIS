@@ -167,7 +167,7 @@ end
 plotmap(x; args...) = heatmap(reverse(x, dims=2); scale_plot=false, args...)
 
 function plottraining(countryname)
-    df = loadtrainingdata()
+    df, _ = loadtrainingdata()
     cc = df[:, :country] .== countryname
     normdemand = loaddemanddata()[cc, :normdemand]
     # normalize temp1 to the range [0.5, 1.5] for the 5%-95% quantiles
