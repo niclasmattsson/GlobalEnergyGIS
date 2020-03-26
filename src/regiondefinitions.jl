@@ -1,9 +1,15 @@
-export europe8, eurasia38, scand3, eurasia21, china6, europe13, europe21, europe22, europe54, syntheticdemandregions, testreg, caspian, NUTS_Europe
+export europe8, eurasia38, scand3, scand4, eurasia21, china6, europe13, europe21, europe22, europe54, syntheticdemandregions,
+        testreg, caspian, NUTS_Europe
 
 const scand3 = [
     "SWE"   GADM("Sweden")
     "NOR"   GADM("Norway")
-    "FIN"   GADM("Finland")
+    "FIN"   GADM("Finland","Åland")
+]
+
+const scand4 = [
+    scand3;
+    "DEN"   GADM("Denmark")
 ]
 
 const europe8 = [
