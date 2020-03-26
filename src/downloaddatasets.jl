@@ -47,7 +47,7 @@ function download_datasets(startfile=1)
         ("Synthetic demand demand data", "syntheticdemand_demanddata.csv",
             "https://chalmersuniversity.box.com/shared/static/yuguu9c083pqjdf00ljw7hh9ekofg8t7.csv"),
         ("Synthetic demand time zone offsets", "syntheticdemand_timezoneoffsets.csv",
-            "https://chalmersuniversity.box.com/s/ei4v2453k90qguuwjggz1sw5tl2kavau"),
+            "https://chalmersuniversity.box.com/shared/static/ei4v2453k90qguuwjggz1sw5tl2kavau.csv"),
         ("Time zone shape file", "timezones-with-oceans.shapefile.zip",
             "https://github.com/evansiroky/timezone-boundary-builder/releases/download/2019b/timezones-with-oceans.shapefile.zip")
     ]
