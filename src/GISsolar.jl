@@ -119,7 +119,7 @@ function GISsolar(; savetodisk=true, optionlist...)
     meanGTI, solarGTI, meanDNI, solarDNI = read_solar_datasets(options, lonrange, latrange)
 
     mask_rooftop, mask_plantA, mask_plantB =
-        create_solar_masks(options, regions, gridaccess, popdens, land, protected)
+        create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange)
 
     CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB, solar_overlap_areaA, solar_overlap_areaB,
             capacity_pvrooftop, capacity_pvplantA, capacity_pvplantB, capacity_cspplantA, capacity_cspplantB =
@@ -173,8 +173,8 @@ function read_solar_datasets(options, lonrange, latrange)
     return meanGTI, solarGTI, meanDNI, solarDNI
 end
 
-function create_solar_masks(options, regions, gridaccess, popdens, land, protected; plotmasks=false)
-    @unpack res, exclude_landtypes, protected_codes, distance_elec_access, plant_persons_per_km2, pvroof_persons_per_km2 = options
+function create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange; plotmasks=false)
+    @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, plant_persons_per_km2, pvroof_persons_per_km2 = options
 
     println("Creating masks...")
 
@@ -203,16 +203,22 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
     mask_plantB = (gridB .& .!gridA) .& (popdens .< plant_persons_per_km2) .& goodland .& .!protected_area
 
     if plotmasks
-        drawmap(land)
-        drawmap(goodland)
-        drawmap(.!protected_area)
-        # drawmap(gridaccess)
-        drawmap(gridA)
-        drawmap(gridB)    
-        drawmap(popdens .< plant_persons_per_km2)
-        drawmap(mask_rooftop)
-        drawmap(mask_plantA)
-        drawmap(mask_plantB)
+        # drawmap(land)
+        isregion = (regions .> 0) .& (regions .!= NOREGION)
+
+        # mask values refer to colors in ColorBrewer Set2_7:
+        # https://juliagraphics.github.io/ColorSchemes.jl/stable/basics/#colorbrewer-1
+        masks = zeros(Int16, size(regions))
+        masks[(masks .== 0) .& (popdens .> plant_persons_per_km2)] .= 2
+        masks[(masks .== 0) .& protected_area] .= 3
+        masks[(masks .== 0) .& .!gridA .& .!gridB] .= 4
+        masks[(masks .== 0) .& .!goodland] .= 1
+        masks[(masks .== 0) .& .!gridA .& gridB] .= 6
+        masks[(masks .== 0) .& isregion] .= 5
+        masks[regions .== 0] .= 0
+        masks[regions .== NOREGION] .= NOREGION
+        legendtext = ["bad land type", "high population", "protected area", "no grid", "solar plant A", "solar plant B", "", ""]
+        maskmap("$(gisregion)_masks_solar", masks, legendtext, lonrange, latrange; legend=true)
     end
 
     return mask_rooftop, mask_plantA, mask_plantB
@@ -364,7 +370,7 @@ function GISsolarmap(; optionlist...)
     meanGTI, solarGTI, meanDNI, solarDNI = read_solar_datasets(options, lonrange, latrange)
 
     mask_rooftop, mask_plantA, mask_plantB =
-        create_solar_masks(options, regions, gridaccess, popdens, land, protected, plotmasks=true)
+        create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange, plotmasks=true)
 
     pvmap, pvrooftopmap, cspmap =
         calc_solar_map(options, meanGTI, solarGTI, meanDNI, solarDNI, regions, offshoreregions, regionlist,

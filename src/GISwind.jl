@@ -103,7 +103,7 @@ function GISwind(; savetodisk=true, optionlist...)
     windatlas, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
 
     mask_onshoreA, mask_onshoreB, mask_offshore =
-        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected)
+        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange)
 
     windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore =
         calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
@@ -165,8 +165,8 @@ function read_wind_datasets(options, lonrange, latrange)
     return windatlas, meanwind, windspeed
 end
 
-function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected; plotmasks=false)
-    @unpack res, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2, min_shore_distance, max_depth = options
+function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange; plotmasks=false)
+    @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2, min_shore_distance, max_depth = options
 
     println("Creating masks...")
 
@@ -201,19 +201,27 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     mask_offshore = gridB .& .!shore .& (topo .> -max_depth) .& (offshoreregions .> 0) .& .!protected_area
 
     if plotmasks
-        drawmap(land)
-        drawmap(goodland)
-        drawmap(.!protected_area)
-        # drawmap(gridaccess)
-        drawmap(gridA)
-        drawmap(gridB)    
-        drawmap(popdens .< persons_per_km2)
-        drawmap(mask_onshoreA)
+        # drawmap(land)
+        isregion = (regions .> 0) .& (regions .!= NOREGION)
 
-        drawmap(.!shore .& (offshoreregions .> 0))
-        drawmap((topo .> -max_depth) .& (offshoreregions .> 0))
-        drawmap(.!protected_area .& (offshoreregions .> 0))
-        drawmap(mask_offshore)
+        # mask values refer to colors in ColorBrewer Set2_7:
+        # https://juliagraphics.github.io/ColorSchemes.jl/stable/basics/#colorbrewer-1
+        masks = zeros(Int16, size(regions))
+        masks[(masks .== 0) .& (popdens .> persons_per_km2)] .= 2
+        masks[(masks .== 0) .& protected_area] .= 3
+        masks[(masks .== 0) .& .!gridA .& .!gridB] .= 4
+        masks[(masks .== 0) .& .!goodland] .= 1
+        masks[(masks .== 0) .& .!gridA .& gridB] .= 8
+        masks[(masks .== 0) .& isregion] .= 7
+        masks[regions .== 0] .= 0
+        masks[regions .== NOREGION] .= NOREGION
+        legendtext = ["bad land type", "high population", "protected area", "no grid", "", "", "wind plant A", "wind plant B"]
+        maskmap("$(gisregion)_masks_wind", masks, legendtext, lonrange, latrange; legend=true)
+
+        # drawmap(.!shore .& (offshoreregions .> 0))
+        # drawmap((topo .> -max_depth) .& (offshoreregions .> 0))
+        # drawmap(.!protected_area .& (offshoreregions .> 0))
+        # drawmap(mask_offshore)
     end
 
     return mask_onshoreA, mask_onshoreB, mask_offshore
@@ -388,7 +396,7 @@ function GISwindmap(; optionlist...)
     windatlas, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
 
     mask_onshoreA, mask_onshoreB, mask_offshore =
-        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, plotmasks=true)
+        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange, plotmasks=true)
 
     onshoremap, offshoremap = calc_wind_map(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
                 mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)

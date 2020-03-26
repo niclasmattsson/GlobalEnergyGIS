@@ -1,9 +1,10 @@
-using GeoMakie, Makie, ColorSchemes
+using FileIO, GeoMakie, Makie, ColorSchemes
 
 export createmaps, plotmap
 
 function createmap(gisregion, regions, regionlist, lons, lats, colors, source, dest, xs, ys,
-                    geocenters, popcenters, connected, connectedoffshore; lines=false, labels=false, resolutionscale=1, textscale=1)
+                    geocenters, popcenters, connected, connectedoffshore;
+                    lines=false, labels=false, resolutionscale=1, textscale=1, legend=false)
     nreg = length(regionlist)
     scale = maximum(size(regions))/6500
 
@@ -16,7 +17,7 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     pngsize = pngwidth, round(Int, pngwidth * aspect_ratio)     # use aspect ratio after projection transformation
 
     println("...constructing map...")
-    scene = surface(xs, ys; color=float.(regions), colormap=colors, shading=false, show_axis=false, scale_plot=false)
+    scene = surface(xs, ys; color=float.(regions), colormap=colors, shading=false, show_axis=false, scale_plot=false, interpolate=false)
     ga = geoaxis!(scene, lons[1], lons[end], lats[end], lats[1]; crs=(src=source, dest=dest,))[end]
     ga.x.tick.color = RGBA(colorant"black", 0.4)
     ga.y.tick.color = RGBA(colorant"black", 0.4)
@@ -50,6 +51,16 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     isfile(filename) && rm(filename)
     Makie.save(filename, scene, resolution=pngsize)
     # return scene
+    if legend
+        makelegend(regionlist, colors[2:end-1])
+        img = load(filename)
+        legend = autocrop(load(in_datafolder("output", "legend.png")))
+        height = max(size(img,1), size(legend,1))
+        legendwidth = size(legend, 2)
+        combined = [ypad(img, height) ypad(legend, height) fill(RGB{N0f8}(1.0,1.0,1.0), (height, 550 - legendwidth))]
+        FileIO.save(filename, combined)
+        rm(in_datafolder("output", "legend.png"))
+    end
 end
 
 function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true, resolutionscale=1, textscale=1, randseed=1)
@@ -61,8 +72,8 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
     mergeregions[regions.==0] .= offshoreregions[regions.==0]
     mergeconnected = connectedregions(mergeregions, nreg)
     colorindices = greedycolor(mergeconnected, 1:7, 1:nreg, randseed=randseed)
-    onshorecolors = [RGB(0.3,0.3,0.45); colorschemes[:Set2_7].colors[colorindices]; RGB(0.5,0.5,0.5)]
-    offshorecolors = [RGB(0.5,0.5,0.5); colorschemes[:Set2_7].colors[colorindices]; RGB(0.3,0.3,0.45)]
+    onshorecolors = [RGB(0.3,0.3,0.45); colorschemes[:Set2_7].colors[colorindices]; RGB(0.4,0.4,0.4)]
+    offshorecolors = [RGB(0.4,0.4,0.4); colorschemes[:Set2_7].colors[colorindices]; RGB(0.3,0.3,0.45)]
 
     println("\nProjecting coordinates (Mollweide)...")
     res = 0.01
@@ -87,6 +98,87 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
     createmap("$(gisregion)_offshore", offshoreregions, regionlist, lons, lats, offshorecolors, source, dest, xs, ys,
         geocenters, popcenters, connected, connectedoffshore, lines=false, labels=false, resolutionscale=resolutionscale, textscale=textscale)
     return nothing
+end
+
+# ColorBrewer Set2_7:  https://juliagraphics.github.io/ColorSchemes.jl/stable/basics/#colorbrewer-1
+function maskmap(mapname, regions, regionlist, lonrange, latrange;
+                    resolutionscale=1, textscale=1, randseed=1, legend=false)
+    nreg = length(regionlist)
+
+    colors = [
+        RGB([174,140,114]/255...),  # bad land type
+        RGB([214,64,64]/255...),    # high population
+        RGB([255,100,255]/255...),  # protected area
+        RGB([120,170,80]/255...),   # no grid
+        RGB([255,217,47]/255...),   # solar plant A
+        RGB([215,160,0]/255...),    # solar plant B
+        RGB([140,156,209]/255...),  # wind plant A
+        RGB([110,136,169]/255...),  # wind plant B
+    ]
+
+    println("Mapping colors to regions (avoid same color in adjacent regions)...")
+    connected = connectedregions(regions, nreg)
+    # colorindices = (nreg > 7) ? greedycolor(connected, 1:7, 1:nreg, randseed=randseed) : collect(1:nreg)
+    # colors = colorschemes[Symbol("Set2_$nreg")].colors[colorindices]
+    onshorecolors = [RGB(0.3,0.3,0.45); colors; RGB(0.4,0.4,0.4)]
+
+    println("\nProjecting coordinates (Mollweide)...")
+    res = 0.01
+    res2 = res/2
+    lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
+    lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
+    source = LonLat()
+    dest = Projection("+proj=moll +lon_0=$(mean(lons))")
+    xs, ys = xygrid(lons, lats)
+    Proj4.transform!(source, dest, vec(xs), vec(ys))
+
+    println("\nOnshore map...")
+    scene = createmap(mapname, regions, regionlist, lons, lats, onshorecolors, source, dest, xs, ys,
+        [], [], connected, connected, lines=false, labels=false, resolutionscale=resolutionscale, textscale=textscale, legend=legend)
+    return nothing
+end
+
+function autocrop(img, padding::Int=0)
+    rowrange = dataindexes_lat(vec(any(img .!= RGB(1.0,1.0,1.0), dims=2)), padding)
+    colrange = dataindexes_lat(vec(any(img .!= RGB(1.0,1.0,1.0), dims=1)), padding)   # use _lat both times (_lon does it circularly) 
+    return img[rowrange, colrange]
+end
+
+function ypad(img, newheight)
+    height, width = size(img)
+    height == newheight && return img
+    height > newheight && error("Can't pad an image to a smaller size.")
+    firstrow = (newheight - height) ÷ 2
+    newimg = fill(RGB{N0f8}(1.0,1.0,1.0), (newheight, width))
+    newimg[firstrow:(firstrow + height - 1), :] = img
+    return newimg
+end
+
+function makelegend(labels, colors)
+    i = .!isempty.(labels)
+    labels = labels[i]     # don't plot legend entries with empty labels
+    colors = colors[i]
+    len = length(labels)
+    markerpositions = Point2f0.(0, len:-1:1)
+    textpositions = Point2f0.(0.7, (len:-1:1) .+ 0.03)
+    scene = scatter(
+        markerpositions,
+        color = colors,
+        marker = :rect,
+        markersize = 0.8,
+        show_axis = false
+    )
+    annotations!(
+        scene,
+        labels,
+        textpositions,
+        align = (:left, :center),
+        textsize = 0.4,
+        raw = true
+    )
+    update_cam!(scene, FRect(-1, 0, 2, 10 + 1))     # allow for 10 lines (to get constant text size for any number of labels)
+    # scene
+    Makie.save(in_datafolder("output", "legend.png"), scene)
 end
 
 # first color in colorlist that is not in columncolors (which may have many repeated elements)
