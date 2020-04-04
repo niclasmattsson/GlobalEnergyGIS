@@ -198,7 +198,7 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
     # println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
 
     # all mask conditions
-    mask_rooftop = gridA .& (popdens .> pvroof_persons_per_km2) .& goodland .& .!protected_area
+    mask_rooftop = gridA .& (popdens .> pvroof_persons_per_km2) .& .!protected_area
     mask_plantA = gridA .& (popdens .< plant_persons_per_km2) .& goodland .& .!protected_area
     mask_plantB = (gridB .& .!gridA) .& (popdens .< plant_persons_per_km2) .& goodland .& .!protected_area
 
