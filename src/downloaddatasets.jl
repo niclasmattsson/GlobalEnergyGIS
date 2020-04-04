@@ -8,12 +8,14 @@ function download_datasets(startfile=1)
         mkpath(datafolder)
     end
 
+    WDPA_filename = monthname(now())[1:3] * string(year(now()))
+
     # tuples of (dataset_name, filename, url)
     datasets = [
         ("Global Wind Atlas", "Global Wind Atlas v1 - 100m wind speed.tif",
             "https://chalmersuniversity.box.com/shared/static/25cjcah213sk4wdkqwi8t8kxxoy3hh6k.tif"),
-        ("WDPA (protected areas):   [add code to check for monthly updates]", "WDPA_Mar2020.zip",
-            "https://www.protectedplanet.net/downloads/WDPA_Mar2020?type=shapefile"),
+        ("WDPA (protected areas):", "WDPA.zip",
+            "https://www.protectedplanet.net/downloads/$WDPA_filename?type=shapefile"),
         ("GADM (global administrative areas)", "gadm36.zip",
             "https://biogeo.ucdavis.edu/data/gadm3.6/gadm36_shp.zip"),
         ("NUTS (administrative areas in Europe)", "nuts-2016-01m.shp.zip",

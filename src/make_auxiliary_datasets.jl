@@ -45,7 +45,7 @@ function cleanup_datasets(; cleanup=:all)
         rm(in_datafolder("ETOPO1_Ice_c_geotiff.tif"), force=true)
         rm(in_datafolder("gadm36"), force=true, recursive=true)
         rm(in_datafolder("nuts2016-level3"), force=true, recursive=true)
-        rm(in_datafolder("WDPA_Mar2020"), force=true, recursive=true)
+        rm(in_datafolder("WDPA"), force=true, recursive=true)
         rm(in_datafolder("timezones-with-oceans.shapefile"), force=true, recursive=true)
     end
 end
@@ -116,15 +116,15 @@ function rasterize_protected()
     ENV["PROJ_LIB"] = abspath(dirname(pathof(GDAL)), "../deps/usr/share/proj") # hack to fix GDAL/PROJ path
     oldpath = pwd()
     cd(Sys.BINDIR)  # Another hack to access libs in BINDIR, e.g. libstdc++-6.dll
-    shapefile = in_datafolder("WDPA_Mar2020", "WDPA_Mar2020-shapefile-polygons.shp")
-    sql = "select FID from \"WDPA_Mar2020-shapefile-polygons\""
+    shapefile = in_datafolder("WDPA", "WDPA-shapefile-polygons.shp")
+    sql = "select FID from \"WDPA-shapefile-polygons\""
     outfile = in_datafolder("protected_raster.tif")
     options = "-a FID -a_nodata -1 -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
     gdal_rasterize = GDAL.gdal.gdal_rasterize_path
     @time run(`$gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile`)
 
     println("Creating .csv file for WDPA index and name lookup...")
-    sql = "select FID,IUCN_CAT from \"WDPA_Mar2020-shapefile-polygons\""
+    sql = "select FID,IUCN_CAT from \"WDPA-shapefile-polygons\""
     outfile = in_datafolder("protectedfields.csv")
     ogr2ogr = GDAL.gdal.ogr2ogr_path
     @time run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
