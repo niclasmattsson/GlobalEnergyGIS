@@ -33,8 +33,8 @@ function getregion(lon, lat, regions, lonrange=1:36000, latrange=1:18000)
     res2 = res/2
     lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
     lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
-    flon = findfirst(lon-res2 .< lons .<= lon+res2)
-    flat = findfirst(lat-res2 .< lats .<= lat+res2)
+    flon = findfirst(round(lon-res2, digits=5) .< lons .<= round(lon+res2, digits=5))
+    flat = findfirst(round(lat-res2, digits=5) .< lats .<= round(lat+res2, digits=5))
     (flon == nothing || flat == nothing) && return 0
     # println(lons[flon],", ",lats[flat])
     # println(flon, " ", flat)
