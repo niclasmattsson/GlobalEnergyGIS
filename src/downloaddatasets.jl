@@ -8,7 +8,7 @@ function download_datasets(startfile=1)
         mkpath(datafolder)
     end
 
-    WDPA_filename = monthname(now())[1:3] * string(year(now()))
+    WDPA_filename = "WDPA_" * monthname(now())[1:3] * string(year(now()))
 
     # tuples of (dataset_name, filename, url)
     datasets = [
