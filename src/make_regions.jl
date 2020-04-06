@@ -1,13 +1,15 @@
-export GADM, NUTS, makeregions, makeregions_nuts, makeoffshoreregions, saveregions, loadregions, saveregions_global
+export GADM, NUTS, makeregions, makeregions_nuts, makeoffshoreregions, saveregions, loadregions, saveregions_global, subregions
 
-struct GADM{T}
+abstract type RegionType end
+
+struct GADM{T} <: RegionType
     parentregions::Vector{T}
     subregionnames::NTuple{N,T} where N
 end
 GADM(regionnames::T...) where T = GADM(T[], regionnames)
 GADM(parentregions::Vector{T}, subregionnames::T...) where T = GADM(parentregions, subregionnames)
 
-struct NUTS{T}
+struct NUTS{T} <: RegionType
     subregionnames::NTuple{N,T} where N
 end
 NUTS(regionnames::T...) where T = NUTS(regionnames)
@@ -197,4 +199,31 @@ function build_inverseregionlookup(regiondefinitions)
         end
     end
     return d
+end
+
+function getsubregions(regtype::Type{GADM}, regionnames)
+    gadm = readdlm(in_datafolder("gadmfields.csv"), ',', skipstart=1)[:, 2:4]
+    for reg in regionnames
+        gadm = gadm[gadm[:,1].==reg, 2:end]
+    end
+    return sort(unique(gadm[:,1]))
+end
+
+function getsubregions(regtype::Type{NUTS}, regionname)
+    length(regionname) > 1 && error("Give only one string argument to match beginning of NUTS region names.")
+    nuts = readdlm(in_datafolder("nutsfields.csv"), ',', skipstart=1)[:, 3]
+    if isempty(regionname)
+        return sort(unique(first.(nuts, 2)))
+    else
+        return sort(nuts[startswith.(nuts, regionname)])
+    end
+end
+
+function subregions(regtype::Type{T} where T <: RegionType, regionnames::String...)
+    reglist = join(regionnames, ", ")
+    selected = getsubregions(regtype, regionnames)
+    selectedlist = join(selected, ", ")
+    isempty(regionnames) && println("Showing top level $regtype regions:")
+    println("$regtype($reglist): $selectedlist")
+    return selected
 end

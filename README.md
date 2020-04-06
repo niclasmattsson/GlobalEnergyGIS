@@ -278,6 +278,36 @@ not included in NUTS) by concatenating the GADM definition of Monaco.
 For more syntax examples, see `regiondefinitions.jl` (in the GlobalEnergyGIS /src folder).
 [Maps of NUTS regions can be found here.](https://ec.europa.eu/eurostat/web/nuts/nuts-maps).
 
+### Subregion helper function
+
+There is a simple helper function `subregion()` to facilitate finding the names of subregions. Note that the
+GADM version takes multiple subregion arguments while the NUTS version only takes a single argument (and matches
+the beginning of the subregion name). The function will print a compact comma-separated list of subregions and
+also return a vector of subregion names. Use a semicolon at the end to suppress the longer vector listing in
+the Julia REPL.
+
+```
+julia> subregions(GADM);
+Showing top level GADM regions:
+GADM(): Afghanistan, Akrotiri and Dhekelia, Albania, Algeria, American Samoa, Andorra, Angola, [...]
+
+julia> subregions(GADM, "France");
+GADM(France): Auvergne-Rhône-Alpes, Bourgogne-Franche-Comté, Bretagne, Centre-Val de Loire, Corse, Grand Est, Hauts-de-France, Normandie, Nouvelle-Aquitaine, Occitanie, Pays de la Loire, Provence-Alpes-Côte d'Azur, Île-de-France
+
+julia> subregions(GADM, "France", "Bretagne");
+GADM(France, Bretagne): Côtes-d'Armor, Finistère, Ille-et-Vilaine, Morbihan
+
+julia> subregions(NUTS);
+Showing top level NUTS regions:
+NUTS(): AL, AT, BE, BG, CH, CY, CZ, DE, DK, EE, EL, ES, FI, FR, HR, HU, IE, IS, IT, LI, LT, LU, LV, ME, MK, MT, NL, NO, PL, PT, RO, RS, SE, SI, SK, TR, UK
+
+julia> subregions(NUTS, "UK");
+NUTS(UK): UKC11, UKC12, UKC13, UKC14, UKC21, UKC22, UKC23, UKD11, UKD12, UKD33, UKD34, UKD35, UKD36, [...]
+
+julia> subregions(NUTS, "UKC");
+NUTS(UKC): UKC11, UKC12, UKC13, UKC14, UKC21, UKC22, UKC23
+```
+
 ### The actual GIS analysis
 
 Finally we have everything we need to actually calculate potential capacities and hourly capacity factors for

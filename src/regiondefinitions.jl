@@ -239,6 +239,22 @@ const europe22 = [
     # But note that non-European territories are eliminated when the region bounding box is set to [34 -11; 72 32].
 ]
 
+const france13 = [
+    "Auvergne-Rhône-Alpes"         GADM("France", "Auvergne-Rhône-Alpes")
+    "Bourgogne-Franche-Comté"      GADM("France", "Bourgogne-Franche-Comté")
+    "Bretagne"                     GADM("France", "Bretagne")
+    "Centre-Val de Loire"          GADM("France", "Centre-Val de Loire")
+    "Corse"                        GADM("France", "Corse")
+    "Grand Est"                    GADM("France", "Grand Est")
+    "Hauts-de-France"              GADM("France", "Hauts-de-France")
+    "Île-de-France"                GADM("France", "Île-de-France")
+    "Normandie"                    GADM("France", "Normandie")
+    "Nouvelle-Aquitaine"           GADM("France", "Nouvelle-Aquitaine")
+    "Occitanie"                    GADM("France", "Occitanie")
+    "Pays de la Loire"             GADM("France", "Pays de la Loire")
+    "Provence-Alpes-Côte d'Azur"   GADM("France", "Provence-Alpes-Côte d'Azur")
+]
+
 # Test region to see if mixed GADM/NUTS notation works
 const testreg = [
     "NO"     GADM("Norway")
