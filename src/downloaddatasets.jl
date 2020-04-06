@@ -76,6 +76,16 @@ function download_datasets(startfile=1)
         end
     end
 
+    if startfile <= 2
+        WDPAfolder = joinpath(datafolder, "WDPA")
+        for filename in readdir(WDPAfolder)
+            newname = replace(filename, WDPA_filename => "WDPA")
+            if newname != filename 
+                mv(joinpath(WDPAfolder, filename), joinpath(WDPAfolder, newname))
+            end
+        end
+    end
+
     if startfile <= 4
         filename = "NUTS_RG_01M_2016_4326_LEVL_3.shp.zip"
         println("\nUnpacking archive: $filename")
