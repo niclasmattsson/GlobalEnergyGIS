@@ -94,7 +94,7 @@ function WindOptions(d::Dict{Symbol,Any})
     return options
 end
 
-function GISwind(; savetodisk=true, optionlist...)
+function GISwind(; savetodisk=true, plotmasks=false, optionlist...)
     options = WindOptions(merge(windoptions(), optionlist))
     @unpack gisregion, era_year, filenamesuffix = options
 
@@ -103,7 +103,7 @@ function GISwind(; savetodisk=true, optionlist...)
     windatlas, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
 
     mask_onshoreA, mask_onshoreB, mask_offshore =
-        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange)
+        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange, plotmasks=plotmasks)
 
     windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore =
         calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,

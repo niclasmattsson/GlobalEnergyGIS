@@ -91,7 +91,7 @@ function SolarOptions(d::Dict{Symbol,Any})
     return options
 end
 
-function GISsolar(; savetodisk=true, optionlist...)
+function GISsolar(; savetodisk=true, plotmasks=false, optionlist...)
 
     # IMPORTANT!! The function makesolarera5() uses ERA5 solar datasets to
     # calculate Global Tilted Irradiance (GTI) for solar PV and Direct Normal
@@ -119,7 +119,7 @@ function GISsolar(; savetodisk=true, optionlist...)
     meanGTI, solarGTI, meanDNI, solarDNI = read_solar_datasets(options, lonrange, latrange)
 
     mask_rooftop, mask_plantA, mask_plantB =
-        create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange)
+        create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange, plotmasks=plotmasks)
 
     CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB, solar_overlap_areaA, solar_overlap_areaB,
             capacity_pvrooftop, capacity_pvplantA, capacity_pvplantB, capacity_cspplantA, capacity_cspplantB =
