@@ -18,8 +18,8 @@ submitted to Energy Strategy Reviews along with its
 
 ## Disk space requirements
 
-This package uses several large datasets and requires a lot of disk space: roughly 10 GB + 21 GB/year of
-reanalysis data stored. Also, about 50 GB of **additional** disk space will be required temporarily. Please
+This package uses several large datasets and requires a lot of disk space: roughly 10 GB + 29 GB/year of
+reanalysis data stored. Also, at least 50 GB of **additional** disk space will be required temporarily. Please
 ensure that you have enough space available (perhaps on a secondary hard drive) before proceeding with the
 data download. You also need a minimum of 8 GB of RAM memory.
 
@@ -63,7 +63,7 @@ GlobalEnergyGIS is based on several public datasets, most notably the
 insolation and wind speeds for any location on earth. To download ERA5 data you need to [create a free
 account at the Copernicus Data Service (CDS)](https://cds.climate.copernicus.eu/user/register).
 
-### 2. Create config files
+### 2. Create config files and agree to dataset terms
 
 Now we will create two config files that will keep track of your preferred data storage path and your
 Copernicus ID.
@@ -92,6 +92,12 @@ julia> saveconfig("D:/GISdata", 12345, "abcdef123-ab12-cd34-ef56-abcdef123456", 
 The argument `agree_terms=true` is required to continue. By including it you agree to the terms of use of all
 datasets listed above. The first time you run `using GlobalEnergyGIS` there will be another delay (a minute
 or two) while Julia precompiles the dependencies.
+
+To agree to Copernicus terms, you **must** download a small amount of test data once using the web interface. Visit [the CDS web interface](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=form),
+select one checkbox in each parameter section (e.g. Product type, Variable, Pressure level, etc.),
+and finally click the "Agree terms" and "Submit form" buttons as in the screenshot below.
+ 
+![screenshot of CDS terms](https://github.com/niclasmattsson/GlobalEnergyGIS/blob/master/CDSterms.png)
 
 ### 3. Download auxiliary datasets
 
@@ -138,8 +144,8 @@ first progress bar you see will be followed by 47 more... :)
 
 Next we need to convert the ERA5 data to a more suitable file format (HDF5). Additionally, to save some disk
 space in the long run, the raw data will be reduced (by default we discard wind direction, far offshore wind
-speeds and solar insolation over oceans) and recompressed. This will reduce disk usage to about 22 GB per
-year of ERA5 data (15.5 GB for solar and 6.5 GB for wind). 
+speeds and solar insolation over oceans) and recompressed. This will reduce disk usage to about 28-29 GB per
+year of ERA5 data (on average 14.7 GB for solar, 6.3 GB for wind and 7.4 GB for temperatures). 
 
 ```
 julia> makewindera5(year=2018)
@@ -207,7 +213,7 @@ julia> makedistances("Europe8")
 ```
 
 Here `europe8` is a region matrix defined in `regiondefinitions.jl`, but you can refer to your own region
-matrices defined elsewhere. See next bullet item for syntax examples. To get visual confirmation of the
+matrices defined elsewhere. See the next section for syntax examples. To get visual confirmation of the
 results, run `createmaps(regionset_name)` to create images of onshore and offshore region territories
 (in `/GISdata_folder_path/output`).
 
@@ -330,7 +336,16 @@ julia> GISwind(gisregion="Europe13", scenarioyear="ssp2_2020", era_year=2016, pe
 				max_depth=60, min_shore_distance=2, area_onshore=0.05, area_offshore=0.20)
 ```
 
-The parameters that can be changed are listed in the section "GIS options" below.
+The parameters that can be changed are listed in the section "GIS options" below. `GISwind()` and
+`GISsolar()` also take an optional boolean parameter `plotmasks=true` that will generate .png images
+of the dataset masks resulting from the other parameters. This will increase run times by a minute
+or two. Images will be placed in `/GISdata_folder_path/output`.
+
+```
+julia> GISwind(gisregion="Europe13", ..., plotmasks=true)
+
+julia> GISsolar(gisregion="Europe13", ..., plotmasks=true)
+```
 
 ## Synthetic electricity demand
 
