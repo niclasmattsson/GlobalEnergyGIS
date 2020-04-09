@@ -39,3 +39,4 @@ XGBoost = "009559a3-9522-5dbb-924b-0b6ed2b22bb9"
 
 [compat]
 GDAL = "=1.0.2"
+HDF5 = "0.13.1"
