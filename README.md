@@ -25,10 +25,6 @@ data download. You also need a minimum of 8 GB of RAM memory.
 
 ## Installation
 
-If you are on Windows, first **restart Julia as administrator** (right click on the Julia shortcut in the
-Start Menu and select "Run as Administrator"). Administrator privileges are not required later to use the
-package, just for the installation step.
-
 Type `]` to enter Julia's package mode, then:
 
 ```
