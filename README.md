@@ -3,12 +3,6 @@
 Automatic generation of renewable energy input data for energy models in arbitrary world regions using
 public datasets. Written in Julia.
 
-<!--
-## Mission statement
-
-Supergridmodel. Link paper.
--->
-
 ## Paper
 
 The work here has been described in a
@@ -25,10 +19,10 @@ data download. You also need a minimum of 8 GB of RAM memory.
 
 ## Installation
 
-Type `]` to enter Julia's package mode, then:
+Make sure you are on Julia v1.3 or higher. Type `]` to enter Julia's package mode, then:
 
 ```
-(v1.1) pkg> add https://github.com/niclasmattsson/GlobalEnergyGIS
+(@v1.4) pkg> add https://github.com/niclasmattsson/GlobalEnergyGIS
 ``` 
 
 Grab some coffee, because installing and compiling dependencies can take quite some time to run. If you don't
