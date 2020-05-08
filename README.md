@@ -83,7 +83,8 @@ The argument `agree_terms=true` is required to continue. By including it you agr
 datasets listed above. The first time you run `using GlobalEnergyGIS` there will be another delay (a minute
 or two) while Julia precompiles the dependencies.
 
-To agree to Copernicus terms, you **must** download a small amount of test data once using the web interface. Visit [the CDS web interface](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=form),
+To agree to Copernicus terms, you **must** download a small amount of test data once using the web interface
+(otherwise you will get errors in step 5 below). Visit [the CDS web interface](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=form),
 select one checkbox in each parameter section (e.g. Product type, Variable, Pressure level, etc.),
 and finally click the "Agree terms" and "Submit form" buttons as in the screenshot below. If you have any problem with this, follow
 [step 2 in these detailed instructions](https://confluence.ecmwf.int/display/CKB/How+to+download+ERA5#HowtodownloadERA5-1-Prerequisites).
