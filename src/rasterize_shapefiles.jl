@@ -1,5 +1,5 @@
 import GDAL
-using ArchGDAL, GDAL_jll
+using ArchGDAL, GDAL_jll, PROJ_jll
 
 export rasterize, readraster, saveTIFF
 
@@ -23,6 +23,7 @@ end
 # uses the command line version instead (gdal_rasterize)
 # significantly faster for some reason, also gives a simple progress indication
 function rasterize(infile::String, outfile::String, options::Vector{<:AbstractString}; sql::String="")
+    ENV["PROJ_LIB"] = dirname(proj_db)
     gdal_rasterize_path() do gdal_rasterize
         if isempty(sql)
             run(`$gdal_rasterize $options $infile $outfile`)

@@ -111,6 +111,7 @@ function rasterize_protected()
     sql = "select FID from \"WDPA-shapefile-polygons\""
     outfile = in_datafolder("protected_raster.tif")
     options = "-a FID -a_nodata -1 -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
+    ENV["PROJ_LIB"] = dirname(proj_db)
     gdal_rasterize_path() do gdal_rasterize
         @time run(`$gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile`)
     end
@@ -149,6 +150,7 @@ function rasterize_timezones()
     sql = "select FID+1 as FID from \"combined-shapefile-with-oceans\""
     outfile = in_datafolder("timezones.tif")
     options = "-a FID -a_nodata 0 -ot Int16 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
+    ENV["PROJ_LIB"] = dirname(proj_db)
     gdal_rasterize_path() do gdal_rasterize
         @time run(`$gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile`)
     end
