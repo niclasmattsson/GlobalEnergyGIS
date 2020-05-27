@@ -73,6 +73,35 @@ function regioncenters(regions, numreg, popdens, lonrange, latrange, res)
     return geocenters, popcenters   # column order (lat,lon)
 end
 
+# find a suitable spot to put the region name label on the map
+function find_landarea_near_popcenter(regions, numreg, popcenters, lonrange, latrange, res)
+    lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
+    lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
+    rows, cols = size(regions)
+    filterdistance = 50    # km
+    km_per_degree = π*2*6371/360
+    disk = diskfilterkernel(filterdistance/km_per_degree/res)
+    mostlyland = imfilter((regions.>0) .& (regions.!=NOREGION), disk)     # 0-1
+    landcenters = zeros(numreg, 2)
+    landfactors = fill(Inf, numreg)
+    weight = 0.9
+    for c = 1:cols
+        lat = lats[c]
+        for r = 1:rows
+            reg = regions[r,c]
+            (reg == 0 || reg == NOREGION) && continue
+            lon = lons[r]
+            distpop = greatcircledistance((lat,lon), Tuple(popcenters[reg,:]))
+            closelandfactor = (1 - weight)*distpop/10000 + weight*(1 - mostlyland[r,c])
+            if closelandfactor < landfactors[reg]
+                landfactors[reg] = closelandfactor
+                landcenters[reg,:] .= lat, lon
+            end
+        end
+    end
+    return landcenters
+end
+
 function connectedregions(regions, numreg)
     connected = zeros(Bool, numreg, numreg)
     rows, cols = size(regions)

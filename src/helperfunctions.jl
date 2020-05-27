@@ -136,6 +136,24 @@ function gridsplit(data::AbstractArray, fn::Function, resulttype::DataType; nmax
     return result
 end
 
+# function gridsurface(x, y; color=color, nmax=9000, args...)
+#     rows, cols = size(color)
+#     rowchunks, colchunks = ceil(Int, rows/nmax), ceil(Int, cols/nmax)
+#     rowsplit, colsplit = ceil(Int, rows/rowchunks), ceil(Int, cols/colchunks)
+#     nparts = rowchunks * colchunks
+#     nparts > 1 && println("\nSplitting surface plat into $nparts parts to avoid Makie GPU limits...")
+#     part = 0
+#     scene = Scene()
+#     for r = 1:rowsplit:rows, c = 1:colsplit:cols
+#         part += 1
+#         nparts > 1 && println("\nPart $part/$nparts:")
+#         rowrange = r:min(r-1+rowsplit, rows)
+#         colrange = c:min(c-1+colsplit, cols)
+#         surface!(x[rowrange,colrange], y[rowrange,colrange]; color=color[rowrange,colrange], args...)
+#     end
+#     return scene
+# end
+
 row2lon(row::Int, res) = (row - 0.5) * res - 180
 col2lat(col::Int, res) = 90 - (col - 0.5) * res
 lon2row(lon::Real, res) = floor(Int, mod(180+lon, 360) / res) + 1

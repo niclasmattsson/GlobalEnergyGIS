@@ -3,7 +3,7 @@ using FileIO, GeoMakie, Makie, ColorSchemes
 export createmaps, plotmap
 
 function createmap(gisregion, regions, regionlist, lons, lats, colors, source, dest, xs, ys,
-                    geocenters, popcenters, connected, connectedoffshore;
+                    landcenters, popcenters, connected, connectedoffshore;
                     lines=false, labels=false, resolutionscale=1, textscale=1, legend=false)
     nreg = length(regionlist)
     scale = maximum(size(regions))/6500
@@ -72,8 +72,8 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
     mergeregions[regions.==0] .= offshoreregions[regions.==0]
     mergeconnected = connectedregions(mergeregions, nreg)
     colorindices = greedycolor(mergeconnected, 1:7, 1:nreg, randseed=randseed)
-    onshorecolors = [RGB(0.3,0.3,0.45); colorschemes[:Set2_7].colors[colorindices]; RGB(0.4,0.4,0.4)]
-    offshorecolors = [RGB(0.4,0.4,0.4); colorschemes[:Set2_7].colors[colorindices]; RGB(0.3,0.3,0.45)]
+    onshorecolors = [RGB(0.2,0.3,0.4); colorschemes[:Set2_7].colors[colorindices]; RGB(0.4,0.4,0.4)]
+    offshorecolors = [RGB(0.4,0.4,0.4); colorschemes[:Set2_7].colors[colorindices]; RGB(0.2,0.3,0.4)]
 
     println("\nProjecting coordinates (Mollweide)...")
     res = 0.01
@@ -87,16 +87,18 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
 
     println("\nFinding interregional transmission lines...")
     geocenters, popcenters = getregioncenters(regions, nreg, lonrange, latrange, res, scenarioyear)   # column order (lat,lon)
+    landcenters = find_landarea_near_popcenter(regions, nreg, popcenters, lonrange, latrange, res)
     connected = connectedregions(regions, nreg)
     connectedoffshore = connectedregions(offshoreregions, nreg)
     connectedoffshore[connected] .= false
 
     println("\nOnshore map...")
-    scene = createmap(gisregion, regions, regionlist, lons, lats, onshorecolors, source, dest, xs, ys,
-        geocenters, popcenters, connected, connectedoffshore, lines=lines, labels=labels, resolutionscale=resolutionscale, textscale=textscale)
+    createmap(gisregion, regions, regionlist, lons, lats, onshorecolors, source, dest, xs, ys,
+        landcenters, popcenters, connected, connectedoffshore, lines=lines, labels=labels, resolutionscale=resolutionscale, textscale=textscale)
     println("\nOffshore map...")
     createmap("$(gisregion)_offshore", offshoreregions, regionlist, lons, lats, offshorecolors, source, dest, xs, ys,
-        geocenters, popcenters, connected, connectedoffshore, lines=false, labels=false, resolutionscale=resolutionscale, textscale=textscale)
+        landcenters, popcenters, connected, connectedoffshore, lines=false, labels=false, resolutionscale=resolutionscale, textscale=textscale)
+    # exit()
     return nothing
 end
 
@@ -154,18 +156,18 @@ function ypad(img, newheight)
     return newimg
 end
 
-function makelegend(labels, colors)
+function makelegend(labels, colors; scale=2)
     i = .!isempty.(labels)
     labels = labels[i]     # don't plot legend entries with empty labels
     colors = colors[i]
     len = length(labels)
-    markerpositions = Point2f0.(0, len:-1:1)
-    textpositions = Point2f0.(0.7, (len:-1:1) .+ 0.03)
+    markerpositions = Point2f0.(0, len:-1:1) .* scale
+    textpositions = Point2f0.(0.7, (len:-1:1) .+ 0.03) .* scale
     scene = scatter(
         markerpositions,
         color = colors,
         marker = :rect,
-        markersize = 0.8,
+        markersize = 0.8 * scale,
         show_axis = false
     )
     annotations!(
@@ -173,12 +175,13 @@ function makelegend(labels, colors)
         labels,
         textpositions,
         align = (:left, :center),
-        textsize = 0.4,
+        textsize = 0.4 * scale,
         raw = true
     )
-    update_cam!(scene, FRect(-1, 0, 2, 10 + 1))     # allow for 10 lines (to get constant text size for any number of labels)
-    # scene
-    Makie.save(in_datafolder("output", "legend.png"), scene)
+    update_cam!(scene, FRect(-scale, 0, 2, 10 + 1))     # allow for 10 lines (to get constant text size for any number of labels)
+    filename = in_datafolder("output", "legend.png")
+    isfile(filename) && rm(filename)
+    Makie.save(filename, scene, resolution = scene.resolution.val .* scale)
 end
 
 # first color in colorlist that is not in columncolors (which may have many repeated elements)
