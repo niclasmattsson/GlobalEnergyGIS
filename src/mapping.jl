@@ -17,7 +17,8 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     pngsize = pngwidth, round(Int, pngwidth * aspect_ratio)     # use aspect ratio after projection transformation
 
     println("...constructing map...")
-    scene = surface(xs, ys; color=float.(regions), colormap=colors, shading=false, show_axis=false, scale_plot=false, interpolate=false)
+    scene = surface(xs, ys; color=float.(regions), colormap=colors,
+                            shading=false, show_axis=false, scale_plot=false, interpolate=false)
     ga = geoaxis!(scene, lons[1], lons[end], lats[end], lats[1]; crs=(src=source, dest=dest,))[end]
     ga.x.tick.color = RGBA(colorant"black", 0.4)
     ga.y.tick.color = RGBA(colorant"black", 0.4)
@@ -32,7 +33,7 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
                 !conn[reg1, reg2] && continue
                 # line = [lonlatpoint(popcenters[reg1,:]), lonlatpoint(popcenters[reg2,:])]     # straight line on projected map
                 line = greatcircletrack(popcenters[reg1,:], popcenters[reg2,:], 50)             # great circle segments
-                projectedline = Point2f0.(transform.(source, dest, line))
+                projectedline = Point2f0.(GeoMakie.transform.(source, dest, line))
                 color = (i == 1) ? :black : :white
                 lines!(scene, projectedline, color=color, linewidth=resolutionscale*scale*3.5)
             end
@@ -40,7 +41,7 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     end
     if labels
         for reg = 1:nreg
-            pos = Point2f0(transform(source, dest, lonlatpoint(geocenters[reg,:])))
+            pos = Point2f0(GeoMakie.transform(source, dest, lonlatpoint(landcenters[reg,:])))
             text!(scene, string(regionlist[reg]); position=pos, align=(:center,:center), textsize=textscale*scale*50000)
         end
     end
@@ -50,7 +51,6 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     filename = in_datafolder("output", "$gisregion.png")
     isfile(filename) && rm(filename)
     Makie.save(filename, scene, resolution=pngsize)
-    # return scene
     if legend
         makelegend(regionlist, colors[2:end-1])
         img = load(filename)
