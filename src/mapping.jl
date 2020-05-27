@@ -63,8 +63,13 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     end
 end
 
-function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true, resolutionscale=1, textscale=1, randseed=1)
+function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true, resolutionscale=1, textscale=1, randseed=1, downsample=1)
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
+    regions = regions[1:downsample:end, 1:downsample:end]
+    offshoreregions = offshoreregions[1:downsample:end, 1:downsample:end]
+    lonrange = lonrange[1:downsample:end]
+    latrange = latrange[1:downsample:end]
+    textscale *= downsample
     nreg = length(regionlist)
 
     println("Mapping colors to regions (avoid same color in adjacent regions)...")
