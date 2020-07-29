@@ -6,7 +6,7 @@ const defaultvariables = [:localhour, :weekend01, :temp_monthly, :ranked_month, 
                             :temp1_mean, :temp1_qlow, :temp1_qhigh, :demandpercapita, :gdppercapita]
 
 function predictdemand(; variables=defaultvariables, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018, numcenters=3, mindist=3.3,
-                    nrounds=1000, max_depth=7, eta=0.005, subsample=0.05, metrics=["mae"], more_xgoptions...)
+                    nrounds=100, max_depth=7, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
     df, offsets, pop = buildtrainingdata(; gisregion=gisregion, scenarioyear=scenarioyear, era_year=era_year, numcenters=numcenters, mindist=mindist)
     regionlist = unique(df[:, :country])
     numhours = 24*daysinyear(era_year)
@@ -36,7 +36,7 @@ function trainmodel(; variables=defaultvariables, nrounds=100, xgoptions...)
     model = xgboost(traindata, nrounds; label=normdemand, xgoptions...)
 end
 
-function crossvalidate(; variables=defaultvariables, nrounds=100, max_depth=8, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
+function crossvalidate(; variables=defaultvariables, nrounds=100, max_depth=7, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
     df_train, offsets = loadtrainingdata()
     regionlist = unique(df_train[:, :country])
     select!(df_train, variables)

@@ -395,14 +395,14 @@ These are the default parameters:
 
 ```
 julia> predictdemand(variables=defaultvariables, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018,
-            nrounds=100, max_depth=8, eta=0.05, subsample=0.75, metrics=["mae"])         
+            nrounds=100, max_depth=7, eta=0.05, subsample=0.75, metrics=["mae"])         
 ```
 
 And here we modify them:
 
 ```
 julia> predictdemand(variables=defaultvariables, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018,
-            nrounds=40, max_depth=12, eta=0.30, subsample=0.85, metrics=["rmse"])         
+            nrounds=40, max_depth=8, eta=0.30, subsample=0.85, metrics=["rmse"])         
 ```
 
 These parameters are explained briefly below. Additionally, any other
@@ -417,8 +417,7 @@ model built for each country will only use data from the other 43 countries.
 Iterations appear significantly slower than `predictdemand()` because it trains 44 models in parallel. 
 
 ```
-julia> crossvalidate(variables=[:hour, :weekend01, :temp_monthly, :temp1_mean, :temp1_qlow, :temp1_qhigh,
-          :demandpercapita, :temp_top3],  nrounds=100, max_depth=8, eta=0.05, subsample=0.75, metrics=["mae"])
+julia> crossvalidate(variables=defaultvariables, nrounds=100, max_depth=7, eta=0.05, subsample=0.75, metrics=["mae"])
 ```
 
 Note that there is no `gisregion` argument since we are both training and predicting the same 44 country
@@ -601,10 +600,12 @@ to reach full benefit.
 
 ```
 nrounds=100      # number of rounds of learning improvements
-max_depth=8      # tree depth, i.e. complexity of the underlying black box model. Increasing this may lead to overfitting.
+max_depth=7      # tree depth, i.e. complexity of the underlying black box model. Increasing this may lead to overfitting.
 eta=0.05         # learning rate. Higher values will improve faster, but may ultimately lead to a less efficient model.
 subsample=0.75   # how much of the training data to use in each iteration. Same tradeoff as 'eta' parameter.
 metrics=["mae"]  # "mae" = mean absolute error, "rmse" = root mean square error, or both. Note the brackets (it's a vector).
 ```
+
+A slightly better but much more computationally demanding set of parameters: `nnrounds=1000`, `max_depth=7`, `eta=0.005`, and `subsample=0.05`. These were the parameters used to produce figures 1 and 2 in the paper above.
 
 For more information on these and other selectable parameters, see https://xgboost.readthedocs.io/en/latest/parameter.html.
