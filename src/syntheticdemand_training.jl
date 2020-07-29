@@ -1,6 +1,6 @@
 using XGBoost, Printf
 
-export predictdemand, trainmodel, crossvalidate, defaultvariables
+export predictdemand, trainmodel, crossvalidate, defaultvariables, getcvdata, plotcv
 
 const defaultvariables = [:localhour, :weekend01, :temp_monthly, :ranked_month, :temp_top3,
                             :temp1_mean, :temp1_qlow, :temp1_qhigh, :demandpercapita, :gdppercapita]
@@ -50,6 +50,23 @@ function crossvalidate(; variables=defaultvariables, nrounds=100, max_depth=8, e
     display(importance(models[1], string.(variables)))
 
     return models
+end
+
+function getcvdata(models; variables=defaultvariables, era_year=2018)
+    df_train, offsets = loadtrainingdata()
+    regionlist = unique(df_train[:, :country])
+    numhours = 24*daysinyear(era_year)
+    numreg = length(models)
+    demandpercapita = df_train[1:numhours:end, :demandpercapita]      # MWh/year/capita
+    select!(df_train, variables)
+    traindata = Matrix(df_train)
+    normdemand = loaddemanddata()[:, :normdemand]
+    normdemand_predicted = similar(normdemand)
+    for reg = 1:numreg
+        rows = numhours*(reg-1) + 1 : numhours*reg
+        normdemand_predicted[rows] = XGBoost.predict(models[reg], traindata[rows,:])          # mean(normdemand) == 1
+    end
+    return reshape(normdemand, (numhours,numreg)), reshape(normdemand_predicted, (numhours,numreg)), regionlist
 end
 
 
