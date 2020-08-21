@@ -255,6 +255,26 @@ const france13 = [
     "Provence-Alpes-Côte d'Azur"   GADM(["France"], "Provence-Alpes-Côte d'Azur")
 ]
 
+const usa9 = [
+    "New England"       GADM(["United States"], "Connecticut", "Maine", "Massachusetts", "New Hampshire", "Rhode Island", "Vermont")
+    "Mid-Atlantic"      GADM(["United States"], "New Jersey", "New York", "Pennsylvania")
+    "Central NE"        GADM(["United States"], "Illinois", "Indiana", "Michigan", "Ohio", "Wisconsin")
+    "Central NW"        GADM(["United States"], "Iowa", "Kansas", "Minnesota", "Missouri", "Nebraska", "North Dakota", "South Dakota")
+    "South Atlantic"    GADM(["United States"], "Delaware", "Florida", "Georgia", "Maryland", "North Carolina", "South Carolina", "Virginia", "District of Columbia", "West Virginia")
+    "Central SE"        GADM(["United States"], "Alabama", "Kentucky", "Mississippi", "Tennessee")
+    "Central SW"        GADM(["United States"], "Arkansas", "Louisiana", "Oklahoma", "Texas")
+    "Mountain"          GADM(["United States"], "Arizona", "Colorado", "Idaho", "Montana", "Nevada", "New Mexico", "Utah", "Wyoming")
+    "Pacific"           GADM(["United States"], "California", "Oregon", "Washington") # "Alaska", "Hawaii",
+]
+
+const denmark5 = [
+    "Hovedstaden"       GADM(["Denmark"], "Hovedstaden")
+    "Midtjylland"       GADM(["Denmark"], "Midtjylland")
+    "Nordjylland"       GADM(["Denmark"], "Nordjylland")
+    "Sjælland"          GADM(["Denmark"], "Sjælland")
+    "Syddanmark"        GADM(["Denmark"], "Syddanmark")
+]
+
 # Test region to see if mixed GADM/NUTS notation works
 const testreg = [
     "NO"     GADM("Norway")
