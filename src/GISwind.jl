@@ -100,10 +100,12 @@ function GISwind(; savetodisk=true, plotmasks=false, optionlist...)
 
     regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
                 read_datasets(options)
-    windatlas, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
 
     mask_onshoreA, mask_onshoreB, mask_offshore =
         create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange, plotmasks=plotmasks)
+
+    # return nothing  # uncomment to terminate after plotting masks
+    windatlas, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
 
     windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore =
         calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
@@ -216,7 +218,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         masks[regions .== 0] .= 0
         masks[regions .== NOREGION] .= NOREGION
         legendtext = ["bad land type", "high population", "protected area", "no grid", "", "", "wind plant A", "wind plant B"]
-        maskmap("$(gisregion)_masks_wind", masks, legendtext, lonrange, latrange; legend=true)
+        maskmap("$(gisregion)_masks_wind", masks, legendtext, lonrange, latrange; legend=true, downsample=1)
 
         # drawmap(.!shore .& (offshoreregions .> 0))
         # drawmap((topo .> -max_depth) .& (offshoreregions .> 0))

@@ -116,10 +116,12 @@ function GISsolar(; savetodisk=true, plotmasks=false, optionlist...)
 
     regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
                 read_datasets(options)
-    meanGTI, solarGTI, meanDNI, solarDNI = read_solar_datasets(options, lonrange, latrange)
 
     mask_rooftop, mask_plantA, mask_plantB =
         create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange, plotmasks=plotmasks)
+
+    # return nothing  # uncomment to terminate after plotting masks
+    meanGTI, solarGTI, meanDNI, solarDNI = read_solar_datasets(options, lonrange, latrange)
 
     CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB, solar_overlap_areaA, solar_overlap_areaB,
             capacity_pvrooftop, capacity_pvplantA, capacity_pvplantB, capacity_cspplantA, capacity_cspplantB =

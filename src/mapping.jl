@@ -109,7 +109,10 @@ end
 
 # ColorBrewer Set2_7:  https://juliagraphics.github.io/ColorSchemes.jl/stable/basics/#colorbrewer-1
 function maskmap(mapname, regions, regionlist, lonrange, latrange;
-                    resolutionscale=1, textscale=1, randseed=1, legend=false)
+                    resolutionscale=1, textscale=1, randseed=1, legend=false, downsample=1)
+    regions = regions[1:downsample:end, 1:downsample:end]
+    lonrange = lonrange[1:downsample:end]
+    latrange = latrange[1:downsample:end]
     nreg = length(regionlist)
 
     colors = [
