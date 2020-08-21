@@ -72,6 +72,8 @@ end
 readraster(infile::String, dim::Int=1) = readraster(infile, :none, dim)[1]
 
 function saveTIFF(x::AbstractMatrix, filename::String, extent::Vector{Float64})
+    # EPSG:4326 (switch to importEPSG later)
+    # http://yeesian.com/ArchGDAL.jl/latest/projections/#Creating-Spatial-References-1
     wkt_string = "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433],AUTHORITY[\"EPSG\",\"4326\"]]"
     width, height = size(x)
     xres = (extent[3]-extent[1])/width
