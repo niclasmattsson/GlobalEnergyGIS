@@ -1,20 +1,18 @@
 using StatsMakie
 
-export shadedmap, hist
+export shadedmap, hist, GISturbines_density, aggregate
 
-#=
-td, pd = GISturbines(gisregion="Denmark5");
-tdm = min.(td, 5);
-nz = (pd.>0) .| (tdm.>0);
-GE.plot(GE.histogram(nbins = 50), td[td.>0])
-GE.plot(GE.histogram(nbins = 50), tdm[tdm.>0])
-GE.plot(GE.histogram(nbins = 50), log.(1 .+ tdm[tdm.>0]))
-GE.plot(GE.histogram(nbins = 50), log10.(1 .+ pd[pd.>0]))
+function turbinecharts()
+    td, pd = GISturbines_density(gisregion="Denmark5");
+    nz = (pd.>1) .| (td.>0);
+    GE.plot(GE.histogram(nbins = 50), td[td.>0])
+    GE.plot(GE.histogram(nbins = 50), log10.(1 .+ pd[pd.>0]))
 
-GE.StatsMakie.scatter(log10.(1 .+pd[nz]), log.(1 .+tdm[nz]), markersize=0.02)
-shadedmap("Denmark5", log.(1 .+tdm), downsample=2, colorscheme=:magma)
-shadedmap("Denmark5", log10.(1 .+pd), downsample=2, colorscheme=:magma)
-=#
+    GE.StatsMakie.scatter(td[nz], log10.(pd[nz]), markersize=0.2)
+
+    # shadedmap("Denmark5", log.(1 .+tdm), downsample=2, colorscheme=:magma)
+    # shadedmap("Denmark5", log10.(1 .+pd), downsample=2, colorscheme=:magma)
+end
 
 function hist(data; normalize=false, args...)
     h = fit(Histogram, data; args...)
@@ -22,7 +20,7 @@ function hist(data; normalize=false, args...)
     barplot(h.edges[1][1:end-1], weights)
 end
 
-function GISturbines(; optionlist...)
+function GISturbines_density(; agg=1, optionlist...)
     options = WindOptions(merge(windoptions(), optionlist))
     @unpack res, gisregion, scenarioyear = options
 
@@ -32,14 +30,14 @@ function GISturbines(; optionlist...)
     cellarea = rastercellarea.(lats, res)
 
     pop = JLD.load(in_datafolder("population_$scenarioyear.jld"), "population")[lonrange,latrange]
-    popdens = pop ./ cellarea'      # persons/km2
+    popdens = aggregate(pop, agg) ./ aggregate(cellarea, agg)'      # persons/km2
 
     df_DK = DataFrame!(CSV.File(in_datafolder("turbines_DK.csv")))
     df_USA = DataFrame!(CSV.File(in_datafolder("turbines_USA.csv")))
     turbines = vcat(df_DK, df_USA)
 
     turbinecapacity = aggregate_turbine_capacity(gisregion, turbines, regions, regionlist, lonrange, latrange)
-    turbinedensity = turbinecapacity ./ cellarea'   # MW/km2
+    turbinedensity = aggregate(turbinecapacity, agg) ./ aggregate(cellarea, agg)'    # MW/km2
 
     # println("\nSaving...")
 
@@ -48,6 +46,40 @@ function GISturbines(; optionlist...)
     #     write(file, "turbinecapacity", turbinecapacity)
     # end
     return turbinedensity, popdens
+end
+
+# function aggregate(a::AbstractArray, n::Int)
+#     sz = size(a) .÷ n
+#     out = similar(a, sz)
+#     R = CartesianIndices(A)
+#     Ifirst, Ilast = first(R), last(R)
+#     I1 = oneunit(Ifirst)
+#     for I in R
+#         n, s = 0, zero(eltype(out))
+#         for J in max(Ifirst, I-I1):min(Ilast, I+I1)
+#             s += A[J]
+#             n += 1
+#         end
+#         out[I] = s/n
+#     end
+#     out
+# end
+
+function aggregate(a::AbstractArray, n::Int)
+    n == 1 && return a
+    sz = size(a)
+    dims = length(sz)
+    out = similar(a, size(a) .÷ n)
+    R = CartesianIndices(a)[ntuple(i -> 1:n:sz[i]-n+1, dims)...]   # index to every nth element in all dims
+    Rsub = CartesianIndices(ntuple(i -> 0:n-1, dims)) # 
+    for (i, I) in enumerate(R)
+        s = zero(eltype(out))
+        for J in I .+ Rsub
+            s += a[J]
+        end
+        out[i] = s
+    end
+    out
 end
 
 
@@ -82,20 +114,6 @@ function getregion_and_index(lon, lat, regions, lonrange=1:36000, latrange=1:180
     else
         return NOREGION, flon, flat
     end
-end
-
-function read_popdens(options)
-    @unpack res, gisregion, scenarioyear = options
-
-    println("\nReading population dataset...")
-    regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
-    lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
-    cellarea = rastercellarea.(lats, res)
-
-    pop = JLD.load(in_datafolder("population_$scenarioyear.jld"), "population")[lonrange,latrange]
-    popdens = pop ./ cellarea'
-
-    return popdens
 end
 
 function shadedmap(gisregion, plotdata, regionlist, lons, lats, colors, source, dest, xs, ys;
