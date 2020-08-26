@@ -1,5 +1,5 @@
 export europe8, eurasia38, scand3, scand4, eurasia21, china6, europe13, europe21, europe22, europe54, syntheticdemandregions,
-        testreg, caspian, NUTS_Europe
+        testreg, caspian, NUTS_Europe, eurasia90
 
 const scand3 = [
     "SWE"   GADM("Sweden")
@@ -302,4 +302,123 @@ const syntheticdemandregions = [
     "Iceland", "Ireland", "Italy", "Kenya", "Latvia", "Lithuania", "Macedonia", "Mexico", "Netherlands", "New Zealand",
     "Norway", "Poland", "Portugal", "Romania", "Saudi Arabia", "Serbia", "Slovakia", "Slovenia", "South Korea", "Spain",
     "Sri Lanka", "Sweden", "Switzerland", "Turkey", "United Kingdom"
+]
+
+# no small islands included
+const eurasia90 = [
+    # Europe: "NOR","FRA","GER","UK","MED","BAL","SPA","CEN"
+    "NOR_SEN"   GADM(["Sweden"], "Norrbotten","Västerbotten","Västernorrland","Jämtland","Gävleborg","Dalarna","Värmland")
+    "NOR_SES"   GADM(["Sweden"], "Uppsala","Västmanland","Orebro","Stockholm","Södermanland","Västra Götaland","Östergötland","Jönköping","Kalmar","Gotland","Halland","Kronoberg","Skåne","Blekinge")
+    "NOR_NO"    GADM("Norway")
+    "NOR_DK"    GADM("Denmark")
+    "NOR_FI"    GADM("Finland","Åland")
+    "FRA_N"   GADM(["France"], "Hauts-de-France","Normandie")
+    "FRA_W"   GADM(["France"], "Bretagne","Pays de la Loire","Nouvelle-Aquitaine")
+    "FRA_C"   GADM("France", "Île-de-France","Grand Est","Centre-Val de Loire","Bourgogne-Franche-Comté")
+    "FRA_S"   (GADM(["France"], "Auvergne-Rhône-Alpes","Occitanie","Provence-Alpes-Côte d'Azur"), GADM("France","Monaco"))
+    "GER_BNL" GADM("Netherlands","Belgium","Luxembourg")
+    "GER_N"   GADM(["Germany"], "Schleswig-Holstein","Hamburg","Mecklenburg-Vorpommern","Bremen","Niedersachsen")
+    "GER_W"   GADM(["Germany"], "Nordrhein-Westfalen","Hessen","Rheinland-Pfalz","Saarland")
+    "GER_E"   GADM(["Germany"], "Brandenburg","Berlin","Sachsen-Anhalt","Thüringen","Sachsen")
+    "GER_S"   GADM(["Germany"], "Baden-Württemberg","Bayern")
+    "UK_ESW"  GADM(["United Kingdom"], "England","Scotland","Wales")
+    "UK_I"    (GADM("Ireland"), GADM(["United Kingdom"], "Northern Ireland"))
+    "MED_IT"   GADM("Italy","San Marino","Vatican City")
+    "MED_BK"   GADM("Slovenia","Croatia","Bosnia and Herzegovina","Serbia","Montenegro","Kosovo")
+    "MED_GR"   GADM("Greece","Albania","Macedonia")
+    "BAL_PL"   GADM("Poland")
+    "BAL_ELL"  GADM("Estonia","Latvia","Lithuania")
+    "SPA_NW"   GADM(["Spain"], "Galicia","Principado de Asturias","Cantabria","País Vasco","Comunidad Foral de Navarra","La Rioja","Castilla y León")
+    "SPA_C"    GADM(["Spain"], "Aragón","Castilla-La Mancha","Comunidad de Madrid","Extremadura")
+    "SPA_SE"   (GADM(["Spain"], "Cataluña", "Comunidad Valenciana", "Región de Murcia", "Andalucía"), GADM("Andorra","Gibraltar"))
+    "SPA_PT"   GADM("Portugal")
+    "CEN_AT"   GADM("Austria")
+    "CEN_CH"   GADM("Switzerland","Liechtenstein")
+    "CEN_CZ"   GADM("Czech Republic")
+    "CEN_HU"   GADM("Hungary")
+    "CEN_SK"   GADM("Slovakia")
+    "CEN_RO"   GADM("Romania","Moldova")
+    "CEN_BG"   GADM("Bulgaria")
+
+    # Eastern Europe & Middle East: "Belarus/Ukraine/Moldova","Turkey/Caucasus","Middle East","Iran","Arabian peninsula"
+    "BUK_BY"   GADM("Belarus")
+    "BUK_UA"   GADM("Ukraine")
+    "TCC_TR"   GADM("Turkey")
+    "TCC_CC"   GADM("Georgia","Armenia","Azerbaijan")
+    "MEA_SY"   GADM("Syria")
+    "MEA_IPL"  GADM("Israel","Palestina","Lebanon")
+    "MEA_JO"   GADM("Jordan")
+    "MEA_IQ"   GADM("Iraq","Kuwait")
+    "ARB_SAN"  GADM(["Saudi Arabia"], "Tabuk","Al Jawf","Al Madinah","Ha'il","Al Quassim","Al Hudud ash Shamaliyah")
+    "ARB_SAS"  GADM(["Saudi Arabia"], "Makkah","Ar Riyad","Al Bahah","`Asir","Jizan","Najran","Ash Sharqiyah")
+    "ARB_S"   GADM("Yemen","Oman")
+    "ARB_E"   GADM("United Arab Emirates","Bahrain","Qatar")
+    "IRN_NW"  GADM(["Iran"], "Ardebil","East Azarbaijan","Gilan","Kordestan","West Azarbaijan","Zanjan")
+    "IRN_W"   GADM(["Iran"], "Hamadan","Ilam","Kermanshah","Khuzestan","Lorestan","Markazi")
+    "IRN_N"   GADM(["Iran"], "Alborz","Golestan","Mazandaran","Qazvin","Qom","Semnan","Tehran")
+    "IRN_S"   GADM(["Iran"], "Bushehr","Chahar Mahall and Bakhtiari","Fars","Hormozgan","Esfahan","Kohgiluyeh and Buyer Ahmad")
+    "IRN_E"   GADM(["Iran"], "Kerman","North Khorasan","Razavi Khorasan","Sistan and Baluchestan","South Khorasan","Yazd")
+
+    # Central & South-Central Asia: "Central Asia","South-Central Asia"
+    "KZK_E"   GADM(["Kazakhstan"], "Almaty","East Kazakhstan")
+    "KZK_N"   GADM(["Kazakhstan"], "Qostanay","North Kazakhstan","Aqmola","Pavlodar")
+    "KZK_W"   GADM(["Kazakhstan"], "West Kazakhstan","Atyrau","Aqtöbe","Mangghystau")
+    "KZK_SC"  GADM(["Kazakhstan"], "Qaraghandy","Qyzylorda","South Kazakhstan","Zhambyl")
+    "CAS_UZ"   GADM("Uzbekistan")
+    "CAS_TM"   GADM("Turkmenistan")
+    "CAS_KT"   GADM("Tajikistan","Kyrgyzstan")
+    "SCA_AF"   GADM("Afghanistan")
+    "SCA_PK"   GADM("Pakistan")
+    
+    # India: "North","West","Central","South","East","Northeast"
+    # https://en.wikipedia.org/wiki/Administrative_divisions_of_India
+    # Excluding island groups: "Andaman and Nicobar Islands","Lakshadweep"
+    # South also includes Sri Lanka
+    # Northeast also includes Nepal,Bhutan and Bangladesh
+    "IN_N"  GADM(["India"], "Jammu and Kashmir","Himachal Pradesh","Punjab","Rajasthan","Chandigarh","Haryana","NCT of Delhi","Uttarakhand","Uttar Pradesh")
+    "IN_W"  GADM(["India"], "Gujarat","Goa","Maharashtra","Dadra and Nagar Haveli","Daman and Diu")
+    "IN_C"  GADM(["India"], "Madhya Pradesh","Chhattisgarh")
+    "IN_S"  (GADM(["India"], "Karnataka","Kerala","Tamil Nadu","Andhra Pradesh","Telangana","Puducherry"), GADM("Sri Lanka"))
+    "IN_E"  GADM(["India"], "Odisha","Jharkhand","West Bengal","Bihar","Sikkim")
+    "IN_NE" GADM(["India"], "Assam","Meghalaya","Tripura","Mizoram","Manipur","Nagaland","Arunachal Pradesh")
+
+    # Southeast Asia: "Central Asia","South-Central Asia"
+    # also includes Peninsular Malaysia,https://en.wikipedia.org/wiki/Peninsular_Malaysia
+    "SEA_NBB"   GADM("Nepal","Bhutan","Bangladesh")
+    "SEA_VLC"   GADM("Laos","Vietnam","Cambodia")
+    "SEA_M"     GADM("Myanmar")
+    "SEA_TM"    (GADM("Thailand","Singapore"), GADM(["Malaysia"], "Perlis","Kedah","Pulau Pinang","Perak","Kelantan","Trengganu","Pahang","Selangor","Kuala Lumpur","Putrajaya","Negeri Sembilan","Melaka","Johor"))
+    
+    # Russia: "Northwest","Central","Southwest","Volga","Ural","Siberia","East"
+    # https://en.wikipedia.org/wiki/Federal_districts_of_Russia
+    # questionable: Novgorod,Altay,Yevrey,Maga Buryatdan/Magadan
+    "RU_NW"  GADM(["Russia"], "Arkhangel'sk","Vologda","Kaliningrad","Karelia","Komi","Leningrad","Murmansk","Nenets","Novgorod","Pskov","City of St. Petersburg")
+    "RU_C"   GADM(["Russia"], "Belgorod","Bryansk","Vladimir","Voronezh","Ivanovo","Kaluga","Kostroma","Kursk","Lipetsk","Moscow City","Moskva","Orel","Ryazan'","Smolensk","Tambov","Tver'","Tula","Yaroslavl'")
+    "RU_SW"  GADM(["Russia"], "Adygey","Astrakhan'","Volgograd","Kalmyk","Krasnodar","Rostov","Dagestan","Ingush","Kabardin-Balkar","Karachay-Cherkess","North Ossetia","Stavropol'","Chechnya")
+    "RU_VL"  GADM(["Russia"], "Bashkortostan","Kirov","Mariy-El","Mordovia","Nizhegorod","Orenburg","Penza","Perm'","Samara","Saratov","Tatarstan","Udmurt","Ul'yanovsk","Chuvash")
+    "RU_UR"  GADM(["Russia"], "Kurgan","Sverdlovsk","Tyumen'","Khanty-Mansiy","Chelyabinsk","Yamal-Nenets")
+    "RU_SB"  GADM(["Russia"], "Irkutsk","Krasnoyarsk","Tuva")
+    "RU_S"  GADM(["Russia"], "Altay","Gorno-Altay","Kemerovo","Novosibirsk","Omsk","Tomsk","Khakass")
+    "RU_E"   GADM(["Russia"], "Amur","Buryat","Yevrey","Zabaykal'ye","Kamchatka","Maga Buryatdan","Primor'ye","Sakha","Sakhalin","Khabarovsk","Chukot")
+    
+    # China: "North" (Huáběi),"Northeast" (Dōngběi),"East" (Huádōng),"South Central" (Zhōngnán),"Southwest" (Xīnán),"Northwest" (Xīběi)
+    # https://en.wikipedia.org/wiki/List_of_regions_of_China
+    # East also includes Taiwan
+    # South Central also includes Hong Kong and Macao
+    "CH_N"    GADM(["China"], "Nei Mongol")
+    "CH_NE"   GADM(["China"], "Liaoning","Jilin","Heilongjiang")
+    "CH_CNE"  GADM(["China"], "Beijing","Tianjin","Hebei","Shanxi","Shandong")
+    "CH_CSE"  (GADM(["China"], "Shanghai","Jiangsu","Zhejiang","Anhui","Fujian","Jiangxi"), GADM("Taiwan"))
+    "CH_CS"   GADM(["China"], "Henan","Hubei","Hunan")
+    "CH_CSW"  GADM(["China"], "Chongqing","Sichuan","Guizhou","Yunnan")
+    "CH_CNW"  GADM(["China"], "Shaanxi","Gansu","Qinghai","Ningxia Hui")
+    "CH_S"    (GADM(["China"], "Guangdong","Guangxi","Hainan"), GADM("Hong Kong","Macao"))
+    "CH_TB"   GADM(["China"], "Xizang")
+    "CH_NW"   GADM(["China"], "Xinjiang Uygur")
+
+    # Other
+    "MON"      GADM("Mongolia")
+    "JKR_JP"    GADM("Japan")
+    "JKR_NK"    GADM("North Korea")
+    "JKR_SK"    GADM("South Korea")
 ]
