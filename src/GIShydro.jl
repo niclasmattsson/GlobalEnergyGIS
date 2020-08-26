@@ -3,8 +3,8 @@
 hydrooptions() = Dict(
     :gisregion => "Europe8",                    # "Europe8", "Eurasia38", "Scand3"
 
-    :costclasses_min => [ 0,  50, 100],         # US $/MWh
-    :costclasses_max => [50, 100, 999],
+    :costclasses_min => [ 0,  50,  100],         # US $/MWh
+    :costclasses_max => [50, 100, 9999],
 
     :storageclasses_min => [   0, 1e-6,  12],   # weeks (discharge time)
     :storageclasses_max => [1e-6,   12, 9e9]
