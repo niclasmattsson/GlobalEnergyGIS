@@ -35,7 +35,7 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
                 line = greatcircletrack(popcenters[reg1,:], popcenters[reg2,:], 50)             # great circle segments
                 projectedline = Point2f0.(GeoMakie.transform.(source, dest, line))
                 color = (i == 1) ? :black : :white
-                lines!(scene, projectedline, color=color, linewidth=resolutionscale*scale*3.5)
+                lines!(scene, projectedline, color=color, linewidth=resolutionscale*scale*3)
             end
         end
     end

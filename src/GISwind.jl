@@ -28,6 +28,8 @@ windoptions() = Dict(
     :onshoreclasses_max => [5,6,7,8,99],    # upper bound on annual onshore wind speeds for class X    [0.25:0.25:12.5;]
     :offshoreclasses_min => [3,6,7,8,9],    # lower bound on annual offshore wind speeds for class X
     :offshoreclasses_max => [6,7,8,9,99]    # upper bound on annual offshore wind speeds for class X
+
+    :downsample_masks => 1              # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions 
 )
     # Land types
     #     0      'Water'                       
@@ -96,13 +98,14 @@ end
 
 function GISwind(; savetodisk=true, plotmasks=false, optionlist...)
     options = WindOptions(merge(windoptions(), optionlist))
-    @unpack gisregion, era_year, filenamesuffix = options
+    @unpack gisregion, era_year, filenamesuffix, downsample_masks = options
 
     regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
                 read_datasets(options)
 
     mask_onshoreA, mask_onshoreB, mask_offshore =
-        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange, plotmasks=plotmasks)
+        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange,
+                            plotmasks=plotmasks, downsample=downsample_masks)
 
     # return nothing  # uncomment to terminate after plotting masks
     windatlas, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
@@ -167,7 +170,7 @@ function read_wind_datasets(options, lonrange, latrange)
     return windatlas, meanwind, windspeed
 end
 
-function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange; plotmasks=false)
+function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange; plotmasks=false, downsample=1)
     @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2, min_shore_distance, max_depth = options
 
     println("Creating masks...")
@@ -218,7 +221,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         masks[regions .== 0] .= 0
         masks[regions .== NOREGION] .= NOREGION
         legendtext = ["bad land type", "high population", "protected area", "no grid", "", "", "wind plant A", "wind plant B"]
-        maskmap("$(gisregion)_masks_wind", masks, legendtext, lonrange, latrange; legend=true, downsample=1)
+        maskmap("$(gisregion)_masks_wind", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
 
         # drawmap(.!shore .& (offshoreregions .> 0))
         # drawmap((topo .> -max_depth) .& (offshoreregions .> 0))

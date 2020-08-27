@@ -25,7 +25,9 @@ solaroptions() = Dict(
     :pvclasses_min => [0.08,0.14,0.18,0.22,0.26],   # lower bound on annual PV capacity factor for class X    [0:0.01:0.49;]
     :pvclasses_max => [0.14,0.18,0.22,0.26,1.00],   # upper bound on annual PV capacity factor for class X    [0.01:0.01:0.50;]
     :cspclasses_min => [0.10,0.18,0.24,0.28,0.32],  # lower bound on annual CSP capacity factor for class X
-    :cspclasses_max => [0.18,0.24,0.28,0.32,1.00]  # upper bound on annual CSP capacity factor for class X
+    :cspclasses_max => [0.18,0.24,0.28,0.32,1.00],  # upper bound on annual CSP capacity factor for class X
+
+    :downsample_masks => 1              # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions 
 )
     # Land types
     #     0      'Water'                       
@@ -112,13 +114,14 @@ function GISsolar(; savetodisk=true, plotmasks=false, optionlist...)
     # variations as a function of temperature don't matter.
 
     options = SolarOptions(merge(solaroptions(), optionlist))
-    @unpack gisregion, era_year, filenamesuffix, pv_density, csp_density = options
+    @unpack gisregion, era_year, filenamesuffix, pv_density, csp_density, downsample_masks = options
 
     regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
                 read_datasets(options)
 
     mask_rooftop, mask_plantA, mask_plantB =
-        create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange, plotmasks=plotmasks)
+        create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange,
+                            plotmasks=plotmasks, downsample=downsample_masks)
 
     # return nothing  # uncomment to terminate after plotting masks
     meanGTI, solarGTI, meanDNI, solarDNI = read_solar_datasets(options, lonrange, latrange)
@@ -175,7 +178,7 @@ function read_solar_datasets(options, lonrange, latrange)
     return meanGTI, solarGTI, meanDNI, solarDNI
 end
 
-function create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange; plotmasks=false)
+function create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange; plotmasks=false, downsample=1)
     @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, plant_persons_per_km2, pvroof_persons_per_km2 = options
 
     println("Creating masks...")
@@ -220,7 +223,7 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
         masks[regions .== 0] .= 0
         masks[regions .== NOREGION] .= NOREGION
         legendtext = ["bad land type", "high population", "protected area", "no grid", "solar plant A", "solar plant B", "", ""]
-        maskmap("$(gisregion)_masks_solar", masks, legendtext, lonrange, latrange; legend=true, downsample=1)
+        maskmap("$(gisregion)_masks_solar", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
     end
 
     return mask_rooftop, mask_plantA, mask_plantB
