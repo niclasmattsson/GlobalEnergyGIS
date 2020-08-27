@@ -1,5 +1,5 @@
 export europe8, eurasia38, scand3, scand4, eurasia21, china6, europe13, europe21, europe22, europe54, syntheticdemandregions,
-        testreg, caspian, NUTS_Europe, eurasia90
+        testreg, caspian, NUTS_Europe, eurasia92
 
 const scand3 = [
     "SWE"   GADM("Sweden")
@@ -305,7 +305,7 @@ const syntheticdemandregions = [
 ]
 
 # no small islands included
-const eurasia90 = [
+const eurasia92 = [
     # Europe: "NOR","FRA","GER","UK","MED","BAL","SPA","CEN"
     "NOR_SEN"   GADM(["Sweden"], "Norrbotten","Västerbotten","Västernorrland","Jämtland","Gävleborg","Dalarna","Värmland")
     "NOR_SES"   GADM(["Sweden"], "Uppsala","Västmanland","Orebro","Stockholm","Södermanland","Västra Götaland","Östergötland","Jönköping","Kalmar","Gotland","Halland","Kronoberg","Skåne","Blekinge")
@@ -314,8 +314,8 @@ const eurasia90 = [
     "NOR_FI"    GADM("Finland","Åland")
     "FRA_N"   GADM(["France"], "Hauts-de-France","Normandie")
     "FRA_W"   GADM(["France"], "Bretagne","Pays de la Loire","Nouvelle-Aquitaine")
-    "FRA_C"   GADM("France", "Île-de-France","Grand Est","Centre-Val de Loire","Bourgogne-Franche-Comté")
-    "FRA_S"   (GADM(["France"], "Auvergne-Rhône-Alpes","Occitanie","Provence-Alpes-Côte d'Azur"), GADM("France","Monaco"))
+    "FRA_C"   GADM(["France"], "Île-de-France","Grand Est","Centre-Val de Loire","Bourgogne-Franche-Comté")
+    "FRA_S"   (GADM(["France"], "Auvergne-Rhône-Alpes","Occitanie","Provence-Alpes-Côte d'Azur"), GADM("Monaco"))
     "GER_BNL" GADM("Netherlands","Belgium","Luxembourg")
     "GER_N"   GADM(["Germany"], "Schleswig-Holstein","Hamburg","Mecklenburg-Vorpommern","Bremen","Niedersachsen")
     "GER_W"   GADM(["Germany"], "Nordrhein-Westfalen","Hessen","Rheinland-Pfalz","Saarland")
@@ -327,7 +327,7 @@ const eurasia90 = [
     "MED_BK"   GADM("Slovenia","Croatia","Bosnia and Herzegovina","Serbia","Montenegro","Kosovo")
     "MED_GR"   GADM("Greece","Albania","Macedonia")
     "BAL_PL"   GADM("Poland")
-    "BAL_ELL"  GADM("Estonia","Latvia","Lithuania")
+    "BAL_ELL"  (GADM("Estonia","Latvia","Lithuania"), GADM(["Russia"], "Kaliningrad"))
     "SPA_NW"   GADM(["Spain"], "Galicia","Principado de Asturias","Cantabria","País Vasco","Comunidad Foral de Navarra","La Rioja","Castilla y León")
     "SPA_C"    GADM(["Spain"], "Aragón","Castilla-La Mancha","Comunidad de Madrid","Extremadura")
     "SPA_SE"   (GADM(["Spain"], "Cataluña", "Comunidad Valenciana", "Región de Murcia", "Andalucía"), GADM("Andorra","Gibraltar"))
@@ -384,15 +384,17 @@ const eurasia90 = [
 
     # Southeast Asia: "Central Asia","South-Central Asia"
     # also includes Peninsular Malaysia,https://en.wikipedia.org/wiki/Peninsular_Malaysia
-    "SEA_NBB"   GADM("Nepal","Bhutan","Bangladesh")
-    "SEA_VLC"   GADM("Laos","Vietnam","Cambodia")
-    "SEA_M"     GADM("Myanmar")
-    "SEA_TM"    (GADM("Thailand","Singapore"), GADM(["Malaysia"], "Perlis","Kedah","Pulau Pinang","Perak","Kelantan","Trengganu","Pahang","Selangor","Kuala Lumpur","Putrajaya","Negeri Sembilan","Melaka","Johor"))
+    "SEA_NB"   GADM("Nepal","Bhutan")
+    "SEA_BD"   GADM("Bangladesh")
+    "SEA_VLC"  GADM("Laos","Vietnam","Cambodia")
+    "SEA_MM"   GADM("Myanmar")
+    "SEA_TH"   GADM("Thailand")
+    "SEA_MY"   (GADM("Singapore"), GADM(["Malaysia"], "Perlis","Kedah","Pulau Pinang","Perak","Kelantan","Trengganu","Pahang","Selangor","Kuala Lumpur","Putrajaya","Negeri Sembilan","Melaka","Johor"))
     
     # Russia: "Northwest","Central","Southwest","Volga","Ural","Siberia","East"
     # https://en.wikipedia.org/wiki/Federal_districts_of_Russia
     # questionable: Novgorod,Altay,Yevrey,Maga Buryatdan/Magadan
-    "RU_NW"  GADM(["Russia"], "Arkhangel'sk","Vologda","Kaliningrad","Karelia","Komi","Leningrad","Murmansk","Nenets","Novgorod","Pskov","City of St. Petersburg")
+    "RU_NW"  GADM(["Russia"], "Arkhangel'sk","Vologda","Karelia","Komi","Leningrad","Murmansk","Nenets","Novgorod","Pskov","City of St. Petersburg")
     "RU_C"   GADM(["Russia"], "Belgorod","Bryansk","Vladimir","Voronezh","Ivanovo","Kaluga","Kostroma","Kursk","Lipetsk","Moscow City","Moskva","Orel","Ryazan'","Smolensk","Tambov","Tver'","Tula","Yaroslavl'")
     "RU_SW"  GADM(["Russia"], "Adygey","Astrakhan'","Volgograd","Kalmyk","Krasnodar","Rostov","Dagestan","Ingush","Kabardin-Balkar","Karachay-Cherkess","North Ossetia","Stavropol'","Chechnya")
     "RU_VL"  GADM(["Russia"], "Bashkortostan","Kirov","Mariy-El","Mordovia","Nizhegorod","Orenburg","Penza","Perm'","Samara","Saratov","Tatarstan","Udmurt","Ul'yanovsk","Chuvash")
