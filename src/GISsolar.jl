@@ -220,7 +220,7 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
         masks[regions .== 0] .= 0
         masks[regions .== NOREGION] .= NOREGION
         legendtext = ["bad land type", "high population", "protected area", "no grid", "solar plant A", "solar plant B", "", ""]
-        maskmap("$(gisregion)_masks_solar", masks, legendtext, lonrange, latrange; legend=true)
+        maskmap("$(gisregion)_masks_solar", masks, legendtext, lonrange, latrange; legend=true, downsample=1)
     end
 
     return mask_rooftop, mask_plantA, mask_plantB
