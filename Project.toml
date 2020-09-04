@@ -41,5 +41,4 @@ TimeZones = "f269a46b-ccf7-5d73-abea-4c690281aa53"
 XGBoost = "009559a3-9522-5dbb-924b-0b6ed2b22bb9"
 
 [compat]
-GDAL = "1.1.1"
 HDF5 = "0.13.1"
