@@ -1,4 +1,5 @@
-export GADM, NUTS, makeregions, makeregions_nuts, makeoffshoreregions, saveregions, loadregions, saveregions_global, subregions
+export GADM, NUTS, makeregions, makeregions_nuts, makeoffshoreregions, saveregions, loadregions,
+        saveregions_global, subregions, all_gadm_subregions
 
 abstract type RegionType end
 
@@ -221,9 +222,31 @@ end
 
 function subregions(regtype::Type{T} where T <: RegionType, regionnames::String...)
     reglist = join(regionnames, ", ")
-    selected = getsubregions(regtype, regionnames)
+    selected = string.(getsubregions(regtype, regionnames))
     selectedlist = join(selected, ", ")
-    isempty(regionnames) && println("Showing top level $regtype regions:")
-    println("$regtype($reglist): $selectedlist")
+    # isempty(regionnames) && println("Showing top level $regtype regions:")
+    # println("$regtype($reglist): $selectedlist")
     return selected
 end
+
+function all_gadm_subregions(country::AbstractString, level::Int)
+    level == 1 && return [country GADM(country)]
+    return all_gadm_subregions(country, subregions(GADM, country), level)
+end
+
+function all_gadm_subregions(country::AbstractString, reg2::AbstractString, level::Int)
+    reg2 == "" && return [country GADM(country)]
+    level == 2 && return [reg2 GADM([country], reg2)]
+    return vcat(all_gadm_subregions.(country, reg2, subregions(GADM, country, reg2))...)
+end
+
+function all_gadm_subregions(country::AbstractString, reg2::AbstractString, reg3::AbstractString)
+    reg3 == "" && return [reg2 GADM([country], reg2)]
+    return [reg3 GADM([country, reg2], reg3)]
+end
+
+all_gadm_subregions(countries::AbstractArray, level::Int) =
+        vcat(all_gadm_subregions.(countries, level)...)
+
+all_gadm_subregions(country::AbstractString, regions2::AbstractArray, level::Int) =
+        vcat(all_gadm_subregions.(country, regions2, level)...)
