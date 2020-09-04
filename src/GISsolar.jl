@@ -81,9 +81,10 @@ mutable struct SolarOptions
     pvclasses_max           ::Vector{Float64}
     cspclasses_min          ::Vector{Float64}
     cspclasses_max          ::Vector{Float64}
+    downsample_masks        ::Int
 end
 
-SolarOptions() = SolarOptions("","",0,0,0,0,0,0,0,[],[],"",0,0,0,[],[],[],[])
+SolarOptions() = SolarOptions("","",0,0,0,0,0,0,0,[],[],"",0,0,0,[],[],[],[],0)
 
 function SolarOptions(d::Dict{Symbol,Any})
     options = SolarOptions()
@@ -223,7 +224,7 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
         masks[regions .== 0] .= 0
         masks[regions .== NOREGION] .= NOREGION
         legendtext = ["bad land type", "high population", "protected area", "no grid", "solar plant A", "solar plant B", "", ""]
-        maskmap("$(gisregion)_masks_solar", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
+        maskmap("$(gisregion)_masks_solar", masks, legendtext, lonrange, latrange; legend=false, downsample=downsample)
     end
 
     return mask_rooftop, mask_plantA, mask_plantB

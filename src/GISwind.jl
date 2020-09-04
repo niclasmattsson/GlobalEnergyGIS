@@ -84,9 +84,10 @@ mutable struct WindOptions
     onshoreclasses_max      ::Vector{Float64}
     offshoreclasses_min     ::Vector{Float64}
     offshoreclasses_max     ::Vector{Float64}
+    downsample_masks        ::Int
 end
 
-WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,0,0,[],[],[],[])
+WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,0,0,[],[],[],[],0)
 
 function WindOptions(d::Dict{Symbol,Any})
     options = WindOptions()
