@@ -124,7 +124,7 @@ function GISsolar(; savetodisk=true, plotmasks=false, optionlist...)
         create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange,
                             plotmasks=plotmasks, downsample=downsample_masks)
 
-    # return nothing  # uncomment to terminate after plotting masks
+    return nothing  # uncomment to terminate after plotting masks
     meanGTI, solarGTI, meanDNI, solarDNI = read_solar_datasets(options, lonrange, latrange)
 
     CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB, solar_overlap_areaA, solar_overlap_areaB,
@@ -199,7 +199,7 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
     # Pixels with electricity access for onshore wind B and offshore wind
     km_per_degree = π*2*6371/360
     disk = diskfilterkernel(distance_elec_access/km_per_degree/res)
-    gridB = (imfilter(gridaccess, disk) .> 0.1)
+    gridB = (imfilter(gridaccess, disk) .> 10^(-1.5))
 
     # println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
 
@@ -224,7 +224,7 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
         masks[regions .== 0] .= 0
         masks[regions .== NOREGION] .= NOREGION
         legendtext = ["bad land type", "high population", "protected area", "no grid", "solar plant A", "solar plant B", "", ""]
-        maskmap("$(gisregion)_masks_solar", masks, legendtext, lonrange, latrange; legend=false, downsample=downsample)
+        maskmap("$(gisregion)_masks_solar", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
     end
 
     return mask_rooftop, mask_plantA, mask_plantB
