@@ -1,4 +1,4 @@
-using FileIO, GeoMakie, Makie, ColorSchemes
+using FileIO, GeoMakie, Makie, ColorSchemes, GLMakie
 
 export createmaps, plotmap
 
@@ -19,7 +19,8 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     println("...constructing map...")
     scene = surface(xs, ys; color=float.(regions), colormap=colors,
                             shading=false, show_axis=false, scale_plot=false, interpolate=false)
-    ga = geoaxis!(scene, lons[1], lons[end], lats[end], lats[1]; crs=(src=source, dest=dest,))[end]
+    ga = geoaxis!(scene, extrema(lons), extrema(lats); crs=(src=source, dest = dest,))[end]
+
     ga.x.tick.color = RGBA(colorant"black", 0.4)
     ga.y.tick.color = RGBA(colorant"black", 0.4)
     ga.x.tick.width = scale
@@ -61,6 +62,7 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
         FileIO.save(filename, combined)
         rm(in_datafolder("output", "legend.png"))
     end
+    GLMakie.destroy!(GLMakie.global_gl_screen())
 end
 
 function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true, resolutionscale=1, textscale=1, randseed=1, downsample=1)
@@ -190,6 +192,7 @@ function makelegend(labels, colors; scale=2)
     filename = in_datafolder("output", "legend.png")
     isfile(filename) && rm(filename)
     Makie.save(filename, scene, resolution = scene.resolution.val .* scale)
+    GLMakie.destroy!(GLMakie.global_gl_screen())
 end
 
 # first color in colorlist that is not in columncolors (which may have many repeated elements)
