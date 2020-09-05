@@ -8,7 +8,7 @@ windoptions() = Dict(
     :area_onshore => .08,               # area available for onshore wind power after the masks have been applied
     :area_offshore => .33,              # area available for offshore wind power after the masks have been applied
 
-    :distance_elec_access => 300,       # max distance to grid [km] (for wind classes of category B and offshore)
+    :distance_elec_access => 150,       # max distance to grid [km] (for wind classes of category B and offshore)
     :persons_per_km2 => 150,            # not too crowded, max X persons/km2
                                         # US census bureau requires 1000 ppl/mile^2 = 386 ppl/km2 for "urban" (half in Australia)
                                         # roughly half the people of the world live at density > 300 ppl/km2
@@ -27,9 +27,11 @@ windoptions() = Dict(
     :onshoreclasses_min => [2,5,6,7,8],     # lower bound on annual onshore wind speeds for class X    [0:0.25:12.25;]
     :onshoreclasses_max => [5,6,7,8,99],    # upper bound on annual onshore wind speeds for class X    [0.25:0.25:12.5;]
     :offshoreclasses_min => [3,6,7,8,9],    # lower bound on annual offshore wind speeds for class X
-    :offshoreclasses_max => [6,7,8,9,99]    # upper bound on annual offshore wind speeds for class X
+    :offshoreclasses_max => [6,7,8,9,99],   # upper bound on annual offshore wind speeds for class X
 
-    :downsample_masks => 1              # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions 
+    :downsample_masks => 1,     # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions 
+    :classB_threshold => 0.001  # minimum share of pixels within distance_elec_access km that must have grid access
+                                # for a pixel to be considered for wind class B.
 )
     # Land types
     #     0      'Water'                       
@@ -85,9 +87,10 @@ mutable struct WindOptions
     offshoreclasses_min     ::Vector{Float64}
     offshoreclasses_max     ::Vector{Float64}
     downsample_masks        ::Int
+    classB_threshold        ::Float64
 end
 
-WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,0,0,[],[],[],[],0)
+WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,0,0,[],[],[],[],0,0.0)
 
 function WindOptions(d::Dict{Symbol,Any})
     options = WindOptions()
@@ -108,7 +111,8 @@ function GISwind(; savetodisk=true, plotmasks=false, optionlist...)
         create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange,
                             plotmasks=plotmasks, downsample=downsample_masks)
 
-    # return nothing  # uncomment to terminate after plotting masks
+    plotmasks == :onlymasks && return nothing
+
     windatlas, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
 
     windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore =
@@ -172,7 +176,8 @@ function read_wind_datasets(options, lonrange, latrange)
 end
 
 function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange; plotmasks=false, downsample=1)
-    @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2, min_shore_distance, max_depth = options
+    @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2,
+                min_shore_distance, max_depth, classB_threshold = options
 
     println("Creating masks...")
 
@@ -191,7 +196,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     # Pixels with electricity access for onshore wind B and offshore wind
     km_per_degree = π*2*6371/360
     disk = diskfilterkernel(distance_elec_access/km_per_degree/res)
-    gridB = (imfilter(gridaccess, disk) .> 0.1)
+    gridB = (imfilter(gridaccess, disk) .> max(1e-9, classB_threshold)) # avoid artifacts if classB_threshold == 0
 
     # println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
 
@@ -206,7 +211,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     # all mask conditions
     mask_offshore = gridB .& .!shore .& (topo .> -max_depth) .& (offshoreregions .> 0) .& .!protected_area
 
-    if plotmasks
+    if plotmasks != false   # can == :onlymasks as well
         # drawmap(land)
         isregion = (regions .> 0) .& (regions .!= NOREGION)
 

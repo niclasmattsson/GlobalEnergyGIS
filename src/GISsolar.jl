@@ -8,7 +8,7 @@ solaroptions() = Dict(
     :pvroof_area => .05,                # area available for rooftop PV after the masks have been applied
     :plant_area => .05,                 # area available for PV or CSP plants after the masks have been applied
 
-    :distance_elec_access => 300,       # max distance to grid [km] (for solar classes of category B)
+    :distance_elec_access => 150,       # max distance to grid [km] (for solar classes of category B)
     :plant_persons_per_km2 => 150,      # not too crowded, max X persons/km2 (both PV and CSP plants)
     :pvroof_persons_per_km2 => 200,     # only in populated areas, so AT LEAST x persons/km2
                                         # US census bureau requires 1000 ppl/mile^2 = 386 ppl/km2 for "urban" (half in Australia)
@@ -27,7 +27,9 @@ solaroptions() = Dict(
     :cspclasses_min => [0.10,0.18,0.24,0.28,0.32],  # lower bound on annual CSP capacity factor for class X
     :cspclasses_max => [0.18,0.24,0.28,0.32,1.00],  # upper bound on annual CSP capacity factor for class X
 
-    :downsample_masks => 1              # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions 
+    :downsample_masks => 1,     # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions 
+    :classB_threshold => 0.001  # minimum share of pixels within distance_elec_access km that must have grid access
+                                # for a pixel to be considered for solar class B. 
 )
     # Land types
     #     0      'Water'                       
@@ -82,9 +84,10 @@ mutable struct SolarOptions
     cspclasses_min          ::Vector{Float64}
     cspclasses_max          ::Vector{Float64}
     downsample_masks        ::Int
+    classB_threshold        ::Float64
 end
 
-SolarOptions() = SolarOptions("","",0,0,0,0,0,0,0,[],[],"",0,0,0,[],[],[],[],0)
+SolarOptions() = SolarOptions("","",0,0,0,0,0,0,0,[],[],"",0,0,0,[],[],[],[],0,0.0)
 
 function SolarOptions(d::Dict{Symbol,Any})
     options = SolarOptions()
@@ -124,7 +127,8 @@ function GISsolar(; savetodisk=true, plotmasks=false, optionlist...)
         create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange,
                             plotmasks=plotmasks, downsample=downsample_masks)
 
-    return nothing  # uncomment to terminate after plotting masks
+    plotmasks == :onlymasks && return nothing
+
     meanGTI, solarGTI, meanDNI, solarDNI = read_solar_datasets(options, lonrange, latrange)
 
     CF_pvrooftop, CF_pvplantA, CF_pvplantB, CF_cspplantA, CF_cspplantB, solar_overlap_areaA, solar_overlap_areaB,
@@ -180,7 +184,8 @@ function read_solar_datasets(options, lonrange, latrange)
 end
 
 function create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange; plotmasks=false, downsample=1)
-    @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, plant_persons_per_km2, pvroof_persons_per_km2 = options
+    @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, plant_persons_per_km2,
+            pvroof_persons_per_km2, classB_threshold = options
 
     println("Creating masks...")
 
@@ -199,7 +204,7 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
     # Pixels with electricity access for onshore wind B and offshore wind
     km_per_degree = π*2*6371/360
     disk = diskfilterkernel(distance_elec_access/km_per_degree/res)
-    gridB = (imfilter(gridaccess, disk) .> 10^(-1.5))
+    gridB = (imfilter(gridaccess, disk) .> max(1e-9, classB_threshold)) # avoid artifacts if classB_threshold == 0
 
     # println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
 
@@ -208,7 +213,7 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
     mask_plantA = gridA .& (popdens .< plant_persons_per_km2) .& goodland .& .!protected_area
     mask_plantB = (gridB .& .!gridA) .& (popdens .< plant_persons_per_km2) .& goodland .& .!protected_area
 
-    if plotmasks
+    if plotmasks != false   # can == :onlymasks as well
         # drawmap(land)
         isregion = (regions .> 0) .& (regions .!= NOREGION)
 
