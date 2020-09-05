@@ -13,7 +13,7 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     xmin, xmax = extrema(xs)
     ymin, ymax = extrema(ys)
     aspect_ratio = (ymax - ymin) / (xmax - xmin)
-    pngwidth = round(Int, resolutionscale*1.02*size(regions,1))                 # allow for margins (+1% on both sides)
+    pngwidth = round(Int, resolutionscale*1.02*size(regions,1)) # allow for margins (+1% on both sides)
     pngsize = pngwidth, round(Int, pngwidth * aspect_ratio)     # use aspect ratio after projection transformation
 
     println("...constructing map...")
@@ -304,4 +304,23 @@ function plottimeoffsets()
     colorindices = greedycolor(cc, 1:12, 1:nreg, randseed=1)
     cs = colorschemes[:Set3_12].colors[colorindices]
     plotmap(offsetindices[1:5:end, 1:5:end], colormap=cs)
+end
+
+function testmap()
+    lons = LinRange(1, 30, 360)
+    lats = LinRange(51, 74, 180)
+
+    field = [exp(cosd(l)) + 3(y/90) for l in lons, y in lats]
+
+    source = LonLat()
+    dest = WinkelTripel()
+
+    xs, ys = xygrid(lons, lats)
+    Proj4.transform!(source, dest, vec(xs), vec(ys))
+
+    scene = surface(xs, ys; color = field, shading = false, show_axis = false, scale_plot = false)
+
+    geoaxis!(scene, extrema(lons), extrema(lats); crs = (src = source, dest = dest,))
+
+    # coastlines!(scene; crs = (src = source, dest = dest,))
 end

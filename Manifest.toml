@@ -235,9 +235,9 @@ version = "0.4.2"
 
 [[DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "65974157a18f4e19c07e5a94576328814ae23f9b"
+git-tree-sha1 = "6189e66c78a2d840db5ee530ac2326505b3cc7ae"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.18.3"
+version = "0.18.4"
 
 [[DataValueInterfaces]]
 git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
@@ -474,9 +474,9 @@ version = "0.5.1"
 
 [[GeoMakie]]
 deps = ["AbstractPlotting", "Colors", "EarCut", "GeoInterface", "GeoJSON", "GeometryBasics", "Glob", "ImageMagick", "MakieLayout", "NASAEarthObservations", "Proj4", "Reexport", "StructArrays"]
-git-tree-sha1 = "13f700fd08248a011a6fd26a326ec50a1bec7fe9"
+git-tree-sha1 = "b584d6198efa88d9db46e8dbef084a8712fbb61e"
 uuid = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
-version = "0.1.14"
+version = "0.1.13"
 
 [[GeometryBasics]]
 deps = ["IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
@@ -804,10 +804,10 @@ uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.5"
 
 [[Makie]]
-deps = ["AbstractPlotting", "FileIO", "GLMakie", "ImageMagick", "MeshIO", "StatsMakie"]
-git-tree-sha1 = "dfdc1b0db9ccdbfd4d90b5a800342df9b208231a"
+deps = ["AbstractPlotting", "FileIO", "GLMakie", "ImageMagick", "StatsMakie"]
+git-tree-sha1 = "82c3e000788930bd3e7e957c2149cbaa7b59960d"
 uuid = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
-version = "0.11.0"
+version = "0.9.5"
 
 [[MakieLayout]]
 deps = ["AbstractPlotting", "Animations", "Formatting", "GridLayoutBase", "Match", "Observables", "PlotUtils", "Showoff"]
