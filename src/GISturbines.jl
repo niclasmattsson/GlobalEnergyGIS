@@ -30,14 +30,14 @@ function GISturbines_density(; agg=1, optionlist...)
     cellarea = rastercellarea.(lats, res)
 
     pop = JLD.load(in_datafolder("population_$scenarioyear.jld"), "population")[lonrange,latrange]
-    popdens = aggregate(pop, agg) ./ aggregate(cellarea, agg)'      # persons/km2
+    popdens = aggregate_array(pop, agg) ./ aggregate_array(cellarea, agg)'      # persons/km2
 
     df_DK = DataFrame!(CSV.File(in_datafolder("turbines_DK.csv")))
     df_USA = DataFrame!(CSV.File(in_datafolder("turbines_USA.csv")))
     turbines = vcat(df_DK, df_USA)
 
     turbinecapacity = aggregate_turbine_capacity(gisregion, turbines, regions, regionlist, lonrange, latrange)
-    turbinedensity = aggregate(turbinecapacity, agg) ./ aggregate(cellarea, agg)'    # MW/km2
+    turbinedensity = aggregate_array(turbinecapacity, agg) ./ aggregate_array(cellarea, agg)'    # MW/km2
 
     # println("\nSaving...")
 
@@ -48,7 +48,7 @@ function GISturbines_density(; agg=1, optionlist...)
     return turbinedensity, popdens
 end
 
-# function aggregate(a::AbstractArray, n::Int)
+# function aggregate_array(a::AbstractArray, n::Int)
 #     sz = size(a) .÷ n
 #     out = similar(a, sz)
 #     R = CartesianIndices(A)
@@ -65,7 +65,7 @@ end
 #     out
 # end
 
-function aggregate(a::AbstractArray, n::Int)
+function aggregate_array(a::AbstractArray, n::Int)
     n == 1 && return a
     sz = size(a)
     dims = length(sz)
