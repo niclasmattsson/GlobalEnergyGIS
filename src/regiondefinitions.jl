@@ -304,6 +304,24 @@ const syntheticdemandregions = [
     "Sri Lanka", "Sweden", "Switzerland", "Turkey", "United Kingdom"
 ]
 
+const hovedstaden15 = [
+    "København C"     GADM(["Denmark", "Hovedstaden"], "København","Frederiksberg","Tårnby","Dragør")
+    "København W"     GADM(["Denmark", "Hovedstaden"], "Albertslund","Glostrup","Rødovre","Vallensbæk","Brøndby","Hvidovre")
+    "København N"     GADM(["Denmark", "Hovedstaden"], "Lyngby-Taarbæk","Gladsaxe","Gentofte")
+    "København NW"    GADM(["Denmark", "Hovedstaden"], "Furesø","Ballerup","Herlev")
+    "Hovedstaden SW"  GADM(["Denmark", "Hovedstaden"], "Høje Taastrup", "Ishøj")
+    "Allerød"         GADM(["Denmark", "Hovedstaden"], "Allerød")
+    "Bornholm"        GADM(["Denmark", "Hovedstaden"], "Bornholm")  # Christiansø
+    "Egedal"          GADM(["Denmark", "Hovedstaden"], "Egedal")
+    "Helsingør"       GADM(["Denmark", "Hovedstaden"], "Fredensborg","Helsingør")
+    "Frederikssund"   GADM(["Denmark", "Hovedstaden"], "Frederikssund")
+    "Gribskov"        GADM(["Denmark", "Hovedstaden"], "Gribskov")
+    "Halsnæs"         GADM(["Denmark", "Hovedstaden"], "Halsnæs")
+    "Hillerød"        GADM(["Denmark", "Hovedstaden"], "Hillerød")
+    "Hørsholm"        GADM(["Denmark", "Hovedstaden"], "Hørsholm")
+    "Rudersdal"       GADM(["Denmark", "Hovedstaden"], "Rudersdal")
+]
+
 # no small islands included
 const eurasia92 = [
     # Europe: "NOR","FRA","GER","UK","MED","BAL","SPA","CEN"
