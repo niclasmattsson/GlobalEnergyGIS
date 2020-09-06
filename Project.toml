@@ -4,6 +4,7 @@ authors = ["niclasmattsson <33093224+niclasmattsson@users.noreply.github.com>"]
 version = "0.1.0"
 
 [deps]
+AbstractPlotting = "537997a7-5e4e-5d89-9595-2241ea00577e"
 ArchGDAL = "c9ce4bd3-c3d5-55b8-8973-c0e20141b8c3"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 BinDeps = "9e28174c-4ba2-5203-b857-d8d62c4213ee"
@@ -42,6 +43,6 @@ TimeZones = "f269a46b-ccf7-5d73-abea-4c690281aa53"
 XGBoost = "009559a3-9522-5dbb-924b-0b6ed2b22bb9"
 
 [compat]
+GeoMakie = "= 0.1.10"
 HDF5 = "0.13.1"
 Makie = "= 0.9.5"
-GeoMakie = "= 0.1.13"
