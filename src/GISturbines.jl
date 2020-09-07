@@ -1,14 +1,66 @@
 using StatsMakie
 
-export shadedmap, hist, GISturbines_density, aggregate
+export shadedmap, hist, GISturbines_density, aggregate, exportGISturbinedata
 
-function turbinecharts()
-    td, pd = GISturbines_density(gisregion="Denmark5");
+function exportGISturbinedata(; plotmasks=false, optionlist...)
+    cols = [:lon, :lat, :capac, :onshore, :elec2018]
+    df_DK = DataFrame!(CSV.File(in_datafolder("turbines_DK.csv")))[:, cols]
+    df_SE = DataFrame!(CSV.File(in_datafolder("turbines_SE.csv")))[:, cols[1:4]]
+    df_SE[:, :elec2018] .= missing    # MWh/year
+    turbines = vcat(df_DK, df_SE)
+
+    options = WindOptions(merge(windoptions(), optionlist))
+    @unpack gisregion, downsample_masks = options
+    regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
+                read_datasets(options)
+    mask_onshoreA, mask_onshoreB, mask_offshore =
+        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange,
+                            plotmasks=plotmasks, downsample=downsample_masks)
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
+
+    nreg = length(regionlist)
+    capac, offcapac, elec = zeros(nreg), zeros(nreg), zeros(nreg)
+    onshore_OK, offshore_OK = zeros(nreg), zeros(nreg)
+    n_onshore, n_offshore = zeros(Int, nreg), zeros(Int, nreg)
+
+    for row in eachrow(turbines)
+        reg, flon, flat = getregion_and_index(row[:lon], row[:lat], regions, lonrange, latrange)
+        if (reg == 0 || reg == NOREGION) 
+            reg, flon, flat = getregion_and_index(row[:lon], row[:lat], offshoreregions, lonrange, latrange)
+            (reg == 0 || reg == NOREGION) && continue
+        end
+        if row[:onshore]
+            capac[reg] += row[:capac] / 1000
+            onshore_OK[reg] += mask_onshoreA[flon, flat]
+            n_onshore[reg] += 1
+        else
+            offcapac[reg] += row[:capac] / 1000
+            offshore_OK[reg] += mask_offshore[flon, flat]
+            n_offshore[reg] += 1
+        end
+        elec[reg] += coalesce(row[:elec2018] / 1000, 0.0)
+    end
+    freg = (regions.>0) .& (regions.!=NOREGION)
+    all_onshore = sum(mask_onshoreA[freg]) / sum(freg)
+    freg = (offshoreregions.>0) .& (offshoreregions.!=NOREGION)
+    all_offshore = sum(mask_offshore[freg]) / sum(freg)
+    println("Total onshore OK: ", sum(onshore_OK)/sum(n_onshore), " ($all_onshore)")
+    println("Total offshore OK: ", sum(offshore_OK)/sum(n_offshore), " ($all_offshore)")
+    onshore_OK ./= n_onshore
+    offshore_OK ./= n_offshore
+    df = DataFrame(region=regionlist, capac=capac, offcapac=offcapac, elec2018=elec,
+            onshore_OK=replace(onshore_OK, NaN=>missing), offshore_OK=replace(offshore_OK, NaN=>missing))
+    CSV.write(in_datafolder("output", "regionalwindGIS_$gisregion.csv"), df)
+    df
+end
+
+function turbinecharts(gisregion)
+    td, pd = GISturbines_density(gisregion=gisregion);
     nz = (pd.>1) .| (td.>0);
-    GE.plot(GE.histogram(nbins = 50), td[td.>0])
-    GE.plot(GE.histogram(nbins = 50), log10.(1 .+ pd[pd.>0]))
+    plot(histogram(nbins = 50), td[td.>0])
+    plot(histogram(nbins = 50), log10.(1 .+ pd[pd.>0]))
 
-    GE.StatsMakie.scatter(td[nz], log10.(pd[nz]), markersize=0.2)
+    StatsMakie.scatter(td[nz], log10.(pd[nz]), markersize=0.2)
 
     # shadedmap("Denmark5", log.(1 .+tdm), downsample=2, colorscheme=:magma)
     # shadedmap("Denmark5", log10.(1 .+pd), downsample=2, colorscheme=:magma)
@@ -32,9 +84,11 @@ function GISturbines_density(; agg=1, optionlist...)
     pop = JLD.load(in_datafolder("population_$scenarioyear.jld"), "population")[lonrange,latrange]
     popdens = aggregate_array(pop, agg) ./ aggregate_array(cellarea, agg)'      # persons/km2
 
-    df_DK = DataFrame!(CSV.File(in_datafolder("turbines_DK.csv")))
-    df_USA = DataFrame!(CSV.File(in_datafolder("turbines_USA.csv")))
-    turbines = vcat(df_DK, df_USA)
+    df_DK = DataFrame!(CSV.File(in_datafolder("turbines_DK.csv")))[:, [:lon, :lat, :capac]]
+    df_USA = DataFrame!(CSV.File(in_datafolder("turbines_USA.csv")))[:, [:lon, :lat, :capac]]
+    df_SE = DataFrame!(CSV.File(in_datafolder("turbines_SE.csv")))[:, [:lon, :lat, :capac]]
+    df_UK = DataFrame!(CSV.File(in_datafolder("turbines_UK.csv")))[:, [:lon, :lat, :capac]]
+    turbines = vcat(df_DK, df_USA, df_SE, df_UK)
 
     turbinecapacity = aggregate_turbine_capacity(gisregion, turbines, regions, regionlist, lonrange, latrange)
     turbinedensity = aggregate_array(turbinecapacity, agg) ./ aggregate_array(cellarea, agg)'    # MW/km2
