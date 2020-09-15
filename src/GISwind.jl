@@ -121,7 +121,7 @@ function GISwind(; savetodisk=true, plotmasks=false, optionlist...)
 
     if savetodisk
         mkpath(in_datafolder("output"))
-        matopen(in_datafolder("output", "GISdata_wind$(era_year)_$gisregion$filenamesuffix.mat"), "w") do file
+        matopen(in_datafolder("output", "GISdata_wind$(era_year)_$gisregion$filenamesuffix.mat"), "w", compress=true) do file
             write(file, "CFtime_windonshoreA", windCF_onshoreA)
             write(file, "CFtime_windonshoreB", windCF_onshoreB)
             write(file, "CFtime_windoffshore", windCF_offshore)

@@ -138,7 +138,7 @@ function GISsolar(; savetodisk=true, plotmasks=false, optionlist...)
 
     if savetodisk
         mkpath(in_datafolder("output"))
-        matopen(in_datafolder("output", "GISdata_solar$(era_year)_$gisregion$filenamesuffix.mat"), "w") do file
+        matopen(in_datafolder("output", "GISdata_solar$(era_year)_$gisregion$filenamesuffix.mat"), "w", compress=true) do file
             write(file, "CFtime_pvrooftop", CF_pvrooftop)
             write(file, "CFtime_pvplantA", CF_pvplantA)
             write(file, "CFtime_pvplantB", CF_pvplantB)
