@@ -1,13 +1,24 @@
 using StatsMakie
 
-export shadedmap, hist, GISturbines_density, aggregate, exportGISturbinedata
+export shadedmap, hist, GISturbines_density, aggregate, exportGISturbinedata, landtypes
+
+const landtypes = ["Evergreen Needleleaf", "Evergreen Broadleaf",
+                "Deciduous Needleleaf", "Deciduous Broadleaf", "Mixed Forests",
+                "Closed Shrublands", "Open Shrublands", "Woody Savannas", "Savannas", "Grasslands",
+                "Permanent Wetlands", "Croplands", "Urban", "Cropland/Natural", "Snow/Ice", "Barren"]
+
+# const landtypes = ["Forest", "Forest", "Forest", "Forest", "Forest", "Shrubland", "Shrubland", "Forest",
+#                 "Savanna", "Grassland", "Wetland", "Cropland", "Urban", "Cropland", "Snow/Ice", "Barren"]
 
 function exportGISturbinedata(; plotmasks=false, optionlist...)
     cols = [:lon, :lat, :capac, :onshore, :elec2018]
     df_DK = DataFrame!(CSV.File(in_datafolder("turbines_DK.csv")))[:, cols]
     df_SE = DataFrame!(CSV.File(in_datafolder("turbines_SE.csv")))[:, cols[1:4]]
+    df_DE = DataFrame!(CSV.File(in_datafolder("turbines_DE.csv")))[:, cols[1:3]]
     df_SE[:, :elec2018] .= missing    # MWh/year
-    turbines = vcat(df_DK, df_SE)
+    df_DE[:, :elec2018] .= missing    # MWh/year
+    df_DE[:, :onshore] .= missing    # MWh/year
+    turbines = vcat(df_DK, df_SE, df_DE)
 
     options = WindOptions(merge(windoptions(), optionlist))
     @unpack gisregion, downsample_masks = options
@@ -19,9 +30,10 @@ function exportGISturbinedata(; plotmasks=false, optionlist...)
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
 
     nreg = length(regionlist)
-    capac, offcapac, elec = zeros(nreg), zeros(nreg), zeros(nreg)
-    onshore_OK, offshore_OK = zeros(nreg), zeros(nreg)
+    capac, offcapac, elec, pop = zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg)
+    onshore, offshore = zeros(nreg), zeros(nreg)
     n_onshore, n_offshore = zeros(Int, nreg), zeros(Int, nreg)
+    landcount, commonland, freq = zeros(Int, nreg, 16), fill("", nreg, 3), zeros(nreg, 3)
 
     for row in eachrow(turbines)
         reg, flon, flat = getregion_and_index(row[:lon], row[:lat], regions, lonrange, latrange)
@@ -29,30 +41,53 @@ function exportGISturbinedata(; plotmasks=false, optionlist...)
             reg, flon, flat = getregion_and_index(row[:lon], row[:lat], offshoreregions, lonrange, latrange)
             (reg == 0 || reg == NOREGION) && continue
         end
-        if row[:onshore]
+        if ismissing(row[:onshore]) || row[:onshore]
             capac[reg] += row[:capac] / 1000
-            onshore_OK[reg] += mask_onshoreA[flon, flat]
+            onshore[reg] += mask_onshoreA[flon, flat]
             n_onshore[reg] += 1
+            if land[flon, flat] != 0
+                landcount[reg, land[flon, flat]] += 1
+            end
+            pop[reg] += capac[reg]*popdens[flon, flat]  # capacity-weighted
         else
             offcapac[reg] += row[:capac] / 1000
-            offshore_OK[reg] += mask_offshore[flon, flat]
+            offshore[reg] += mask_offshore[flon, flat]
             n_offshore[reg] += 1
         end
         elec[reg] += coalesce(row[:elec2018] / 1000, 0.0)
     end
     freg = (regions.>0) .& (regions.!=NOREGION)
     all_onshore = sum(mask_onshoreA[freg]) / sum(freg)
-    freg = (offshoreregions.>0) .& (offshoreregions.!=NOREGION)
-    all_offshore = sum(mask_offshore[freg]) / sum(freg)
-    println("Total onshore OK: ", sum(onshore_OK)/sum(n_onshore), " ($all_onshore)")
-    println("Total offshore OK: ", sum(offshore_OK)/sum(n_offshore), " ($all_offshore)")
-    onshore_OK ./= n_onshore
-    offshore_OK ./= n_offshore
+    fregoff = (offshoreregions.>0) .& (offshoreregions.!=NOREGION)
+    all_offshore = sum(mask_offshore[fregoff]) / sum(fregoff)
+    println("Total onshore OK: ", percentstring(sum(onshore)/sum(n_onshore)),
+            " ($(percentstring(all_onshore)))")
+    println("Total offshore OK: ", percentstring(sum(offshore)/sum(n_offshore)),
+            " ($(percentstring(all_offshore)))")
+    regionalpopdens = sum(popdens[freg]) / sum(freg)
+    println("Total population density (persons/km2): ", round(sum(pop)/sum(n_onshore)/sum(capac), digits=1),
+            " ($(round(regionalpopdens, digits=1)))")
+    onshore = round.(onshore ./ n_onshore * 100, digits=1)
+    offshore = round.(offshore ./ n_offshore * 100, digits=1)
+    pop = round.(pop ./ n_onshore ./ capac, digits=1)
+    for reg = 1:length(regionlist)
+        ss = sortslices([landcount[reg, :] collect(1:16)], dims=1, rev=true)
+        commonland[reg,:] = getindex.(Ref(landtypes), ss[1:3, 2])
+        freq[reg,:] = round.(ss[1:3, 1]/n_onshore[reg] * 100, digits=1)
+    end
+    ss = sortslices([sum(landcount, dims=1)' collect(1:16)], dims=1, rev=true)
+    for i = 1:3
+        println("Landtype $i: $(landtypes[ss[i,2]]) ($(percentstring(ss[i,1]/sum(n_onshore))))")
+    end
     df = DataFrame(region=regionlist, capac=capac, offcapac=offcapac, elec2018=elec,
-            onshore_OK=replace(onshore_OK, NaN=>missing), offshore_OK=replace(offshore_OK, NaN=>missing))
+            onshore=replace(onshore, NaN=>missing), offshore=replace(offshore, NaN=>missing),
+            popdens=pop, land1=commonland[:,1], freq1=freq[:,1], land2=commonland[:,2], freq2=freq[:,2],
+            land3=commonland[:,3], freq3=freq[:,3])
     CSV.write(in_datafolder("output", "regionalwindGIS_$gisregion.csv"), df)
     df
 end
+
+percentstring(x) = "$(round(100*x, digits=1))%"
 
 function turbinecharts(gisregion)
     td, pd = GISturbines_density(gisregion=gisregion);
