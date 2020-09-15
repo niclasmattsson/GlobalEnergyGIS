@@ -42,7 +42,7 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     end
     if labels
         for reg = 1:nreg
-            pos = Point2f0(GeoMakie.transform(source, dest, lonlatpoint(landcenters[reg,:])))
+            pos = Point2f0(GeoMakie.transform(source, dest, lonlatpoint(popcenters[reg,:])))
             text!(scene, string(regionlist[reg]); position=pos, align=(:center,:center), textsize=textscale*scale*50000)
         end
     end
