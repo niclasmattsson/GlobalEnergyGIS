@@ -6,11 +6,17 @@ git-tree-sha1 = "051c95d6836228d120f5f4b984dd5aba1624f716"
 uuid = "621f4979-c628-5d54-868e-fcf4e3e8185c"
 version = "0.5.0"
 
+[[AbstractNumbers]]
+deps = ["SpecialFunctions"]
+git-tree-sha1 = "924732f1a32f0e4b1e748b469d4604125bdf1d00"
+uuid = "85c772de-338a-5e7f-b815-41e76c26ac1f"
+version = "0.2.1"
+
 [[AbstractPlotting]]
-deps = ["ColorBrewer", "ColorSchemes", "ColorTypes", "Colors", "Contour", "DocStringExtensions", "FFMPEG", "FileIO", "FixedPointNumbers", "FreeType", "FreeTypeAbstraction", "GeometryBasics", "ImageIO", "IntervalSets", "LinearAlgebra", "Markdown", "Observables", "Packing", "PlotUtils", "Printf", "Random", "Serialization", "Showoff", "SignedDistanceFields", "SparseArrays", "StaticArrays", "Statistics", "StructArrays", "UnicodeFun"]
-git-tree-sha1 = "79803ae8635681d28e9a5b9de5ba65248e049f5e"
+deps = ["AbstractNumbers", "ColorBrewer", "ColorSchemes", "ColorTypes", "Colors", "Contour", "DocStringExtensions", "FFMPEG", "FileIO", "FixedPointNumbers", "FreeType", "FreeTypeAbstraction", "GeometryBasics", "ImageMagick", "IntervalSets", "LinearAlgebra", "Markdown", "Observables", "Packing", "PlotUtils", "Printf", "Random", "Serialization", "Showoff", "SignedDistanceFields", "SparseArrays", "StaticArrays", "Statistics", "StructArrays", "UnicodeFun"]
+git-tree-sha1 = "cd373780f00edbd6429ceacb2572b55160c01886"
 uuid = "537997a7-5e4e-5d89-9595-2241ea00577e"
-version = "0.11.2"
+version = "0.10.11"
 
 [[Adapt]]
 deps = ["LinearAlgebra"]
@@ -20,9 +26,9 @@ version = "2.0.2"
 
 [[Animations]]
 deps = ["Colors"]
-git-tree-sha1 = "cdd11f708955fa4a582c1fcf37ae3e3ecd081cc5"
+git-tree-sha1 = "8e74c13facce2a39c564eb3156e256135fe9ea03"
 uuid = "27a7e980-b3e6-11e9-2bcd-0b925532e340"
-version = "0.4.0"
+version = "0.3.3"
 
 [[ArchGDAL]]
 deps = ["DataStreams", "Dates", "DiskArrays", "GDAL", "GeoFormatTypes", "GeoInterface"]
@@ -309,9 +315,9 @@ uuid = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
 version = "0.4.0"
 
 [[ExprTools]]
-git-tree-sha1 = "6f0517056812fd6aa3af23d4b70d5325a2ae4e95"
+git-tree-sha1 = "7fce513fcda766962ff67c5596cb16c463dfd371"
 uuid = "e2ba6199-217a-4e67-a87a-7c52f15ade04"
-version = "0.1.1"
+version = "0.1.2"
 
 [[EzXML]]
 deps = ["Printf", "XML2_jll"]
@@ -451,9 +457,9 @@ version = "1.3.10"
 
 [[GLMakie]]
 deps = ["AbstractPlotting", "ColorTypes", "Colors", "FileIO", "FixedPointNumbers", "FreeTypeAbstraction", "GLFW", "GeometryBasics", "LinearAlgebra", "Markdown", "MeshIO", "ModernGL", "Observables", "Printf", "Serialization", "ShaderAbstractions", "StaticArrays"]
-git-tree-sha1 = "9bc95f9863c281aab40177466cc9ef7adda056f8"
+git-tree-sha1 = "2ddb89b95c3061f4e9bcf55b7e71454fed5eadfc"
 uuid = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
-version = "0.1.5"
+version = "0.1.4"
 
 [[GeoFormatTypes]]
 git-tree-sha1 = "bb75ce99c9d6fb2edd8ef8ee474991cdacf12221"
@@ -474,9 +480,9 @@ version = "0.5.1"
 
 [[GeoMakie]]
 deps = ["AbstractPlotting", "Colors", "EarCut", "GeoInterface", "GeoJSON", "GeometryBasics", "Glob", "ImageMagick", "MakieLayout", "NASAEarthObservations", "Proj4", "Reexport", "StructArrays"]
-git-tree-sha1 = "13f700fd08248a011a6fd26a326ec50a1bec7fe9"
+git-tree-sha1 = "3e53cd071035167fc4b9d07a98ae0049fa23a5ab"
 uuid = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
-version = "0.1.14"
+version = "0.1.10"
 
 [[GeometryBasics]]
 deps = ["IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
@@ -497,9 +503,9 @@ version = "1.0.2"
 
 [[GridLayoutBase]]
 deps = ["GeometryBasics", "Match", "Observables"]
-git-tree-sha1 = "f0dce655203abdc549cd61f9bdc1be79b70dd162"
+git-tree-sha1 = "d3ea52dc2729bcaccd3408b6f46ffa37d3f91c00"
 uuid = "3955a311-db13-416c-9275-1d80ed98e5e9"
-version = "0.3.5"
+version = "0.2.1"
 
 [[HDF5]]
 deps = ["Blosc", "HDF5_jll", "Libdl", "Mmap", "Random"]
@@ -548,12 +554,6 @@ deps = ["CatIndices", "ColorVectorSpace", "ComputationalResources", "DataStructu
 git-tree-sha1 = "bb04a804f23bbfa98defb4a2907b104658821959"
 uuid = "6a3955dd-da59-5b1f-98d4-e7296123deb5"
 version = "0.6.15"
-
-[[ImageIO]]
-deps = ["FileIO", "PNGFiles"]
-git-tree-sha1 = "ef9eb9238819c9d2a5b922ba128b29647147ecfd"
-uuid = "82e4d734-157c-48bb-816b-45c225c6df19"
-version = "0.2.0"
 
 [[ImageMagick]]
 deps = ["FileIO", "ImageCore", "ImageMagick_jll", "InteractiveUtils", "Libdl", "Pkg", "Random"]
@@ -665,9 +665,9 @@ version = "0.10.0"
 
 [[JSON]]
 deps = ["Dates", "Mmap", "Parsers", "Unicode"]
-git-tree-sha1 = "b34d7cef7b337321e97d22242c3c2b91f476748e"
+git-tree-sha1 = "81690084b6198a2e1da36fcfda16eeca9f9f24e4"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-version = "0.21.0"
+version = "0.21.1"
 
 [[JSON3]]
 deps = ["Dates", "Mmap", "Parsers", "StructTypes", "UUIDs"]
@@ -805,15 +805,15 @@ version = "0.5.5"
 
 [[Makie]]
 deps = ["AbstractPlotting", "FileIO", "GLMakie", "ImageMagick", "MeshIO", "StatsMakie"]
-git-tree-sha1 = "dfdc1b0db9ccdbfd4d90b5a800342df9b208231a"
+git-tree-sha1 = "3c77041a678e5728f96eacfb734ebbe5c5231a1e"
 uuid = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
-version = "0.11.0"
+version = "0.10.0"
 
 [[MakieLayout]]
 deps = ["AbstractPlotting", "Animations", "Formatting", "GridLayoutBase", "Match", "Observables", "PlotUtils", "Showoff"]
-git-tree-sha1 = "c916f69e0db3b8eb5a359bc73d3dd0c34ca64055"
+git-tree-sha1 = "2822a16ea19e8f932d8034b7b52d53bf0604eaa8"
 uuid = "5a521ce4-ebb9-4793-b5b7-b334dfe8393c"
-version = "0.9.9"
+version = "0.7.2"
 
 [[MappedArrays]]
 git-tree-sha1 = "e2a02fe7ee86a10c707ff1756ab1650b40b140bb"
@@ -959,12 +959,6 @@ deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse", "Test"]
 git-tree-sha1 = "b3405086eb6a974eba1958923d46bc0e1c2d2d63"
 uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
 version = "0.10.0"
-
-[[PNGFiles]]
-deps = ["CEnum", "ImageCore", "IndirectArrays", "OffsetArrays", "libpng_jll"]
-git-tree-sha1 = "72ad6e0a33aa52ff244cc0a79acc7d8d6d5b263d"
-uuid = "f57f5aa1-a3ce-4bc8-8ab9-96f992907883"
-version = "0.2.1"
 
 [[PROJ_jll]]
 deps = ["LibCURL_jll", "Libdl", "Libtiff_jll", "Pkg", "SQLite_jll"]
