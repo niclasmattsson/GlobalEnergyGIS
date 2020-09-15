@@ -78,7 +78,7 @@ function find_landarea_near_popcenter(regions, numreg, popcenters, lonrange, lat
     lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
     lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
     rows, cols = size(regions)
-    filterdistance = 50    # km
+    filterdistance = max(rows, cols)*res    # about 50 km for a Europe map
     km_per_degree = π*2*6371/360
     disk = diskfilterkernel(filterdistance/km_per_degree/res)
     mostlyland = imfilter((regions.>0) .& (regions.!=NOREGION), disk)     # 0-1

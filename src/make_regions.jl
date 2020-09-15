@@ -28,8 +28,10 @@ end
 function saveregions(regionname, regiondefinitionarray, landcover, autocrop, bbox)
     regions, regiontype = makeregions(regiondefinitionarray; allowmixed=(regionname=="Europe_background"))
     if autocrop
-        # get indexes of the bounding box containing onshore region data with 3 degrees of padding
-        lonrange, latrange = getbboxranges(regions, round(Int, 3/0.01))
+        # get indexes of the bounding box containing onshore region data with 6% of padding
+        lonrange, latrange = getbboxranges(regions)
+        padding = round(Int, maximum(size(regions[lonrange,latrange])) * 0.06)
+        lonrange, latrange = getbboxranges(regions, padding)
     else
         latrange, lonrange = bbox2ranges(roundbbox(bbox,100), 100)          # TO DO: remove hardcoded raster density
     end
