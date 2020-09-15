@@ -126,7 +126,7 @@ dist(a::CartesianIndex, b::CartesianIndex) = sqrt(sum((Tuple(a) .- Tuple(b)).^2)
 function fillcircle!(a::AbstractMatrix, center::Tuple{Int,Int}, radius::Real, fillvalue)
     nrows, ncols = size(a)
     rowrange = max(1, ceil(Int, center[1] - radius)) : min(nrows, floor(Int, center[1] + radius))
-    colrange = max(1, ceil(Int, center[2] - radius)) : min(nrows, floor(Int, center[2] + radius))
+    colrange = max(1, ceil(Int, center[2] - radius)) : min(ncols, floor(Int, center[2] + radius))
     for c in colrange, r in rowrange
         if (r - center[1])^2 + (c - center[2])^2 <= radius^2
             a[r,c] = fillvalue
