@@ -10,22 +10,29 @@ const landtypes = ["Evergreen Needleleaf", "Evergreen Broadleaf",
 # const landtypes = ["Forest", "Forest", "Forest", "Forest", "Forest", "Shrubland", "Shrubland", "Forest",
 #                 "Savanna", "Grassland", "Wetland", "Cropland", "Urban", "Cropland", "Snow/Ice", "Barren"]
 
-function exportGISturbinedata(; plotmasks=false, optionlist...)
+function exportGISturbinedata(; mincapac=0, plotmasks=false, optionlist...)
     cols = [:lon, :lat, :capac, :onshore, :elec2018]
     df_DK = DataFrame!(CSV.File(in_datafolder("turbines_DK.csv")))[:, cols]
     df_SE = DataFrame!(CSV.File(in_datafolder("turbines_SE.csv")))[:, cols[1:4]]
     df_DE = DataFrame!(CSV.File(in_datafolder("turbines_DE.csv")))[:, cols[1:3]]
+    df_USA = DataFrame!(CSV.File(in_datafolder("turbines_USA.csv")))[:, cols[1:3]]
     df_SE[:, :elec2018] .= missing    # MWh/year
     df_DE[:, :elec2018] .= missing    # MWh/year
     df_DE[:, :onshore] .= missing    # MWh/year
-    turbines = vcat(df_DK, df_SE, df_DE)
+    df_USA[:, :elec2018] .= missing    # MWh/year
+    df_USA[:, :onshore] .= missing    # MWh/year
+    turbines = vcat(df_DK, df_SE, df_DE, df_USA)
+    turbines = turbines[turbines[:capac].>=mincapac, :]
 
     options = WindOptions(merge(windoptions(), optionlist))
     @unpack gisregion, downsample_masks = options
-    regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
+    regions, offshoreregions, regionlist, gridaccess, popdens, topo, land,
+        protected_mat, lonrange, latrange =
                 read_datasets(options)
-    mask_onshoreA, mask_onshoreB, mask_offshore =
-        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange,
+    mask_onshoreA, mask_onshoreB, mask_offshore,
+        gridA, lowpopdens, goodland, protected_area =
+            return_wind_masks(options, regions, offshoreregions, gridaccess, popdens,
+                            topo, land, protected_mat, lonrange, latrange,
                             plotmasks=plotmasks, downsample=downsample_masks)
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
 
@@ -34,6 +41,8 @@ function exportGISturbinedata(; plotmasks=false, optionlist...)
     onshore, offshore = zeros(nreg), zeros(nreg)
     n_onshore, n_offshore = zeros(Int, nreg), zeros(Int, nreg)
     landcount, commonland, freq = zeros(Int, nreg, 16), fill("", nreg, 3), zeros(nreg, 3)
+    maskedturbines, nogrid, highpop, badland, protected =
+        zeros(Int, nreg), zeros(Int, nreg), zeros(Int, nreg), zeros(Int, nreg), zeros(Int, nreg)
 
     for row in eachrow(turbines)
         reg, flon, flat = getregion_and_index(row[:lon], row[:lat], regions, lonrange, latrange)
@@ -49,6 +58,13 @@ function exportGISturbinedata(; plotmasks=false, optionlist...)
                 landcount[reg, land[flon, flat]] += 1
             end
             pop[reg] += capac[reg]*popdens[flon, flat]  # capacity-weighted
+            if !mask_onshoreA[flon, flat]
+                maskedturbines[reg] += 1
+                nogrid[reg] += !gridA[flon, flat]
+                highpop[reg] += !lowpopdens[flon, flat]
+                badland[reg] += !goodland[flon, flat]
+                protected[reg] += protected_area[flon, flat]
+            end
         else
             offcapac[reg] += row[:capac] / 1000
             offshore[reg] += mask_offshore[flon, flat]
@@ -60,16 +76,26 @@ function exportGISturbinedata(; plotmasks=false, optionlist...)
     all_onshore = sum(mask_onshoreA[freg]) / sum(freg)
     fregoff = (offshoreregions.>0) .& (offshoreregions.!=NOREGION)
     all_offshore = sum(mask_offshore[fregoff]) / sum(fregoff)
-    println("Total onshore OK: ", percentstring(sum(onshore)/sum(n_onshore)),
+    println("\nTotal onshore OK: ", percentstring(sum(onshore)/sum(n_onshore)),
             " ($(percentstring(all_onshore)))")
     println("Total offshore OK: ", percentstring(sum(offshore)/sum(n_offshore)),
             " ($(percentstring(all_offshore)))")
     regionalpopdens = sum(popdens[freg]) / sum(freg)
+    println("Masked turbines: ", percentstring(sum(maskedturbines)/sum(n_onshore)))
+    println("\tno grid: ", percentstring(sum(nogrid)/sum(maskedturbines)))
+    println("\thigh pop: ", percentstring(sum(highpop)/sum(maskedturbines)))
+    println("\tbad land: ", percentstring(sum(badland)/sum(maskedturbines)))
+    println("\tprotected: ", percentstring(sum(protected)/sum(maskedturbines)))
     println("Total population density (persons/km2): ", round(sum(pop)/sum(n_onshore)/sum(capac), digits=1),
             " ($(round(regionalpopdens, digits=1)))")
     onshore = round.(onshore ./ n_onshore * 100, digits=1)
     offshore = round.(offshore ./ n_offshore * 100, digits=1)
     pop = round.(pop ./ n_onshore ./ capac, digits=1)
+    masked = round.(maskedturbines ./ n_onshore * 100, digits=1)
+    nogrid = round.(nogrid ./ maskedturbines * 100, digits=1)
+    highpop = round.(highpop ./ maskedturbines * 100, digits=1)
+    badland = round.(badland ./ maskedturbines * 100, digits=1)
+    protected = round.(protected ./ maskedturbines * 100, digits=1)    
     for reg = 1:length(regionlist)
         ss = sortslices([landcount[reg, :] collect(1:16)], dims=1, rev=true)
         commonland[reg,:] = getindex.(Ref(landtypes), ss[1:3, 2])
@@ -79,8 +105,10 @@ function exportGISturbinedata(; plotmasks=false, optionlist...)
     for i = 1:3
         println("Landtype $i: $(landtypes[ss[i,2]]) ($(percentstring(ss[i,1]/sum(n_onshore))))")
     end
-    df = DataFrame(region=regionlist, capac=capac, offcapac=offcapac, elec2018=elec,
+    df = DataFrame(region=regionlist, capac=round.(capac, digits=2),
+            offcapac=round.(offcapac, digits=2), elec2018=round.(elec, digits=2),
             onshore=replace(onshore, NaN=>missing), offshore=replace(offshore, NaN=>missing),
+            masked=masked, nogrid=nogrid, highpop=highpop, badland=badland, protected=protected,
             popdens=pop, land1=commonland[:,1], freq1=freq[:,1], land2=commonland[:,2], freq2=freq[:,2],
             land3=commonland[:,3], freq3=freq[:,3])
     CSV.write(in_datafolder("output", "regionalwindGIS_$gisregion.csv"), df)
@@ -258,4 +286,68 @@ function shadedmap(gisregion, plotdata; resolutionscale=1, downsample=1, colorsc
         resolutionscale=resolutionscale)
     # exit()
     return nothing
+end
+
+function return_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange; plotmasks=false, downsample=1)
+    @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2,
+                min_shore_distance, max_depth, classB_threshold = options
+
+    println("Creating masks...")
+
+    goodland = (regions .> 0)
+    for i in exclude_landtypes
+        goodland[land .== i] .= false
+    end
+    protected_area = zeros(Bool, size(protected))
+    for i in protected_codes
+        protected_area[protected .== i] .= true
+    end
+
+    # Pixels with electricity access for onshore wind A 
+    gridA = (gridaccess .> 0.1)
+
+    # Pixels with electricity access for onshore wind B and offshore wind
+    km_per_degree = π*2*6371/360
+    disk = diskfilterkernel(distance_elec_access/km_per_degree/res)
+    gridB = (imfilter(gridaccess, disk) .> max(1e-9, classB_threshold)) # avoid artifacts if classB_threshold == 0
+
+    # println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
+
+    # all mask conditions
+    mask_onshoreA = gridA .& (popdens .< persons_per_km2) .& goodland .& .!protected_area
+    mask_onshoreB = (gridB .& .!gridA) .& (popdens .< persons_per_km2) .& goodland .& .!protected_area
+
+    # shoreline mask for offshore wind
+    disk = diskfilterkernel(min_shore_distance/km_per_degree/res)
+    shore = (imfilter(regions .> 0, disk) .> 1e-6)
+
+    # all mask conditions
+    mask_offshore = gridB .& .!shore .& (topo .> -max_depth) .& (offshoreregions .> 0) .& .!protected_area
+
+    if plotmasks != false   # can == :onlymasks as well
+        # drawmap(land)
+        isregion = (regions .> 0) .& (regions .!= NOREGION)
+
+        # mask values refer to colors in ColorBrewer Set2_7:
+        # https://juliagraphics.github.io/ColorSchemes.jl/stable/basics/#colorbrewer-1
+        masks = zeros(Int16, size(regions))
+        masks[(masks .== 0) .& (popdens .> persons_per_km2)] .= 2
+        masks[(masks .== 0) .& protected_area] .= 3
+        masks[(masks .== 0) .& .!gridA .& .!gridB] .= 4
+        masks[(masks .== 0) .& .!goodland] .= 1
+        masks[(masks .== 0) .& .!gridA .& gridB] .= 8
+        masks[(masks .== 0) .& isregion] .= 7
+        masks[regions .== 0] .= 0
+        masks[regions .== NOREGION] .= NOREGION
+        legendtext = ["bad land type", "high population", "protected area", "no grid", "", "", "wind plant A", "wind plant B"]
+        maskmap("$(gisregion)_masks_wind", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
+
+        # drawmap(.!shore .& (offshoreregions .> 0))
+        # drawmap((topo .> -max_depth) .& (offshoreregions .> 0))
+        # drawmap(.!protected_area .& (offshoreregions .> 0))
+        # drawmap(mask_offshore)
+    end
+    
+    return mask_onshoreA, mask_onshoreB, mask_offshore,
+            gridA, (popdens .< persons_per_km2), goodland, protected_area
 end
