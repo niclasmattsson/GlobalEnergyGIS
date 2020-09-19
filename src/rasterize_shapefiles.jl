@@ -3,6 +3,18 @@ using ArchGDAL, GDAL_jll, PROJ_jll
 
 export rasterize, readraster, saveTIFF
 
+# Run a GDAL utility with a workaround for a bug:
+# https://github.com/JuliaGeo/GDAL.jl/issues/95
+# Use a do-block syntax similar to existing GDAL utility block syntax,
+# e.g. gdal_rasterize_path().
+function gdal_utility(f::Function, utility::String)
+    artifactpath = GDAL.GDAL_jll.LibCURL_jll.MbedTLS_jll.LIBPATH_list[1]
+    gdalcommand = getfield(GDAL.GDAL_jll, Symbol("$(utility)_path_path"))
+    withenv("PATH" => "$artifactpath;$(GDAL.GDAL_jll.LIBPATH)") do
+        f(gdalcommand)
+    end
+end
+
 function rasterize_AG(infile::String, outfile::String, options::Vector{<:AbstractString})
     ArchGDAL.read(infile) do dataset
         GDAL.close(GDAL.rasterize(
@@ -23,8 +35,10 @@ end
 # uses the command line version instead (gdal_rasterize)
 # significantly faster for some reason, also gives a simple progress indication
 function rasterize(infile::String, outfile::String, options::Vector{<:AbstractString}; sql::String="")
-    ENV["PROJ_LIB"] = dirname(proj_db)
-    gdal_rasterize_path() do gdal_rasterize
+    # Check if ENV["PROJ_LIB"] is still needed. If so, use withenv() instead:
+    # https://stackoverflow.com/questions/62588961/how-can-julia-shell-commands-set-environment-variables
+    # ENV["PROJ_LIB"] = dirname(proj_db)
+    gdal_utility("gdal_rasterize") do gdal_rasterize
         if isempty(sql)
             run(`$gdal_rasterize $options $infile $outfile`)
         else

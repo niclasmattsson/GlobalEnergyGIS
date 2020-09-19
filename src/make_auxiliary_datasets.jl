@@ -62,7 +62,7 @@ function rasterize_GADM()
     sql = "select uid,name_0,name_1,name_2 from gadm36"
     # sql = "select uid,id_0,name_0,id_1,name_1,id_2,name_2 from gadm36"
     outfile = in_datafolder("gadmfields.csv")
-    ogr2ogr_path() do ogr2ogr
+    gdal_utility("ogr2ogr") do ogr2ogr
         @time run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
     end
     nothing
@@ -80,7 +80,7 @@ function rasterize_NUTS()
     println("Creating .csv file for regional index and name lookup...")
     outfile = in_datafolder("nutsfields.csv")
     sql = "select ROWID+1 AS ROWID,* from $name"
-    ogr2ogr_path() do ogr2ogr
+    gdal_utility("ogr2ogr") do ogr2ogr
         @time run(`$ogr2ogr -f CSV $outfile -dialect SQlite -sql $sql $shapefile`)
     end
     nothing
@@ -112,15 +112,15 @@ function rasterize_protected()
     outfile = in_datafolder("protected_raster.tif")
     options = "-a FID -a_nodata -1 -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
     ENV["PROJ_LIB"] = dirname(proj_db)
-    gdal_rasterize_path() do gdal_rasterize
         @time run(`$gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile`)
     end
+        gdal_utility("gdal_rasterize") do gdal_rasterize
 
     println("Creating .csv file for WDPA index and name lookup...")
     sql = "select FID,IUCN_CAT from \"WDPA-shapefile-polygons\""
     outfile = in_datafolder("protectedfields.csv")
-    ogr2ogr_path() do ogr2ogr
         @time run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
+        gdal_utility("ogr2ogr") do ogr2ogr
     end
     nothing
 end
@@ -151,14 +151,14 @@ function rasterize_timezones()
     outfile = in_datafolder("timezones.tif")
     options = "-a FID -a_nodata 0 -ot Int16 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
     ENV["PROJ_LIB"] = dirname(proj_db)
-    gdal_rasterize_path() do gdal_rasterize
+    gdal_utility("gdal_rasterize") do gdal_rasterize
         @time run(`$gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile`)
     end
 
     println("Creating .csv file for time zone index and name lookup...")
     sql = "select FID+1 as FID,tzid from \"combined-shapefile-with-oceans\""
     outfile = in_datafolder("timezone_names.csv")
-    ogr2ogr_path() do ogr2ogr
+    gdal_utility("ogr2ogr") do ogr2ogr
         @time run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
     end
     nothing
@@ -185,7 +185,7 @@ function loadtimezones(lonrange, latrange)
 end
 
 function resample(infile::String, outfile::String, options::Vector{<:AbstractString})
-    gdal_translate_path() do gdal_translate
+    gdal_utility("gdal_translate") do gdal_translate
         @time run(`$gdal_translate $options -co COMPRESS=LZW $infile $outfile`)
     end
 end
