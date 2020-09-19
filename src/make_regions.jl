@@ -74,19 +74,19 @@ function saveregions(regionname, regiondefinitionarray, landcover, autocrop, bbo
 end
 
 function saveregions_global(; args...)
-    println("Creating a global GADM region file to identify countries and land areas later...\n")
+    println("\nCreating a global GADM region file to identify countries and land areas later...")
     g = readdlm(in_datafolder("gadmfields.csv"), ',', skipstart=1)
     gadm0 = unique(string.(g[:,2]))
     regiondefinitionarray = [gadm0 GADM.(gadm0)]
     saveregions("Global_GADM0", regiondefinitionarray; args..., autocrop=false)
-    println("\nGlobal GADM region file saved.")
+    println("Global GADM region file saved.")
 
-    println("\nCreating a 'background' NUTS region file to identify non-European land areas later...\n")
+    println("\nCreating a 'background' NUTS region file to identify non-European land areas later...")
     regiondefinitionarray = [NUTS_Europe; non_NUTS_Europe]
     saveregions("Europe_background", regiondefinitionarray; args..., autocrop=false)
     println("\nEurope_background region file saved.")
 
-    println("\nCreating a region file for the 44 countries with synthetic demand training data...\n")
+    println("\nCreating a region file for the 44 countries with synthetic demand training data...")
     regiondefinitionarray = [syntheticdemandregions GADM.(syntheticdemandregions)]
     saveregions("SyntheticDemandRegions", regiondefinitionarray; args...)
     println("\nSyntheticDemandRegions file saved.")

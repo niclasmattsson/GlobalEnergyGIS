@@ -6,7 +6,6 @@ function rasterize_datasets(; cleanup=:all)
     rasterize_GADM()
     rasterize_NUTS()
     rasterize_protected()
-    makeprotected()
     downscale_landcover()
     savelandcover()
     upscale_topography()
@@ -34,8 +33,12 @@ end
 # cleanup options: :none, :limited, :all
 function cleanup_datasets(; cleanup=:all)
     cleanup == :none && return
-    rm(in_datafolder("protected_raster.tif"), force=true)
-    rm(in_datafolder("protectedfields.csv"), force=true)
+    for i = 0:2
+        rm(in_datafolder("WDPA", "protected_raster$i.tif"), force=true)
+        rm(in_datafolder("WDPA", "protectedfields$i.csv"), force=true)
+        rm(in_datafolder("WDPA", "protected.jld$i"), force=true)
+        rm(in_datafolder("WDPA", "WDPA-shapefile$i"), force=true, recursive=true)
+    end
     rm(in_datafolder("landcover.tif"), force=true)
     rm(in_datafolder("topography.tif"), force=true)
     rm(in_datafolder("timezones.tif"), force=true)
@@ -51,7 +54,7 @@ function cleanup_datasets(; cleanup=:all)
 end
 
 function rasterize_GADM()
-    println("Rasterizing GADM shapefile for global administrative areas (2-10 minute run time)...")
+    println("\nRasterizing GADM shapefile for global administrative areas (2-10 minute run time)...")
     shapefile = in_datafolder("gadm36", "gadm36.shp")
     outfile = in_datafolder("gadm.tif")
     options = "-a UID -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
@@ -69,7 +72,7 @@ function rasterize_GADM()
 end
 
 function rasterize_NUTS()
-    println("Rasterizing NUTS shapefile for European administrative areas...")
+    println("\nRasterizing NUTS shapefile for European administrative areas...")
     name = "NUTS_RG_01M_2016_4326_LEVL_3"
     shapefile = in_datafolder("nuts2016-level3", "$name.shp")
     outfile = in_datafolder("nuts.tif")
@@ -106,42 +109,60 @@ function read_nuts()
 end
 
 function rasterize_protected()
-    println("Rasterizing WDPA shapefile for protected areas (run time 10 minutes - 2 hours)...")
-    shapefile = in_datafolder("WDPA", "WDPA-shapefile-polygons.shp")
-    sql = "select FID from \"WDPA-shapefile-polygons\""
-    outfile = in_datafolder("protected_raster.tif")
-    options = "-a FID -a_nodata -1 -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
-    ENV["PROJ_LIB"] = dirname(proj_db)
-        @time run(`$gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile`)
-    end
-        gdal_utility("gdal_rasterize") do gdal_rasterize
+    println("\nRasterizing three WDPA shapefiles for protected areas (total run time 10 minutes - 2 hours)...")
 
-    println("Creating .csv file for WDPA index and name lookup...")
-    sql = "select FID,IUCN_CAT from \"WDPA-shapefile-polygons\""
-    outfile = in_datafolder("protectedfields.csv")
-        @time run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
+    for i = 0:2
+        println("\nFile $(i+1)/3:")
+        shapefile = in_datafolder("WDPA", "WDPA-shapefile$i", "WDPA-shapefile-polygons.shp")
+
+        println("Rasterizing...")
+        gdal_utility("gdal_rasterize") do gdal_rasterize
+            outfile = in_datafolder("WDPA", "protected_raster$i.tif")
+            sql = "select FID from \"WDPA-shapefile-polygons\""
+            options = "-a FID -a_nodata -1 -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
+            # ENV["PROJ_LIB"] = dirname(proj_db)
+            @time run(`$gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile`)
+        end
+
+        println("Creating .csv file for WDPA index and name lookup...")
         gdal_utility("ogr2ogr") do ogr2ogr
+            outfile = in_datafolder("WDPA", "protectedfields$i.csv")
+            sql = "select FID,IUCN_CAT from \"WDPA-shapefile-polygons\""
+            run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
+        end
+
+        makeprotected(i)
     end
+
+    println("\nMerging the three rasters...")
+    protected = max.(
+        JLD.load(in_datafolder("WDPA", "protected0.jld"), "protected"),
+        JLD.load(in_datafolder("WDPA", "protected1.jld"), "protected"),
+        JLD.load(in_datafolder("WDPA", "protected2.jld"), "protected")
+    )
+    JLD.save(in_datafolder("protected.jld"), "protected", protected, compress=true)
+    println("Done.")
+
     nothing
 end
 
-function makeprotected()
-    println("Reading protected area rasters...")
-    protectedfields = readdlm(in_datafolder("protectedfields.csv"), ',', header=true)[1]
+function makeprotected(n)
+    println("Reading rasters...")
+    protectedfields = readdlm(in_datafolder("WDPA", "protectedfields$n.csv"), ',', header=true)[1]
     IUCNcodes = ["Ia", "Ib", "II", "III", "IV", "V", "VI", "Not Reported", "Not Applicable", "Not Assigned"]
     IUCNlookup = Dict(c => i for (i,c) in enumerate(IUCNcodes))
-    protected0 = readraster(in_datafolder("protected_raster.tif"))
+    protected0 = readraster(in_datafolder("WDPA", "protected_raster$n.tif"))
 
-    println("Converting indexes to protected area types (2-3 minutes)...")
+    println("Converting indexes to protected area types...")
     protected = similar(protected0, UInt8)
     # could replace loop with:  map!(p -> p == -1 ? 0 : IUCNlookup[protectedfields[p+1,2], protected, protected0)
     # alternatively             map!(p -> ifelse(p == -1, 0, IUCNlookup[protectedfields[p+1,2]), protected, protected0)
     for (i, p) in enumerate(protected0)
         protected[i] = (p == -1) ? 0 : IUCNlookup[protectedfields[p+1,2]]
     end
-
-    println("Saving protected area dataset...")
-    JLD.save(in_datafolder("protected.jld"), "protected", protected, compress=true)
+    println("Saving...")
+    # JLD.save(in_datafolder("protected$n.jld"), "protected", protected, compress=true)
+    JLD.save(in_datafolder("WDPA", "protected$n.jld"), "protected", protected)
 end
 
 function rasterize_timezones()
@@ -191,7 +212,7 @@ function resample(infile::String, outfile::String, options::Vector{<:AbstractStr
 end
 
 function downscale_landcover()
-    println("Downscaling landcover dataset (5-10 minutes)...")
+    println("\nDownscaling landcover dataset (2-10 minutes)...")
     infile = in_datafolder("Landcover - USGS MODIS.tif")
     options = "-r mode -ot Byte -tr 0.01 0.01"
     resample(infile, in_datafolder("landcover.tif"), split(options, ' '))
@@ -217,7 +238,7 @@ function savelandcover()
 end
 
 function upscale_topography()
-    println("Upscaling topography dataset...")
+    println("\nUpscaling topography dataset...")
     infile = in_datafolder("ETOPO1_Ice_c_geotiff.tif")
     options = "-r cubicspline -tr 0.01 0.01"
     outfile = in_datafolder("topography.tif")

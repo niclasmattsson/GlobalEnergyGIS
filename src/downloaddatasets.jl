@@ -42,13 +42,13 @@ function download_datasets(startfile=1)
             "https://chalmersuniversity.box.com/shared/static/w3pmx4xhgorgd6jejv23gn4ycsnza8s6.zip")
     ]
 
-    # for (i, datasetinfo) in enumerate(datasets)
-    #     i < startfile && continue
-    #     name, filename, url = datasetinfo
+    for (i, datasetinfo) in enumerate(datasets)
+        i < startfile && continue
+        name, filename, url = datasetinfo
 
-    #     println("\nDownloading dataset $i: $name")
-    #     download_progressbar(url, joinpath(datafolder, filename))
-    # end
+        println("\nDownloading dataset $i: $name")
+        download_progressbar(url, joinpath(datafolder, filename))
+    end
 
     println("\nDownloads complete.")
 
@@ -63,13 +63,23 @@ function download_datasets(startfile=1)
         end
     end
 
-    if startfile <= 2
-        WDPAfolder = joinpath(datafolder, "WDPA")
+    function renameWDPAfiles(WDPAfolder)
         for filename in readdir(WDPAfolder)
             newname = replace(filename, WDPA_filename => "WDPA")
             if newname != filename 
                 mv(joinpath(WDPAfolder, filename), joinpath(WDPAfolder, newname))
             end
+        end
+    end
+
+    if startfile <= 2
+        renameWDPAfiles(joinpath(datafolder, "WDPA"))
+        for i = 0:2
+            foldername = "WDPA-shapefile$i"
+            println("\nUnpacking archive: $foldername.zip")
+            unpack(joinpath(datafolder, "WDPA", "$foldername.zip"),
+                    joinpath(datafolder, "WDPA", foldername), ".zip")
+            renameWDPAfiles(joinpath(datafolder, "WDPA", foldername))
         end
     end
 
