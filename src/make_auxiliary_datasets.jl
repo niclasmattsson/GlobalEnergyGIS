@@ -233,7 +233,7 @@ end
 function downscale_population(scen, year)
     scen = lowercase(scen)
     println("Reading population dataset...")
-    dataset = Dataset(in_datafolder("SSP2_1km", "$(scen)_total_$year.nc4"))
+    dataset = Dataset(in_datafolder("SSP_1km", "$(scen)_total_$year.nc4"))
     pop = replace(dataset["Band1"][:,:], missing => Float32(0))
 
     lat = dataset["lat"][:]
