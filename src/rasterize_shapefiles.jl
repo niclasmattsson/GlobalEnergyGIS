@@ -35,9 +35,6 @@ end
 # uses the command line version instead (gdal_rasterize)
 # significantly faster for some reason, also gives a simple progress indication
 function rasterize(infile::String, outfile::String, options::Vector{<:AbstractString}; sql::String="")
-    # Check if ENV["PROJ_LIB"] is still needed. If so, use withenv() instead:
-    # https://stackoverflow.com/questions/62588961/how-can-julia-shell-commands-set-environment-variables
-    # ENV["PROJ_LIB"] = dirname(proj_db)
     gdal_utility("gdal_rasterize") do gdal_rasterize
         if isempty(sql)
             run(`$gdal_rasterize $options $infile $outfile`)
