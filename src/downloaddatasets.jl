@@ -42,13 +42,13 @@ function download_datasets(startfile=1)
             "https://chalmersuniversity.box.com/shared/static/w3pmx4xhgorgd6jejv23gn4ycsnza8s6.zip")
     ]
 
-    for (i, datasetinfo) in enumerate(datasets)
-        i < startfile && continue
-        name, filename, url = datasetinfo
+    # for (i, datasetinfo) in enumerate(datasets)
+    #     i < startfile && continue
+    #     name, filename, url = datasetinfo
 
-        println("\nDownloading dataset $i: $name")
-        download_progressbar(url, joinpath(datafolder, filename))
-    end
+    #     println("\nDownloading dataset $i: $name")
+    #     download_progressbar(url, joinpath(datafolder, filename))
+    # end
 
     println("\nDownloads complete.")
 
