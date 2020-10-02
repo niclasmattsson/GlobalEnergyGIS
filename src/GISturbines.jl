@@ -10,7 +10,7 @@ const landtypes = ["Evergreen Needleleaf", "Evergreen Broadleaf",
 # const landtypes = ["Forest", "Forest", "Forest", "Forest", "Forest", "Shrubland", "Shrubland", "Forest",
 #                 "Savanna", "Grassland", "Wetland", "Cropland", "Urban", "Cropland", "Snow/Ice", "Barren"]
 
-function exportGISturbinedata(; mincapac=0, plotmasks=false, optionlist...)
+function exportGISturbinedata(; mincapac=0, minclass=0, firstyear=1978, plotmasks=false, optionlist...)
     cols = [:lon, :lat, :capac, :onshore, :elec2018]
     df_DK = DataFrame!(CSV.File(in_datafolder("turbines_DK.csv")))[:, cols]
     df_SE = DataFrame!(CSV.File(in_datafolder("turbines_SE.csv")))[:, cols[1:4]]
@@ -25,7 +25,7 @@ function exportGISturbinedata(; mincapac=0, plotmasks=false, optionlist...)
     turbines = turbines[turbines[:capac].>=mincapac, :]
 
     options = WindOptions(merge(windoptions(), optionlist))
-    @unpack gisregion, downsample_masks = options
+    @unpack gisregion, downsample_masks, onshore_density, area_onshore, res = options
     regions, offshoreregions, regionlist, gridaccess, popdens, topo, land,
         protected_mat, lonrange, latrange =
                 read_datasets(options)
@@ -34,7 +34,12 @@ function exportGISturbinedata(; mincapac=0, plotmasks=false, optionlist...)
             return_wind_masks(options, regions, offshoreregions, gridaccess, popdens,
                             topo, land, protected_mat, lonrange, latrange,
                             plotmasks=plotmasks, downsample=downsample_masks)
-    regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
+    mask_onshore = mask_onshoreA .| mask_onshoreB
+    lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
+    cellarea = rastercellarea.(lats, res)
+
+    windatlas = getwindatlas()[lonrange,latrange]
+    onshoreclass, offshoreclass = makewindclasses(options, windatlas)
 
     nreg = length(regionlist)
     capac, offcapac, elec, pop = zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg)
@@ -43,6 +48,8 @@ function exportGISturbinedata(; mincapac=0, plotmasks=false, optionlist...)
     landcount, commonland, freq = zeros(Int, nreg, 16), fill("", nreg, 3), zeros(nreg, 3)
     maskedturbines, nogrid, highpop, badland, protected =
         zeros(Int, nreg), zeros(Int, nreg), zeros(Int, nreg), zeros(Int, nreg), zeros(Int, nreg)
+    capac_ok, area, area_ok, maxcapac, maxcapac_ok, class =
+        zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg)
 
     for row in eachrow(turbines)
         reg, flon, flat = getregion_and_index(row[:lon], row[:lat], regions, lonrange, latrange)
@@ -51,14 +58,17 @@ function exportGISturbinedata(; mincapac=0, plotmasks=false, optionlist...)
             (reg == 0 || reg == NOREGION) && continue
         end
         if ismissing(row[:onshore]) || row[:onshore]
+            onshoreclass[flon, flat] < minclass && continue
             capac[reg] += row[:capac] / 1000
-            onshore[reg] += mask_onshoreA[flon, flat]
+            capac_ok[reg] += row[:capac] / 1000 * mask_onshore[flon, flat]
+            class[reg] += onshoreclass[flon, flat] 
+            onshore[reg] += mask_onshore[flon, flat]
             n_onshore[reg] += 1
             if land[flon, flat] != 0
                 landcount[reg, land[flon, flat]] += 1
             end
             pop[reg] += capac[reg]*popdens[flon, flat]  # capacity-weighted
-            if !mask_onshoreA[flon, flat]
+            if !mask_onshore[flon, flat]
                 maskedturbines[reg] += 1
                 nogrid[reg] += !gridA[flon, flat]
                 highpop[reg] += !lowpopdens[flon, flat]
@@ -66,6 +76,7 @@ function exportGISturbinedata(; mincapac=0, plotmasks=false, optionlist...)
                 protected[reg] += protected_area[flon, flat]
             end
         else
+            offshoreclass[flon, flat] < minclass && continue
             offcapac[reg] += row[:capac] / 1000
             offshore[reg] += mask_offshore[flon, flat]
             n_offshore[reg] += 1
@@ -73,7 +84,7 @@ function exportGISturbinedata(; mincapac=0, plotmasks=false, optionlist...)
         elec[reg] += coalesce(row[:elec2018] / 1000, 0.0)
     end
     freg = (regions.>0) .& (regions.!=NOREGION)
-    all_onshore = sum(mask_onshoreA[freg]) / sum(freg)
+    all_onshore = sum(mask_onshore[freg]) / sum(freg)
     fregoff = (offshoreregions.>0) .& (offshoreregions.!=NOREGION)
     all_offshore = sum(mask_offshore[fregoff]) / sum(fregoff)
     println("\nTotal onshore OK: ", percentstring(sum(onshore)/sum(n_onshore)),
@@ -89,6 +100,7 @@ function exportGISturbinedata(; mincapac=0, plotmasks=false, optionlist...)
     println("Total population density (persons/km2): ", round(sum(pop)/sum(n_onshore)/sum(capac), digits=1),
             " ($(round(regionalpopdens, digits=1)))")
     onshore = round.(onshore ./ n_onshore * 100, digits=1)
+    class = round.(class ./ n_onshore, digits=1)
     offshore = round.(offshore ./ n_offshore * 100, digits=1)
     pop = round.(pop ./ n_onshore ./ capac, digits=1)
     masked = round.(maskedturbines ./ n_onshore * 100, digits=1)
@@ -96,11 +108,21 @@ function exportGISturbinedata(; mincapac=0, plotmasks=false, optionlist...)
     highpop = round.(highpop ./ maskedturbines * 100, digits=1)
     badland = round.(badland ./ maskedturbines * 100, digits=1)
     protected = round.(protected ./ maskedturbines * 100, digits=1)    
-    for reg = 1:length(regionlist)
+    for reg = 1:nreg
+        area[reg] += sum((regions .== reg) .* cellarea')
+        maxcapac[reg] = area[reg] * onshore_density * area_onshore
+        area_ok[reg] += sum(((regions .== reg) .& mask_onshore) .* cellarea')
+        maxcapac_ok[reg] = area_ok[reg] * onshore_density * area_onshore
         ss = sortslices([landcount[reg, :] collect(1:16)], dims=1, rev=true)
         commonland[reg,:] = getindex.(Ref(landtypes), ss[1:3, 2])
         freq[reg,:] = round.(ss[1:3, 1]/n_onshore[reg] * 100, digits=1)
     end
+    println("Turbine density of unmasked land (MW/km2): ",
+            round(sum(capac_ok)/sum(area_ok), digits=3),
+            " ($(round(sum(capac)/sum(area), digits=3)))")
+    println("Exploited share of potential capacity (%): ",
+            round(sum(capac_ok)/sum(maxcapac_ok)*100, digits=1),
+            " ($(round(sum(capac)/sum(maxcapac)*100, digits=1)))")
     ss = sortslices([sum(landcount, dims=1)' collect(1:16)], dims=1, rev=true)
     for i = 1:3
         println("Landtype $i: $(landtypes[ss[i,2]]) ($(percentstring(ss[i,1]/sum(n_onshore))))")
@@ -109,8 +131,10 @@ function exportGISturbinedata(; mincapac=0, plotmasks=false, optionlist...)
             offcapac=round.(offcapac, digits=2), elec2018=round.(elec, digits=2),
             onshore=replace(onshore, NaN=>missing), offshore=replace(offshore, NaN=>missing),
             masked=masked, nogrid=nogrid, highpop=highpop, badland=badland, protected=protected,
+            dens_tot=round.(capac./area, digits=3), dens_ok=round.(capac_ok./area_ok, digits=3), 
+            exploit_tot=round.(capac./maxcapac*100, digits=1), exploit_ok=round.(capac_ok./maxcapac_ok*100, digits=1), 
             popdens=pop, land1=commonland[:,1], freq1=freq[:,1], land2=commonland[:,2], freq2=freq[:,2],
-            land3=commonland[:,3], freq3=freq[:,3])
+            land3=commonland[:,3], freq3=freq[:,3], area=round.(Int, area), class=class)
     CSV.write(in_datafolder("output", "regionalwindGIS_$gisregion.csv"), df)
     df
 end
@@ -120,13 +144,24 @@ percentstring(x) = "$(round(100*x, digits=1))%"
 function turbinecharts(gisregion)
     td, pd = GISturbines_density(gisregion=gisregion);
     nz = (pd.>1) .| (td.>0);
-    plot(histogram(nbins = 50), td[td.>0])
-    plot(histogram(nbins = 50), log10.(1 .+ pd[pd.>0]))
+    scene = plot(histogram(nbins = 50), td[td.>0])
+    xlabel!("turbine density (MW/km2)")
+    # scene = plot(histogram(nbins = 50), log10.(pd[nz]))
+    # xlabel!("pop. density (log10 persons/km2)")
 
-    StatsMakie.scatter(td[nz], log10.(pd[nz]), markersize=0.2)
+    # scene = StatsMakie.scatter(td[nz], log10.(pd[nz]), markersize=0.2)
+    # xlabel!("turbine density (MW/km2)")
+    # ylabel!("pop. density (log10 persons/km2)")
+
+    scene
 
     # shadedmap("Denmark5", log.(1 .+tdm), downsample=2, colorscheme=:magma)
     # shadedmap("Denmark5", log10.(1 .+pd), downsample=2, colorscheme=:magma)
+end
+
+function turbines2parks(region_abbrev)
+    df = DataFrame!(CSV.File(in_datafolder("turbines_$region_abbrev.csv")))
+    
 end
 
 function hist(data; normalize=false, args...)
