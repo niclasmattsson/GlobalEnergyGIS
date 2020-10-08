@@ -393,6 +393,29 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
     return windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore
 end
 
+# returns a wind speed index for 1979-2019, i.e. normalized average wind speed over
+# each pixel in each region for each year
+function annualwindindex(; resource=:wind, aggregateregions=[], optionlist...)
+    options = WindOptions(merge(windoptions(), optionlist))
+    @unpack gisregion, era_year, res, erares = options
+    regions, _, regionlist, lonrange, latrange = loadregions(gisregion)
+    smallregions = resize_categorical(regions, regionlist, lonrange, latrange;
+                skipNOREGION=true)
+    eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
+    varname = (resource == :wind) ? "annualwind" : "annualssrd"
+    annualwind = h5open(in_datafolder("era5monthly$resource.h5"), "r") do file
+        if length(eralonranges) == 1
+            file[varname][:, eralonranges[1], eralatrange]
+        else
+            [file[varname][:, eralonranges[1], eralatrange] file[varname][:, eralonranges[2], eralatrange]]
+        end
+    end
+    nyears, nreg = size(annualwind, 1), length(regionlist)
+    aggregateregions = isempty(aggregateregions) ? [[r] for r = 1:nreg] : aggregateregions
+    index = [sum(annualwind[y,:,:] .* (mask = in.(smallregions, Ref(aggreg)))) ./ sum(mask)
+                 for y = 1:nyears, aggreg in aggregateregions]
+    return index ./ mean(index, dims=1)
+end
 
 
 

@@ -300,13 +300,21 @@ function uncrop(croppedarray, lonrange, latrange, res)
 end
 
 function drawmap(mapdata)
-    plotly()
     skip = ceil(Int, maximum(size(mapdata))/3000)
-    mirrormap = reverse(mapdata[1:skip:end,1:skip:end]', dims=1)
+    mirrormap = reverse(mapdata[1:skip:end,1:skip:end], dims=2)
     # display(heatmap(mirrormap, size=(1200, 900), c=[cgrad(:viridis)[x] for x in 0.0:0.2:1.0]))
     # display(heatmap(mirrormap, size=(1200, 900), c=cgrad(:viridis, [0, 0.5, 1])))
-    display(heatmap(mirrormap, size=(1200, 900)))
+    heatmap(mirrormap)
     # display(countmap(mirrormap[:]))
+end
+
+# I can't believe Makie can't do this more conveniently.
+function plotlines(x,y)
+    scene = Scene()
+    for i = 1:size(y,2)
+        lines!(scene, x, y[:,i], color=ColorSchemes.Set1_9[i])
+    end
+    scene
 end
 
 function drawregionmap(regionname)
@@ -317,6 +325,40 @@ function drawregionmap(regionname)
     display(heatmap(reg .+ (reg.>0).*20, size=(1200, 900)))
     reg = reverse(offshoreregions[1:4:end,1:4:end]', dims=1)
     display(heatmap(reg .+ (reg.>0).*20, size=(1200, 900)))
+end
+
+function resize_categorical(regions, regionlist, lonrange, latrange; skipNOREGION=false)
+    res = 0.01          # resolution of auxiliary datasets [degrees per pixel]
+    erares = 0.28125    # resolution of ERA5 datasets [degrees per pixel]
+
+    eralons, eralats, lonmap, latmap, cellarea = eralonlat(Dict(:res=>res, :erares=>erares), lonrange, latrange)
+    numreg = length(regionlist)
+    nlons, nlats = length(eralons), length(eralats)
+
+    RegType = eltype(regions)
+    smallregions = zeros(RegType, nlons, nlats)
+    count0 = Dict(i => 0 for i = 0:numreg)
+    count0[NOREGION] = 0
+
+    for (j, eralat) in enumerate(eralats)
+        colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2, res)-1]
+        for (i, eralon) in enumerate(eralons)
+            # get all high resolution row and column indexes within this ERA5 cell         
+            rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2, res)-1]
+            count = copy(count0)
+            foundnonzero = false
+            for c in colrange, r in rowrange
+                (c == 0 || r == 0) && continue
+                reg = regions[r,c]
+                skipNOREGION && (reg == 0 || reg == NOREGION) && continue
+                count[reg] += 1
+                foundnonzero = true
+            end
+            smallregions[i,j] = foundnonzero ? findmax(count)[2] : 0
+        end
+    end
+
+    return smallregions
 end
 
 function matlab2elin(; gisregion="Europe8", year=2018)

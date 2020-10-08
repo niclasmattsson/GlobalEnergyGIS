@@ -1,4 +1,4 @@
-export makesolarera5, clearvars_era5
+export makesolarera5, makemonthlysolarera5, clearvars_era5
 
 # TO DO: save FDIR to disk (masked by land cover) for parabolic troughs (oriented north-south).
 
@@ -67,6 +67,49 @@ function makesolarera5(; year=2018, land_cells_only=true)
     nothing
 end
 
+function makemonthlysolarera5(; land_cells_only=true)
+    years = 1979:2019
+    nyears = length(years)
+    nmonths = nyears*12
+    gridsize = (1280,640)
+
+    datafolder = getconfig("datafolder")
+    downloadsfolder = joinpath(datafolder, "downloads")
+    
+    filename = joinpath(datafolder, "era5monthlysolar.h5")
+    isfile(filename) && error("File $filename exists in $datafolder, please delete or rename manually.")
+
+    land = imresize(JLD.load(joinpath(datafolder, "landcover.jld"), "landcover"), gridsize)
+
+    println("Creating HDF5 file:  $filename")
+    h5open(filename, "w") do file 
+        group = file["/"]
+        # create GTI and DNI variables (Global Tilted Irradiance and Direct Normal Irradiance)
+        dataset_ssrd = d_create(group, "ssrd", datatype(Float32), dataspace(nmonths,gridsize...), "chunk", (nmonths,16,16), "blosc", 3)
+        dataset_fdir = d_create(group, "fdir", datatype(Float32), dataspace(nmonths,gridsize...), "chunk", (nmonths,16,16), "blosc", 3)
+        dataset_annualssrd = d_create(group, "annualssrd", datatype(Float32), dataspace(nyears,gridsize...), "chunk", (nyears,16,16), "blosc", 3)
+        dataset_annualfdir = d_create(group, "annualfdir", datatype(Float32), dataspace(nyears,gridsize...), "chunk", (nyears,16,16), "blosc", 3)
+   
+        erafile = in_datafolder("downloads", "monthlysolar_$(years[1])-$(years[end]).nc")
+
+        println("Reading solar diffuse and direct components from $erafile...")
+        # Permute dimensions to get hours as dimension 1 (for efficient iteration in GISwind())
+        ncdataset = Dataset(erafile)
+        ssrd = permutedims(nomissing(ncdataset["ssrd"][:,:,:], 0.0) .* (land .> 0), [3,1,2])
+        fdir = permutedims(nomissing(ncdataset["fdir"][:,:,:], 0.0) .* (land .> 0), [3,1,2])
+
+        println("Writing to $filename...")
+        # For these monthly average insolations we skip the sun position calculations
+        # made for the hourly dataset and just assign SSRD & FDIR directly.
+        dataset_ssrd[:,:,:] = ssrd
+        dataset_fdir[:,:,:] = fdir
+        for y = 1:nyears
+            dataset_annualssrd[y,:,:] = sum(ssrd[12*(y-1) .+ (1:12),:,:], dims=1) ./ 12
+            dataset_annualfdir[y,:,:] = sum(fdir[12*(y-1) .+ (1:12),:,:], dims=1) ./ 12
+        end
+    end
+    nothing
+end
 
 function transform_solar_vars(ssrd, fdir, datetime, land, land_cells_only)
     println("Calculating GTI and DNI using solar positions...")

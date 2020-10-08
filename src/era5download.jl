@@ -1,6 +1,6 @@
 using PyCall, Pkg.TOML
 
-export era5download, saveconfig
+export era5download, monthlyera5download, saveconfig
 
 getconfig(key) = getconfig()[key]
 
@@ -61,6 +61,24 @@ function era5download(year=2018; datasets=["wind", "solar", "temp"])
     end
 end
 
+function monthlyera5download(; datasets=["wind", "solar", "temp"])
+    mkpath(in_datafolder("downloads"))
+    for dataset in datasets
+        if dataset == "wind"
+            vars = ["100m_u_component_of_wind", "100m_v_component_of_wind"]
+        elseif dataset == "solar"
+            vars = ["surface_solar_radiation_downwards", "total_sky_direct_solar_radiation_at_surface"]
+        else
+            vars = ["2m_temperature"]
+        end
+        # avoid 2020 to avoid partial-year problems and near real-time ERA5T data
+        # (which includes an additional dimension to indicate ERA5/ERA5T)
+        years = 1979:2019
+        outfile = in_datafolder("downloads", "monthly$(dataset)_$(years[1])-$(years[end]).nc")
+        request_monthly_era5_vars(outfile, vars, collect(years))
+    end
+end
+
 function request_era5_vars(outfile::String, vars::Vector{String}, firstdate::String, lastdate::String)
     datestring = "$firstdate/$lastdate"
     py"""
@@ -77,6 +95,29 @@ function request_era5_vars(outfile::String, vars::Vector{String}, firstdate::Str
             'area': '89.859375/-179.859375/-89.859375/179.859375',
             'date': $datestring,
             'time': '00/to/23/by/1'
+        },
+        $outfile)
+    """
+end
+
+function request_monthly_era5_vars(outfile::String, vars::Vector{String}, years::Vector{Int})
+    stryears = string.(years)
+    months = string.(1:12)
+    py"""
+    import cdsapi
+
+    c = cdsapi.Client()
+    c.retrieve(
+        'reanalysis-era5-single-levels-monthly-means',
+        {
+            'product_type': 'monthly_averaged_reanalysis',
+            'format': 'netcdf',
+            'variable': $vars,
+            'grid': '0.28125/0.28125',
+            'area': '89.859375/-179.859375/-89.859375/179.859375',
+            'year': $stryears,
+            'month': $months,
+            'time': '00:00'
         },
         $outfile)
     """

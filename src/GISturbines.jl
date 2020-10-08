@@ -159,11 +159,6 @@ function turbinecharts(gisregion)
     # shadedmap("Denmark5", log10.(1 .+pd), downsample=2, colorscheme=:magma)
 end
 
-function turbines2parks(region_abbrev)
-    df = DataFrame!(CSV.File(in_datafolder("turbines_$region_abbrev.csv")))
-    
-end
-
 function hist(data; normalize=false, args...)
     h = fit(Histogram, data; args...)
     weights = normalize ? h.weights/sum(h.weights) : h.weights
