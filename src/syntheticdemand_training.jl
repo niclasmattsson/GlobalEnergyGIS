@@ -5,9 +5,11 @@ export predictdemand, trainmodel, crossvalidate, defaultvariables, getcvdata, pl
 const defaultvariables = [:localhour, :weekend01, :temp_monthly, :ranked_month, :temp_top3,
                             :temp1_mean, :temp1_qlow, :temp1_qhigh, :demandpercapita, :gdppercapita]
 
-function predictdemand(; variables=defaultvariables, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018, numcenters=3, mindist=3.3,
-                    nrounds=100, max_depth=7, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
-    df, offsets, pop = buildtrainingdata(; gisregion=gisregion, scenarioyear=scenarioyear, era_year=era_year, numcenters=numcenters, mindist=mindist)
+function predictdemand(; variables=defaultvariables, gisregion="Europe8",
+            sspscenario="ssp2-34", sspyear=2050, era_year=2018, numcenters=3, mindist=3.3,
+            nrounds=100, max_depth=7, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
+    df, offsets, pop = buildtrainingdata(; gisregion=gisregion, sspscenario=sspscenario,
+            sspyear=sspyear, era_year=era_year, numcenters=numcenters, mindist=mindist)
     regionlist = unique(df[:, :country])
     numhours = 24*daysinyear(era_year)
     demandpercapita = df[1:numhours:end, :demandpercapita]      # MWh/year/capita
@@ -22,7 +24,9 @@ function predictdemand(; variables=defaultvariables, gisregion="Europe8", scenar
         demand[:,r] = circshift(demand[:,r], round(Int, -offsets[r]))
     end
     println("\nSaving...")
-    JLD.save(in_datafolder("output", "SyntheticDemand_$(gisregion)_$era_year.jld"), "demand", demand, compress=true)
+    JLD.save(in_datafolder("output",
+            "SyntheticDemand_$(gisregion)_$sspscenario-$(sspyear)_$era_year.jld"),
+            "demand", demand, compress=true)
     nothing
 end
 

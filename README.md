@@ -361,11 +361,11 @@ Assuming you have already downloaded the requisite temperature data for the year
 (see `create_scenario_datasets()`):
 
 ```
-julia> predictdemand(gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018)
+julia> predictdemand(gisregion="Europe8", sspscenario="ssp2-26", sspyear=2050, era_year=2018)
 ```
 
 This will create a matrix (size 8760x`number_of_regions`) with the predicted electricity demand for each
-model region and hour of the year. This data is saved in a new JLD file in `/GISdata_folder_path/output`.
+model region and hour of the year. This data is saved in a new JLD file in `/GISdata_folder_path/output`. Here the full SSP scenario variant must be specified including the 2-digit code representing radiative forcing target (e.g. -19, 26, 34, 45).
 
 ### Selecting variables to train on
 
@@ -375,7 +375,7 @@ These are the default nine variables (so this will produce the exact same result
 julia> selectedvars = [:hour, :weekend01, :temp_monthly, :ranked_month, :temp_top3,
                         :temp1_mean, :temp1_qlow, :temp1_qhigh, :demandpercapita]
 
-julia> predictdemand(variables=selectedvars, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018)
+julia> predictdemand(variables=selectedvars, gisregion="Europe8", sspscenario="ssp2-26", sspyear=2050, era_year=2018)
 ```
 
 And here is a simpler example using seven variables:
@@ -383,7 +383,7 @@ And here is a simpler example using seven variables:
 ```
 julia> selectedvars = [:hour, :weekend01, :ranked_month, :temp_top3, :temp1_qlow, :temp1_qhigh, :gdppercapita]
 
-julia> predictdemand(variables=selectedvars, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018)
+julia> predictdemand(variables=selectedvars, gisregion="Europe8", sspscenario="ssp2-26", sspyear=2050, era_year=2018)
 ```
 
 Currently we calculate data for 12 different variables. Any combination of these can be used to train on.
@@ -394,14 +394,14 @@ The full list along with brief explanations appears below near the bottom of thi
 These are the default parameters:
 
 ```
-julia> predictdemand(variables=defaultvariables, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018,
+julia> predictdemand(variables=defaultvariables, gisregion="Europe8", sspscenario="ssp2-34", sspyear=2050, era_year=2018,
             nrounds=100, max_depth=7, eta=0.05, subsample=0.75, metrics=["mae"])         
 ```
 
 And here we modify them:
 
 ```
-julia> predictdemand(variables=defaultvariables, gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018,
+julia> predictdemand(variables=defaultvariables, gisregion="Europe8", sspscenario="ssp1-45", sspyear=2030, era_year=2018,
             nrounds=40, max_depth=8, eta=0.30, subsample=0.85, metrics=["rmse"])         
 ```
 

@@ -68,7 +68,7 @@ ssplookup(ssp, model, scen, region) =
     ssp[(ssp[:,:MODEL] .== model) .& (ssp[:,:SCENARIO] .== scen) .& (ssp[:,:REGION] .== region), :][1,:]
 
 # Calculate regional multiplers for demand from 2016 to target year
-function calcdemandmultipliers(scenarioyear)
+function calcdemandmultipliers(sspscenario::String, year::Int)
     println("Calculate demand multipliers...")
     # First read electricity demand from the SSP database into a dataframe.
     ssp = CSV.read(in_datafolder("SSP v2 Final Energy - Electricity.csv"))
@@ -76,8 +76,7 @@ function calcdemandmultipliers(scenarioyear)
     # SSP scenarios also include radiative forcing targets, e.g. SSP2-34
     # (only for IAM energy system results, not underlying population & GDP scenario)
     # We'll hardcode the 3.4 W/m2 scenario variant for now and make it a configurable option later. 
-    scen = uppercase("$(scenarioyear[1:4])-34")
-    year = parse(Int, scenarioyear[6:9])
+    scen = uppercase(sspscenario)   # e.g. "SSP2-34"
 
     # We'll take the average result from IMAGE and MESSAGE models.
     demandmult2050 = Dict{String, Float64}()
@@ -93,9 +92,10 @@ function calcdemandmultipliers(scenarioyear)
     return demandmult2050
 end
 
-function makeregionaldemanddata(gisregion, scenarioyear)
+function makeregionaldemanddata(gisregion, sspscenario::String, year::Int)
     res = 0.01          # resolution of auxiliary datasets [degrees per pixel]
 
+    scenarioyear = "$(sspscenario[1:4])_$year"
     datasetinfo = Dict(:gisregion=>gisregion, :scenarioyear=>scenarioyear, :res=>res)
     regions, _, regionlist, _, pop, _, _, _, lonrange, latrange = read_datasets(datasetinfo)     # pop unit: people/grid cell
 
@@ -108,10 +108,10 @@ function makeregionaldemanddata(gisregion, scenarioyear)
     cellarea = rastercellarea.(lats, res)
     popdens = pop ./ cellarea'
 
-    natpop = getnationalpopulation(scenarioyear)        # people/GADMregion (vector, length numGADMcountries)
-    demandpercapita = ieademand()./natpop * 1e6         # MWh/year/capita (vector, length numGADMcountries)
-    ssp5region = make_sspregionlookup(ssp5)             # SSP 5-region names (vector, length numGADMcountries)
-    demandmult = calcdemandmultipliers(scenarioyear)    # Dict: SSP region name => multiplier 
+    natpop = getnationalpopulation(scenarioyear)            # people/GADMregion (vector, length numGADMcountries)
+    demandpercapita = ieademand()./natpop * 1e6             # MWh/year/capita (vector, length numGADMcountries)
+    ssp5region = make_sspregionlookup(ssp5)                 # SSP 5-region names (vector, length numGADMcountries)
+    demandmult = calcdemandmultipliers(sspscenario, year)   # Dict: SSP region name => multiplier 
 
     numreg = length(regionlist)
     regionaldemand = zeros(numreg)
@@ -144,9 +144,11 @@ function makeregionaldemanddata(gisregion, scenarioyear)
     return regionlist, regionaldemandpercapita, regionalgdppercapita
 end
 
-function buildtrainingdata(; gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018, numcenters=3, mindist=3.3)
+function buildtrainingdata(; gisregion="Europe8", sspscenario="ssp2-34", sspyear=2050, era_year=2018, numcenters=3, mindist=3.3)
     println("\nBuilding training data for $gisregion...")
-    regionlist, demandpercapita, gdppercapita = makeregionaldemanddata(gisregion, scenarioyear)
+    regionlist, demandpercapita, gdppercapita = 
+                    makeregionaldemanddata(gisregion, sspscenario, sspyear)
+    scenarioyear = "$(sspscenario[1:4])_$sspyear"
     hours, temp_popcenters = GIStemp(gisregion, scenarioyear, era_year, numcenters, mindist)
     offsets, zone_maxpop, population = regional_timezone_offsets_Jan1(gisregion=gisregion, scenarioyear=scenarioyear, era_year=era_year)
 
@@ -204,8 +206,9 @@ function savetrainingdata(; numcenters=3, mindist=3.3)
     create_scenario_datasets("SSP2", 2020)
     println("\nCreating training dataset for synthetic demand...")
     println("(This requires ERA5 temperature data for the year 2015 and scenario datasets for SSP2 2020.)")
-    df_train, offsets, _ = buildtrainingdata(gisregion="SyntheticDemandRegions", scenarioyear="SSP2_2020", era_year=2015,
-                    numcenters=numcenters, mindist=mindist)
+    df_train, offsets, _ = buildtrainingdata(gisregion="SyntheticDemandRegions",
+                sspscenario="SSP2-34", sspyear=2020, era_year=2015,
+                numcenters=numcenters, mindist=mindist)
     CSV.write(in_datafolder("syntheticdemand_timezoneoffsets.csv"), DataFrame(offsets=offsets))
     CSV.write(in_datafolder("syntheticdemand_trainingdata.csv"), df_train)
 end
