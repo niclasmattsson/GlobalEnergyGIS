@@ -417,6 +417,27 @@ function annualwindindex(; resource=:wind, aggregateregions=[], optionlist...)
     return index ./ mean(index, dims=1)
 end
 
+function seasonalwindprofile(; resource=:wind, aggregateregions=[], optionlist...)
+    options = WindOptions(merge(windoptions(), optionlist))
+    @unpack gisregion, era_year, res, erares = options
+    regions, _, regionlist, lonrange, latrange = loadregions(gisregion)
+    smallregions = resize_categorical(regions, regionlist, lonrange, latrange;
+                skipNOREGION=true)
+    eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
+    varname = (resource == :wind) ? "monthlywind" : "monthlyssrd"
+    monthlywind = h5open(in_datafolder("era5monthly$resource.h5"), "r") do file
+        if length(eralonranges) == 1
+            file[varname][:, eralonranges[1], eralatrange]
+        else
+            [file[varname][:, eralonranges[1], eralatrange] file[varname][:, eralonranges[2], eralatrange]]
+        end
+    end
+    nyears, nreg = size(monthlywind, 1), length(regionlist)
+    aggregateregions = isempty(aggregateregions) ? [[r] for r = 1:nreg] : aggregateregions
+    profile = [sum(sumdrop(monthlywind[m:12:end,:,:], dims=1)/41 .*
+                (mask = in.(smallregions, Ref(aggreg)))) ./ sum(mask)
+                    for m = 1:12, aggreg in aggregateregions]
+end
 
 
 
