@@ -85,8 +85,8 @@ function makemonthlysolarera5(; land_cells_only=true)
     h5open(filename, "w") do file 
         group = file["/"]
         # create GTI and DNI variables (Global Tilted Irradiance and Direct Normal Irradiance)
-        dataset_ssrd = d_create(group, "ssrd", datatype(Float32), dataspace(nmonths,gridsize...), "chunk", (nmonths,16,16), "blosc", 3)
-        dataset_fdir = d_create(group, "fdir", datatype(Float32), dataspace(nmonths,gridsize...), "chunk", (nmonths,16,16), "blosc", 3)
+        dataset_ssrd = d_create(group, "monthlyssrd", datatype(Float32), dataspace(nmonths,gridsize...), "chunk", (nmonths,16,16), "blosc", 3)
+        dataset_fdir = d_create(group, "monthlyfdir", datatype(Float32), dataspace(nmonths,gridsize...), "chunk", (nmonths,16,16), "blosc", 3)
         dataset_annualssrd = d_create(group, "annualssrd", datatype(Float32), dataspace(nyears,gridsize...), "chunk", (nyears,16,16), "blosc", 3)
         dataset_annualfdir = d_create(group, "annualfdir", datatype(Float32), dataspace(nyears,gridsize...), "chunk", (nyears,16,16), "blosc", 3)
    
