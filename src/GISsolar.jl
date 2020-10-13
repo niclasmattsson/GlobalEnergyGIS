@@ -185,7 +185,7 @@ end
 
 function create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange; plotmasks=false, downsample=1)
     @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, plant_persons_per_km2,
-            pvroof_persons_per_km2, classB_threshold = options
+            pvroof_persons_per_km2, classB_threshold, filenamesuffix = options
 
     println("Creating masks...")
 
@@ -229,7 +229,7 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
         masks[regions .== 0] .= 0
         masks[regions .== NOREGION] .= NOREGION
         legendtext = ["bad land type", "high population", "protected area", "no grid", "solar plant A", "solar plant B", "", ""]
-        maskmap("$(gisregion)_masks_solar", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
+        maskmap("$(gisregion)_masks_solar$filenamesuffix", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
     end
 
     return mask_rooftop, mask_plantA, mask_plantB

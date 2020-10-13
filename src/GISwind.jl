@@ -177,7 +177,7 @@ end
 
 function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange; plotmasks=false, downsample=1)
     @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2,
-                min_shore_distance, max_depth, classB_threshold = options
+                min_shore_distance, max_depth, classB_threshold, filenamesuffix = options
 
     println("Creating masks...")
 
@@ -227,7 +227,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         masks[regions .== 0] .= 0
         masks[regions .== NOREGION] .= NOREGION
         legendtext = ["bad land type", "high population", "protected area", "no grid", "", "", "wind plant A", "wind plant B"]
-        maskmap("$(gisregion)_masks_wind", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
+        maskmap("$(gisregion)_masks_wind$filenamesuffix", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
 
         # drawmap(.!shore .& (offshoreregions .> 0))
         # drawmap((topo .> -max_depth) .& (offshoreregions .> 0))
