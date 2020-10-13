@@ -199,7 +199,7 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
     end
 
     # Pixels with electricity access for onshore wind A 
-    gridA = (gridaccess .> 0.1)
+    gridA = (gridaccess .> 0)
 
     # Pixels with electricity access for onshore wind B and offshore wind
     km_per_degree = π*2*6371/360

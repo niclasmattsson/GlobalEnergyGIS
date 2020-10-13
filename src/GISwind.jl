@@ -191,7 +191,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     end
 
     # Pixels with electricity access for onshore wind A 
-    gridA = (gridaccess .> 0.1)
+    gridA = (gridaccess .> 0)
 
     # Pixels with electricity access for onshore wind B and offshore wind
     km_per_degree = π*2*6371/360
