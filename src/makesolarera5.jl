@@ -201,12 +201,6 @@ end
 horizoncorrection(zen) = 1/50 * max(0, rad2deg(zen)-85).^2
 
 function clearvars_era5(; year=2018, datasets=["wind", "solar", "temp"])
-    if datasets == "all"
-        clearvars_era5("solar", year=year)
-        clearvars_era5("wind", year=year)
-        clearvars_era5("temp", year=year)
-        return
-    end
     for dataset in datasets, month = 1:12, monthhalf = 1:2
         if monthhalf == 1
             firstday, lastday = "01", "15"
