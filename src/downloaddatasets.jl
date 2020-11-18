@@ -38,6 +38,10 @@ function download_datasets(startfile=1)
             # "http://datasets.wri.org/dataset/540dcf46-f287-47ac-985d-269b04bea4c6/resource/c240ed2e-1190-4d7e-b1da-c66b72e08858/download/globalpowerplantdatabasev120"),
         ("Time zone shape file", "timezones-with-oceans.shapefile.zip",
             "https://github.com/evansiroky/timezone-boundary-builder/releases/download/2019b/timezones-with-oceans.shapefile.zip"),
+        ("Average monthly wind speeds 1979-2019", "era5monthlywind.h5",
+            "https://chalmersuniversity.box.com/shared/static/otvb5nq0lz5ntqx0e65kocos2afo7gas.h5"),
+        ("Average monthly solar insolation 1979-2019", "era5monthlysolar.h5",
+            "https://chalmersuniversity.box.com/shared/static/jlpspmp9ou96hk7xno46rf79wg3d5hqc.h5"),
         ("Various smaller datasets", "Various_smaller_datasets.zip",
             "https://chalmersuniversity.box.com/shared/static/w3pmx4xhgorgd6jejv23gn4ycsnza8s6.zip")
     ]
@@ -117,7 +121,7 @@ function download_datasets(startfile=1)
             joinpath(datafolder, "WRI - Global Power Plant Database v1.10"))
         rm(joinpath(datafolder, "tempWRI"))
     end
-    if startfile <= 13
+    if startfile <= 15
         mixeddir = joinpath(datafolder, "Various_smaller_datasets")
         for file in readdir(mixeddir)
             mv(joinpath(mixeddir, file), joinpath(datafolder, file))
