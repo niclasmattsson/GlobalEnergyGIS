@@ -395,51 +395,60 @@ end
 
 # returns a wind speed index for 1979-2019, i.e. normalized average wind speed over
 # each pixel in each region for each year
-function annualwindindex(; resource=:wind, aggregateregions=[], optionlist...)
-    options = WindOptions(merge(windoptions(), optionlist))
-    @unpack gisregion, era_year, res, erares = options
+# also return a matrix of annual wind speeds in each ERA5 pixel over the region
+function annualwindindex(options; resource=:wind, sites_quantile=1.0, aggregateregions=[])
+    @unpack gisregion, era_year, res, erares, filenamesuffix = options
     regions, _, regionlist, lonrange, latrange = loadregions(gisregion)
     smallregions = resize_categorical(regions, regionlist, lonrange, latrange;
                 skipNOREGION=true)
     eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
     varname = (resource == :wind) ? "annualwind" : "annualssrd"
-    annualwind = h5open(in_datafolder("era5monthly$resource.h5"), "r") do file
-        if length(eralonranges) == 1
-            file[varname][:, eralonranges[1], eralatrange]
-        else
-            [file[varname][:, eralonranges[1], eralatrange] file[varname][:, eralonranges[2], eralatrange]]
-        end
-    end
+    annualwind = getmonthlywind(:annual, resource, eralonranges, eralatrange, filenamesuffix)
+    meanwind = meandrop(annualwind, dims=1)
     nyears, nreg = size(annualwind, 1), length(regionlist)
     aggregateregions = isempty(aggregateregions) ? [[r] for r = 1:nreg] : aggregateregions
-    index = [sum(annualwind[y,:,:] .* (mask = in.(smallregions, Ref(aggreg)))) ./ sum(mask)
-                 for y = 1:nyears, aggreg in aggregateregions]
-    return index ./ mean(index, dims=1)
+    regionmasks = [in.(smallregions, Ref(aggreg)) for aggreg in aggregateregions]
+    cutoffs = [quantile(vec(meanwind[(meanwind.>0) .& regmask]), 1-sites_quantile)
+            for regmask in regionmasks]
+    masks = [(meanwind .> cutoffs[i]) .& regionmasks[i] for i = 1:length(regionmasks)]
+    index = [sum(annualwind[y,:,:] .* mask) ./ sum(mask) for y = 1:nyears, mask in masks]
+    return index, index ./ mean(index, dims=1), meanwind, annualwind[era_year-1979+1,:,:]
 end
 
-function seasonalwindprofile(; resource=:wind, aggregateregions=[], optionlist...)
+function annualwindindex(; resource=:wind, sites_quantile=1.0, aggregateregions=[], optionlist...)
     options = WindOptions(merge(windoptions(), optionlist))
-    @unpack gisregion, era_year, res, erares = options
+    return annualwindindex(options, resource=resource, sites_quantile=sites_quantile,
+                    aggregateregions=aggregateregions)
+end
+
+function seasonalwindprofile(; resource=:wind, sites_quantile=1.0, aggregateregions=[], optionlist...)
+    options = WindOptions(merge(windoptions(), optionlist))
+    @unpack gisregion, era_year, res, erares, filenamesuffix = options
     regions, _, regionlist, lonrange, latrange = loadregions(gisregion)
     smallregions = resize_categorical(regions, regionlist, lonrange, latrange;
                 skipNOREGION=true)
     eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
-    varname = (resource == :wind) ? "monthlywind" : "monthlyssrd"
-    monthlywind = h5open(in_datafolder("era5monthly$resource.h5"), "r") do file
+    annualwind = getmonthlywind(:annual, resource, eralonranges, eralatrange, filenamesuffix)
+    monthlywind = getmonthlywind(:monthly, resource, eralonranges, eralatrange, filenamesuffix)
+    meanwind = meandrop(annualwind, dims=1)
+    cutoff = quantile(vec(meanwind[meanwind.>0]), 1-sites_quantile)
+    nyears, nreg = size(monthlywind, 1), length(regionlist)
+    aggregateregions = isempty(aggregateregions) ? [[r] for r = 1:nreg] : aggregateregions
+    profile = [sum(meandrop(monthlywind[m:12:end,:,:], dims=1) .*
+        (mask = (meanwind .> cutoff) .& in.(smallregions, Ref(aggreg)))) ./ sum(mask)
+                    for m = 1:12, aggreg in aggregateregions]
+end
+
+function getmonthlywind(time, resource, eralonranges, eralatrange, filenamesuffix)
+    h5open(in_datafolder("era5monthly$resource$filenamesuffix.h5"), "r") do file
+        varname = (resource == :wind) ? "$(time)wind" : "$(time)ssrd"
         if length(eralonranges) == 1
             file[varname][:, eralonranges[1], eralatrange]
         else
             [file[varname][:, eralonranges[1], eralatrange] file[varname][:, eralonranges[2], eralatrange]]
         end
     end
-    nyears, nreg = size(monthlywind, 1), length(regionlist)
-    aggregateregions = isempty(aggregateregions) ? [[r] for r = 1:nreg] : aggregateregions
-    profile = [sum(sumdrop(monthlywind[m:12:end,:,:], dims=1)/41 .*
-                (mask = in.(smallregions, Ref(aggreg)))) ./ sum(mask)
-                    for m = 1:12, aggreg in aggregateregions]
 end
-
-
 
 # Quick and ugly copy/paste hack to create resource maps for wind classes combined with masks.
 function GISwindmap(; optionlist...)
