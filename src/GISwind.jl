@@ -314,6 +314,11 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
     onshoreclass, offshoreclass = makewindclasses(options, windatlas)
     eralons, eralats, lonmap, latmap, cellarea = eralonlat(options, lonrange, latrange)
 
+    eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
+    annualwind = getmonthlywind(:annual, :wind, eralonranges, eralatrange, "")
+    meanwind_allyears = meandrop(annualwind, dims=1)
+    @assert size(meanwind_allyears) == size(meanwind)
+
     @unpack onshoreclasses_min, offshoreclasses_min, rescale_to_wind_atlas, res, erares,
                 onshore_density, area_onshore, offshore_density, area_offshore = options
 
@@ -356,18 +361,21 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
                 offreg = offshoreregions[r,c]
                 area = cellarea[c]
 
+                # @views is needed to make sure increment_windCF!() works with matrix
+                # slice. It's also faster since it avoids making copies.
+                # We divide by meanwind_allyears instead of meanwind in order to
+                # account for more and less windy years, while still rescaling 
+                # hourly ERA5 wind speeds to match annual averages from the Global
+                # Wind Atlas.
                 if reg > 0 && reg != NOREGION
                     class = onshoreclass[r,c]
-                    # can't use elseif here, probably some overlap in the masks
-                    # @views is needed to make sure increment_windCF!() works with matrix slices
-                    # also faster since it avoids making copies
                     @views if reg > 0 && class > 0 && mask_onshoreA[r,c] > 0
                         capacity_onshoreA[reg,class] += 1/1000 * onshore_density * area_onshore * area
-                        increment_windCF!(windCF_onshoreA[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
+                        increment_windCF!(windCF_onshoreA[:,reg,class], wind, windatlas[r,c] / meanwind_allyears[i,j], rescale_to_wind_atlas)
                         count_onshoreA[reg,class] += 1
                     elseif reg > 0 && class > 0 && mask_onshoreB[r,c] > 0
                         capacity_onshoreB[reg,class] += 1/1000 * onshore_density * 2 * area_onshore * area
-                        increment_windCF!(windCF_onshoreB[:,reg,class], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
+                        increment_windCF!(windCF_onshoreB[:,reg,class], wind, windatlas[r,c] / meanwind_allyears[i,j], rescale_to_wind_atlas)
                         count_onshoreB[reg,class] += 1
                     end
                 end
@@ -375,7 +383,7 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
                     offclass = offshoreclass[r,c]
                     @views if offreg > 0 && offclass > 0 && mask_offshore[r,c] > 0
                         capacity_offshore[offreg,offclass] += 1/1000 * offshore_density * area_offshore * area
-                        increment_windCF!(windCF_offshore[:,offreg,offclass], wind, windatlas[r,c] / meanwind[i,j], rescale_to_wind_atlas)
+                        increment_windCF!(windCF_offshore[:,offreg,offclass], wind, windatlas[r,c] / meanwind_allyears[i,j], rescale_to_wind_atlas)
                         count_offshore[offreg,offclass] += 1
                     end
                 end
