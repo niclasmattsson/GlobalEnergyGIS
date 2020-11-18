@@ -314,9 +314,7 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
     onshoreclass, offshoreclass = makewindclasses(options, windatlas)
     eralons, eralats, lonmap, latmap, cellarea = eralonlat(options, lonrange, latrange)
 
-    eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
-    annualwind = getmonthlywind(:annual, :wind, eralonranges, eralatrange, "")
-    meanwind_allyears = meandrop(annualwind, dims=1)
+    _, _, meanwind_allyears, _ = annualwindindex(options)
     @assert size(meanwind_allyears) == size(meanwind)
 
     @unpack onshoreclasses_min, offshoreclasses_min, rescale_to_wind_atlas, res, erares,
