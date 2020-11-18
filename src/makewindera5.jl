@@ -57,6 +57,11 @@ function makewindera5(; year=2018, windatlas_only=true)
     nothing
 end
 
+# Unlike makemonthlysolarera5(), the wind version can't use monthly ERA5 variables
+# which take monthly averages of u and v components of wind speed. Doing so would
+# greatly underestimate absolute wind speeds in locations where wind direction
+# changes frequently. So instead we use ordinary hourly ERA5 data. This assumes
+# that every year between 1979-2019 has been downloaded (for wind).
 function makemonthlywindera5(; windatlas_only=true)
     years = 1979:2019
     nyears = length(years)
@@ -64,33 +69,27 @@ function makemonthlywindera5(; windatlas_only=true)
     gridsize = (1280,640)
 
     datafolder = getconfig("datafolder")
-    downloadsfolder = joinpath(datafolder, "downloads")
-    
     filename = joinpath(datafolder, "era5monthlywind.h5")
     isfile(filename) && error("File $filename exists in $datafolder, please delete or rename manually.")
-
-    windatlas = reshape(imresize(getwindatlas(), gridsize), (1,gridsize...))
 
     println("Creating HDF5 file:  $filename")
     h5open(filename, "w") do file 
         group = file["/"]
         monthlywind = d_create(group, "monthlywind", datatype(Float32), dataspace(nmonths,gridsize...), "chunk", (nmonths,16,16), "blosc", 3)
         annualwind = d_create(group, "annualwind", datatype(Float32), dataspace(nyears,gridsize...), "chunk", (nyears,16,16), "blosc", 3)
-        erafile = in_datafolder("downloads", "monthlywind_$(years[1])-$(years[end]).nc")
 
-        println("Reading wind components from $erafile...")
-        # Permute dimensions to get hours as dimension 1 (for efficient iteration in GISwind())
-        ncdataset = Dataset(erafile)
-        u100 = permutedims(ncdataset["u100"][:,:,:], [3,1,2])
-        v100 = permutedims(ncdataset["v100"][:,:,:], [3,1,2])
-
-        println("Calculating absolute speed...")
-        wind = replace(sqrt.(u100.^2 + v100.^2), missing => 0.0) .* (windatlas .> 0)
-
-        println("Writing to $filename...")
-        monthlywind[:,:,:] = wind
-        for y = 1:nyears
-            annualwind[y,:,:] = sum(wind[12*(y-1) .+ (1:12),:,:], dims=1) ./ 12
+        for (y, year) in enumerate(years)
+            println("$year:")
+            options = WindOptions(merge(windoptions(), Dict(:era_year => year)))
+            windatlas, meanwind, windspeed = read_wind_datasets(options, 1:36000, 1:18000)
+            monthdays = [Dates.daysinmonth(Date("$year-$m")) for m in 1:12]
+            lasthour = cumsum(24*monthdays)
+            firsthour = [1; lasthour[1:end-1] .+ 1]
+            for m = 1:12
+                monthlywind[12*(y-1) + m,:,:] =
+                    mean(windspeed[firsthour[m]:lasthour[m], :, :], dims=1)
+            end
+            annualwind[y,:,:] = meanwind
         end
     end
     nothing
