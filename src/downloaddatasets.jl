@@ -12,8 +12,13 @@ function download_datasets(startfile=1)
 
     # tuples of (dataset_name, filename, url)
     datasets = [
-        ("Global Wind Atlas", "Global Wind Atlas v1 - 100m wind speed.tif",
-            "https://chalmersuniversity.box.com/shared/static/25cjcah213sk4wdkqwi8t8kxxoy3hh6k.tif"),
+        # https://globalwindatlas.info/api/gis/global/wind-speed/10
+        # https://globalwindatlas.info/api/gis/global/wind-speed/50
+        # https://globalwindatlas.info/api/gis/global/wind-speed/100
+        # https://globalwindatlas.info/api/gis/global/wind-speed/150
+        # https://globalwindatlas.info/api/gis/global/wind-speed/200
+        ("Global Wind Atlas", "Global Wind Atlas v3 - 100m wind speed.tif",
+            "https://chalmersuniversity.box.com/shared/static/wfr6dm9bcmj0mcqtdn0uimhg0otd4ht1.tif"),
         ("WDPA (protected areas):", "WDPA.zip",
             "https://www.protectedplanet.net/downloads/$WDPA_filename?type=shapefile"),
         ("GADM (global administrative areas)", "gadm36.zip",
@@ -46,13 +51,13 @@ function download_datasets(startfile=1)
             "https://chalmersuniversity.box.com/shared/static/w3pmx4xhgorgd6jejv23gn4ycsnza8s6.zip")
     ]
 
-    # for (i, datasetinfo) in enumerate(datasets)
-    #     i < startfile && continue
-    #     name, filename, url = datasetinfo
+    for (i, datasetinfo) in enumerate(datasets)
+        i < startfile && continue
+        name, filename, url = datasetinfo
 
-    #     println("\nDownloading dataset $i: $name")
-    #     download_progressbar(url, joinpath(datafolder, filename))
-    # end
+        println("\nDownloading dataset $i: $name")
+        download_progressbar(url, joinpath(datafolder, filename))
+    end
 
     println("\nDownloads complete.")
 

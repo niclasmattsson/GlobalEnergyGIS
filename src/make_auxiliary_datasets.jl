@@ -345,13 +345,27 @@ function creategridaccess(scen, year)
 end
 
 function getwindatlas()
-    # filename = "D:/datasets/Global Wind Atlas v3.0/gwa3_250_wind-speed_100m.tif"     # v3.0 (lon extent [-180.3, 180.3], strangely)
-    # filename = "D:/datasets/Global Wind Atlas v2.3/global_ws.tif"     # v2.3 (lon extent [-180.3, 180.3], strangely)
-    filename = in_datafolder("Global Wind Atlas v1 - 100m wind speed.tif")   # v1.0
-    windatlas = readraster(filename, :extend_to_full_globe)[1]
+    # filename = in_datafolder("gwa3_250_wind-speed_100m.tif") # v3.0 (lon extent [-180.3, 180.3], strangely)
+    # filename = in_datafolder("global_ws.tif") # v2.3 (lon extent [-180.3, 180.3], strangely)
+    # filename = in_datafolder("Global Wind Atlas v1 - 100m wind speed.tif")   # v1.0
+    # windatlas = readraster(filename, :extend_to_full_globe)[1]
+    filename = in_datafolder("Global Wind Atlas v3 - 100m wind speed.tif")   # v3.0
+    windatlas = readraster(filename)
     clamp!(windatlas, 0, 25)
 end
 
-# @time q,cc = readraster("D:/datasets/Global Wind Atlas v3.0/gwa3_250_wind-speed_100m.tif", :none, 1);
-# size(q,1)/(cc[3]-cc[1])
-# cc[1]+132/400
+# Convert the Global Wind Atlas 3.0 dataset from 250 m to 1 km resolution.
+# This reduces file size from 13 GB to 1 GB. Interpolate using cubic splines. 
+# Also change its weird lon-lat extents to standard [-180,-90] - [180, 90].
+function convert_windatlas3()
+    infile = in_datafolder("gwa3_250_wind-speed_100m.tif")
+    gdal_utility("gdalinfo") do gdalinfo
+        run(`$gdalinfo $infile`)
+    end
+    println("\n")
+    outfile = in_datafolder("Global Wind Atlas v3 - 100m wind speed.tif")
+    options = split("-r cubicspline -te -180 -90 180 90 -tr 0.01 0.01", ' ')
+    gdal_utility("gdalwarp") do gdalwarp
+        @time run(`$gdalwarp $options -co COMPRESS=LZW $infile $outfile`)
+    end
+end
