@@ -357,6 +357,8 @@ end
 # Convert the Global Wind Atlas 3.0 dataset from 250 m to 1 km resolution.
 # This reduces file size from 13 GB to 1 GB. Interpolate using cubic splines. 
 # Also change its weird lon-lat extents to standard [-180,-90] - [180, 90].
+# Lanczos algorithm is supposedly very good at retaining detail while
+# reducing image size.
 function convert_windatlas3()
     infile = in_datafolder("gwa3_250_wind-speed_100m.tif")
     gdal_utility("gdalinfo") do gdalinfo
@@ -364,7 +366,7 @@ function convert_windatlas3()
     end
     println("\n")
     outfile = in_datafolder("Global Wind Atlas v3 - 100m wind speed.tif")
-    options = split("-r cubicspline -te -180 -90 180 90 -tr 0.01 0.01", ' ')
+    options = split("-r lanczos -te -180 -90 180 90 -tr 0.01 0.01", ' ')
     gdal_utility("gdalwarp") do gdalwarp
         @time run(`$gdalwarp $options -co COMPRESS=LZW $infile $outfile`)
     end

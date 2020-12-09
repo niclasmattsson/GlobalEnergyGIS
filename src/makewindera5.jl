@@ -79,7 +79,7 @@ function makemonthlywindera5(; windatlas_only=true)
         annualwind = d_create(group, "annualwind", datatype(Float32), dataspace(nyears,gridsize...), "chunk", (nyears,16,16), "blosc", 3)
 
         for (y, year) in enumerate(years)
-            println("$year:")
+            print("$year: ")
             options = WindOptions(merge(windoptions(), Dict(:era_year => year)))
             windatlas, meanwind, windspeed = read_wind_datasets(options, 1:36000, 1:18000)
             monthdays = [Dates.daysinmonth(Date("$year-$m")) for m in 1:12]
