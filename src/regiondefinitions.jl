@@ -12,6 +12,8 @@ const scand4 = [
     "DEN"   GADM("Denmark")
 ]
 
+const spainsubregions = subregions(GADM, "Spain")[[1:13; 15:18]]  # all subregions except Canary Islands
+const portugalsubregions = subregions(GADM, "Portugal")[[1; 3:11; 13:20]]  # all subregions except Azores and Madeira
 const europe8 = [
     # Europe: "NOR","FRA","GER","UK","MED","BAL","SPA","CEN"
     "NOR"   GADM("Sweden","Norway","Denmark","Finland","Åland","Faroe Islands")
@@ -20,7 +22,7 @@ const europe8 = [
     "UK"    GADM("United Kingdom","Ireland","Guernsey","Isle of Man","Jersey")
     "MED"   GADM("Greece","Bulgaria","Italy","San Marino","Vatican City","Slovenia","Croatia","Bosnia and Herzegovina","Serbia","Montenegro","Kosovo","Albania","Macedonia","Malta")
     "BAL"   GADM("Poland","Estonia","Latvia","Lithuania")
-    "SPA"   GADM("Spain","Portugal","Andorra","Gibraltar")
+    "SPA"   (GADM(["Spain"], spainsubregions...), GADM(["Portugal"], portugalsubregions...), GADM("Andorra","Gibraltar"))
     "CEN"   GADM("Austria","Switzerland","Czech Republic","Hungary","Slovakia","Romania","Liechtenstein")
 ]
 
