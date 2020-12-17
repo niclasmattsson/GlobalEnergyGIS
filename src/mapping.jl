@@ -36,7 +36,7 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
                 line = greatcircletrack(popcenters[reg1,:], popcenters[reg2,:], 50)             # great circle segments
                 projectedline = Point2f0.(GeoMakie.transform.(source, dest, line))
                 color = (i == 1) ? :black : :white
-                lines!(scene, projectedline, color=color, linewidth=resolutionscale*scale*3)
+                lines!(scene, projectedline, color=color, linewidth=resolutionscale*scale*textscale*3)
             end
         end
     end
@@ -123,7 +123,7 @@ function maskmap(mapname, regions, regionlist, lonrange, latrange;
         RGB([255,100,255]/255...),  # protected area
         RGB([120,170,80]/255...),   # no grid
         RGB([255,217,47]/255...),   # solar plant A
-        RGB([215,160,0]/255...),    # solar plant B
+        RGB([255,150,0]/255...),    # solar plant B
         RGB([140,156,209]/255...),  # wind plant A
         RGB([110,136,169]/255...),  # wind plant B
     ]
