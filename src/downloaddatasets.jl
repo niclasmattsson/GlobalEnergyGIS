@@ -159,7 +159,7 @@ function download_progressbar(url::AbstractString, filename::AbstractString)
 end
 
 function download_curl(curl_exe::AbstractString, url::AbstractString, filename::AbstractString)
-    run(`$curl_exe --progress-bar -g -L -f -o $filename $url`, wait=true)
+    run(`$curl_exe --progress-bar -g -L -f --retry 5 -o $filename $url`, wait=true)
     return filename
 end
 
