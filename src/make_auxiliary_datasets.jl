@@ -65,7 +65,7 @@ function rasterize_GADM()
     sql = "select uid,name_0,name_1,name_2 from gadm36"
     # sql = "select uid,id_0,name_0,id_1,name_1,id_2,name_2 from gadm36"
     outfile = in_datafolder("gadmfields.csv")
-    gdal_utility("ogr2ogr") do ogr2ogr
+    ogr2ogr_path() do ogr2ogr
         @time run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
     end
     nothing
@@ -83,7 +83,7 @@ function rasterize_NUTS()
     println("Creating .csv file for regional index and name lookup...")
     outfile = in_datafolder("nutsfields.csv")
     sql = "select ROWID+1 AS ROWID,* from $name"
-    gdal_utility("ogr2ogr") do ogr2ogr
+    ogr2ogr_path() do ogr2ogr
         @time run(`$ogr2ogr -f CSV $outfile -dialect SQlite -sql $sql $shapefile`)
     end
     nothing
@@ -116,7 +116,7 @@ function rasterize_protected()
         shapefile = in_datafolder("WDPA", "WDPA-shapefile$i", "WDPA-shapefile-polygons.shp")
 
         println("Rasterizing...")
-        gdal_utility("gdal_rasterize") do gdal_rasterize
+        gdal_rasterize_path() do gdal_rasterize
             outfile = in_datafolder("WDPA", "protected_raster$i.tif")
             sql = "select FID from \"WDPA-shapefile-polygons\""
             options = "-a FID -a_nodata -1 -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
@@ -124,7 +124,7 @@ function rasterize_protected()
         end
 
         println("Creating .csv file for WDPA index and name lookup...")
-        gdal_utility("ogr2ogr") do ogr2ogr
+        ogr2ogr_path() do ogr2ogr
             outfile = in_datafolder("WDPA", "protectedfields$i.csv")
             sql = "select FID,IUCN_CAT from \"WDPA-shapefile-polygons\""
             run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
@@ -156,7 +156,7 @@ function makeprotected(n)
     protected = similar(protected0, UInt8)
     # could replace loop with:  map!(p -> p == -1 ? 0 : IUCNlookup[protectedfields[p+1,2], protected, protected0)
     # alternatively             map!(p -> ifelse(p == -1, 0, IUCNlookup[protectedfields[p+1,2]), protected, protected0)
-    for (i, p) in enumerate(protected0)
+    @time for (i, p) in enumerate(protected0)
         protected[i] = (p == -1) ? 0 : IUCNlookup[protectedfields[p+1,2]]
     end
     println("Saving...")
@@ -170,14 +170,14 @@ function rasterize_timezones()
     sql = "select FID+1 as FID from \"combined-shapefile-with-oceans\""
     outfile = in_datafolder("timezones.tif")
     options = "-a FID -a_nodata 0 -ot Int16 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
-    gdal_utility("gdal_rasterize") do gdal_rasterize
+    gdal_rasterize_path() do gdal_rasterize
         @time run(`$gdal_rasterize $(split(options, ' ')) -sql $sql $shapefile $outfile`)
     end
 
     println("Creating .csv file for time zone index and name lookup...")
     sql = "select FID+1 as FID,tzid from \"combined-shapefile-with-oceans\""
     outfile = in_datafolder("timezone_names.csv")
-    gdal_utility("ogr2ogr") do ogr2ogr
+    ogr2ogr_path() do ogr2ogr
         @time run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
     end
     nothing
@@ -204,7 +204,7 @@ function loadtimezones(lonrange, latrange)
 end
 
 function resample(infile::String, outfile::String, options::Vector{<:AbstractString})
-    gdal_utility("gdal_translate") do gdal_translate
+    gdal_translate_path() do gdal_translate
         @time run(`$gdal_translate $options -co COMPRESS=LZW $infile $outfile`)
     end
 end
@@ -361,13 +361,13 @@ end
 # reducing image size.
 function convert_windatlas3()
     infile = in_datafolder("gwa3_250_wind-speed_100m.tif")
-    gdal_utility("gdalinfo") do gdalinfo
+    gdalinfo_path() do gdalinfo
         run(`$gdalinfo $infile`)
     end
     println("\n")
     outfile = in_datafolder("Global Wind Atlas v3 - 100m wind speed.tif")
     options = split("-r lanczos -te -180 -90 180 90 -tr 0.01 0.01", ' ')
-    gdal_utility("gdalwarp") do gdalwarp
+    gdalwarp_path() do gdalwarp
         @time run(`$gdalwarp $options -co COMPRESS=LZW $infile $outfile`)
     end
 end
