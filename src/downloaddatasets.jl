@@ -8,7 +8,7 @@ function download_datasets(startfile=1)
         mkpath(datafolder)
     end
 
-    WDPA_filename = "WDPA_" * monthname(now())[1:3] * string(year(now()))
+    WDPA_filename = "WDPA_WDOECM_search_feadb1b4f30799a6dc3ad0b16116d3530ec4a477898f4e10e097e2030e167128_shp"
 
     # tuples of (dataset_name, filename, url)
     datasets = [
@@ -20,7 +20,8 @@ function download_datasets(startfile=1)
         ("Global Wind Atlas", "Global Wind Atlas v3 - 100m wind speed.tif",
             "https://chalmersuniversity.box.com/shared/static/wfr6dm9bcmj0mcqtdn0uimhg0otd4ht1.tif"),
         ("WDPA (protected areas):", "WDPA.zip",
-            "https://www.protectedplanet.net/downloads/$WDPA_filename?type=shapefile"),
+            "https://d1gam3xoknrgr2.cloudfront.net/current/WDPA_WDOECM_search_feadb1b4f30799a6dc3ad0b16116d3530ec4a477898f4e10e097e2030e167128_shp.zip"),
+            # "https://chalmersuniversity.box.com/shared/static/wn1kznvy7qh1issqcxdlsq64kgtkaayi.zip"),
         ("GADM (global administrative areas)", "gadm36.zip",
             "https://biogeo.ucdavis.edu/data/gadm3.6/gadm36_shp.zip"),
         ("NUTS (administrative areas in Europe)", "nuts-2016-01m.shp.zip",
@@ -74,7 +75,7 @@ function download_datasets(startfile=1)
 
     function renameWDPAfiles(WDPAfolder)
         for filename in readdir(WDPAfolder)
-            newname = replace(filename, WDPA_filename => "WDPA")
+            newname = replace(filename, WDPA_filename => "WDPA-shapefile")
             if newname != filename 
                 mv(joinpath(WDPAfolder, filename), joinpath(WDPAfolder, newname))
             end
