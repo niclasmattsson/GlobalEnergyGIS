@@ -225,7 +225,7 @@ function regional_timezone_offsets_Jan1(; gisregion="Europe8", scenarioyear="ssp
     numhours = 24*daysinyear(era_year)
     offsets = zeros(numreg)
     population = zeros(numreg)
-    zone_maxpop = fill(tz"Europe/London", numreg)
+    zone_maxpop = fill(TimeZone("Europe/London"), numreg)
     updateprogress = Progress(numreg, 1)
     for r = 1:numreg
         reg = (regions .== r)
