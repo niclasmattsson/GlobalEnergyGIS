@@ -1,4 +1,4 @@
-using StatsMakie
+# using StatsMakie
 
 export shadedmap, hist, GISturbines_density, aggregate, exportGISturbinedata, landtypes
 

@@ -1,4 +1,5 @@
-using FileIO, GeoMakie, Makie, ColorSchemes, GLMakie
+# using FileIO, GeoMakie, Makie, ColorSchemes, GLMakie
+using FileIO, ColorSchemes
 
 export createmaps, plotmap
 
