@@ -163,4 +163,7 @@ function download_curl(curl_exe::AbstractString, url::AbstractString, filename::
     return filename
 end
 
-unpack(inputfilename, outputpath, extension) = run(BinDeps.unpack_cmd(inputfilename, outputpath, extension, ""))
+function unpack(inputfilename, outputpath, extension)
+    mkdir(outputpath)
+    run(BinDeps.unpack_cmd(inputfilename, outputpath, extension, ""))
+end
