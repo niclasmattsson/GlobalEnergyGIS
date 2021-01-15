@@ -330,6 +330,8 @@ julia> subregions(NUTS, "UKN")
  "UKN09"
  [...]
 
+```
+
 ### The actual GIS analysis
 
 Finally we have everything we need to actually calculate potential capacities and hourly capacity factors for
