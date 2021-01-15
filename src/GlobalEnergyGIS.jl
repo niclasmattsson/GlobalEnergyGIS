@@ -3,7 +3,7 @@ module GlobalEnergyGIS
 export GISwind, GISsolar, GIShydro, GIStemp, GISturbines, makedistances, annualwindindex
 
 using MAT, HDF5, ProgressMeter, Random, Interpolations, BenchmarkTools, Images, Statistics, DelimitedFiles, Dates,
-        NCDatasets, JLD, Parameters, ImageSegmentation, StatsBase, CSV, Distances, Printf, TimeZones
+        JLD, Parameters, ImageSegmentation, StatsBase, CSV, Distances, Printf, TimeZones
 
 include("rasterize_shapefiles.jl")
 include("make_auxiliary_datasets.jl")
