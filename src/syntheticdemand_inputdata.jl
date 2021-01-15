@@ -178,17 +178,17 @@ function buildtrainingdata(; gisregion="Europe8", sspscenario="ssp2-34", sspyear
     )
 
     # sort by average monthly temperature (in popcenter 1), store rank in ranked_month
-    df_monthlytemp = by(df_time, [:country, :month], temp_monthly = :temp1 => mean) |>
+    df_monthlytemp = combine(groupby(df_time, [:country, :month]), :temp1 => mean => :temp_monthly) |>
             d -> sort!(d, [:country, :temp_monthly]) |>
-            d -> insertcols!(d, 4, ranked_month=repeat(1:12, outer=numreg))
+            d -> insertcols!(d, 4, :ranked_month => repeat(1:12, outer=numreg))
 
     # dataframe with regional data
     df_reg = DataFrame(country=string.(regionlist), demandpercapita=demandpercapita, gdppercapita=gdppercapita,
                         temp1_qlow=quantiles[1,:], temp1_mean=quantiles[2,:], temp1_qhigh=quantiles[3,:])
 
     # join everything together
-    df = join(df_time, df_monthlytemp, on=[:country, :month]) |>
-                    d -> join(d, df_reg, on=:country)
+    df = innerjoin(df_time, df_monthlytemp, on=[:country, :month]) |>
+                    d -> innerjoin(d, df_reg, on=:country)
     return df, offsets, population
 end
 
@@ -198,7 +198,7 @@ function loadtrainingdata()
         savetrainingdata()
     end
     df_train = CSV.read(filename, DataFrame)
-    offsets = CSV.read(in_datafolder("syntheticdemand_timezoneoffsets.csv", DataFrame))[:,1]
+    offsets = CSV.read(in_datafolder("syntheticdemand_timezoneoffsets.csv"), DataFrame)[:,1]
     return df_train, offsets
 end
 
