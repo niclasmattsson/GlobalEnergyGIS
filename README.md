@@ -391,7 +391,7 @@ julia> predictdemand(gisregion="Europe8", sspscenario="ssp2-26", sspyear=2050, e
 ```
 
 This will create a matrix (size 8760x`number_of_regions`) with the predicted electricity demand for each
-model region and hour of the year. This data is saved in a new JLD file in `/GISdata_folder_path/output`. Here the full SSP scenario variant must be specified including the 2-digit code representing radiative forcing target (e.g. -19, 26, 34, 45).
+model region and hour of the year. This data is saved in a new JLD file in `/GISdata_folder_path/output`. Here the full SSP scenario variant must be specified including the 2-digit code representing radiative forcing target (e.g. 19, 26, 34, 45).
 
 ### Selecting variables to train on
 
