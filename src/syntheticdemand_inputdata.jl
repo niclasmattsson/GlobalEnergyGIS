@@ -50,7 +50,7 @@ end
 # https://www.iea.org/statistics/?country=MOROCCO&year=2016&category=Electricity&indicator=ElecGenByFuel&mode=table&dataTable=ELECTRICITYANDHEAT
 function ieademand()
     println("Get current national electricity demand from IEA statistics...")
-    iea = CSV.read(in_datafolder("ieademand_2016.csv"))      # GWh/year
+    iea = CSV.read(in_datafolder("ieademand_2016.csv"), DataFrame)      # GWh/year
     _, _, regionlist, _, _ = loadregions("Global_GADM0")
     nationaldemand = zeros(length(regionlist))
     for row in eachrow(iea)
@@ -71,7 +71,7 @@ ssplookup(ssp, model, scen, region) =
 function calcdemandmultipliers(sspscenario::String, year::Int)
     println("Calculate demand multipliers...")
     # First read electricity demand from the SSP database into a dataframe.
-    ssp = CSV.read(in_datafolder("SSP v2 Final Energy - Electricity.csv"))
+    ssp = CSV.read(in_datafolder("SSP v2 Final Energy - Electricity.csv"), DataFrame)
 
     # SSP scenarios also include radiative forcing targets, e.g. SSP2-34
     # (only for IAM energy system results, not underlying population & GDP scenario)
@@ -197,8 +197,8 @@ function loadtrainingdata()
     if !isfile(filename)
         savetrainingdata()
     end
-    df_train = CSV.read(filename)
-    offsets = CSV.read(in_datafolder("syntheticdemand_timezoneoffsets.csv"))[:,1]
+    df_train = CSV.read(filename, DataFrame)
+    offsets = CSV.read(in_datafolder("syntheticdemand_timezoneoffsets.csv", DataFrame))[:,1]
     return df_train, offsets
 end
 
@@ -213,7 +213,7 @@ function savetrainingdata(; numcenters=3, mindist=3.3)
     CSV.write(in_datafolder("syntheticdemand_trainingdata.csv"), df_train)
 end
 
-loaddemanddata() = CSV.read(in_datafolder("syntheticdemand_demanddata.csv"))
+loaddemanddata() = CSV.read(in_datafolder("syntheticdemand_demanddata.csv"), DataFrame)
 
 function regional_timezone_offsets_Jan1(; gisregion="Europe8", scenarioyear="ssp2_2050", era_year=2018)
     println("\nCalculating population-weighted regional time zone offsets...")
@@ -257,7 +257,7 @@ function regional_timezone_offsets_Jan1(; gisregion="Europe8", scenarioyear="ssp
 end
 
 function saveVilledemand()
-    vv = CSV.read(in_datafolder("syntheticdemand", "data", "df_model_features.csv"))
+    vv = CSV.read(in_datafolder("syntheticdemand", "data", "df_model_features.csv"), DataFrame)
     hours = DateTime(2015, 1, 1, 0) : Hour(1) : DateTime(2015, 12, 31, 23)
     demand1D = hcat(DataFrame(hours=repeat(hours, outer=44)), select(vv, [:country, :demand_total_mwh]))
     demand2D = unstack(demand1D, :country, :demand_total_mwh)
