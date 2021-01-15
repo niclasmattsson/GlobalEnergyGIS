@@ -147,7 +147,7 @@ Now you can optionally delete the original data. One of the upstream packages so
 files, so you may need to restart Julia to run this command.
 
 ```
-julia> clearvars_era5("wind", year=2018)
+julia> clearvars_era5(year=2018, datasets=["wind"])
 ```
 
 Now convert the solar data, and optionally delete the original data.
@@ -157,7 +157,7 @@ julia> makesolarera5(year=2018)
 ```
 
 ```
-julia> clearvars_era5("solar", year=2018)
+julia> clearvars_era5(year=2018, datasets=["solar"])
 ```
 
 Finally convert the temperature data, and optionally delete the original data.
@@ -167,7 +167,7 @@ julia> maketempera5(year=2018)
 ```
 
 ```
-julia> clearvars_era5("temp", year=2018)
+julia> clearvars_era5(year=2018, datasets=["temp"])
 ```
 
 ## Usage (creating renewable energy input data for arbitrary model regions)
@@ -198,19 +198,19 @@ which regions are connected onshore and offshore and calculate distances between
 centers.
 
 ```
-julia> saveregions("Europe8", europe8)
+julia> saveregions("Europe6", europe6)
 
-julia> makedistances("Europe8")
+julia> makedistances("Europe6")
 
 ```
 
-Here `europe8` is a region matrix defined in `regiondefinitions.jl`, but you can refer to your own region
+Here `europe6` is a region matrix defined in `regiondefinitions.jl`, but you can refer to your own region
 matrices defined elsewhere. See the next section for syntax examples. To get visual confirmation of the
 results, run `createmaps(regionset_name)` to create images of onshore and offshore region territories
 (in `/GISdata_folder_path/output`).
 
 ```
-julia> createmaps("Europe8")
+julia> createmaps("Europe6")
 ```
 
 ### Region definition matrix syntax
@@ -280,31 +280,55 @@ For more syntax examples, see `regiondefinitions.jl` (in the GlobalEnergyGIS /sr
 
 There is a simple helper function `subregion()` to facilitate finding the names of subregions. Note that the
 GADM version takes multiple subregion arguments while the NUTS version only takes a single argument (and matches
-the beginning of the subregion name). The function will print a compact comma-separated list of subregions and
-also return a vector of subregion names. Use a semicolon at the end to suppress the longer vector listing in
-the Julia REPL.
+the beginning of the subregion name). The function will return a vector of subregion names.
 
 ```
-julia> subregions(GADM);
-Showing top level GADM regions:
-GADM(): Afghanistan, Akrotiri and Dhekelia, Albania, Algeria, American Samoa, Andorra, Angola, [...]
+julia> subregions(GADM)
+256-element Array{String,1}:
+ "Afghanistan"
+ "Akrotiri and Dhekelia"
+ "Albania"
+ "Algeria"
+[...]
 
-julia> subregions(GADM, "France");
-GADM(France): Auvergne-Rhône-Alpes, Bourgogne-Franche-Comté, Bretagne, Centre-Val de Loire, Corse, Grand Est, Hauts-de-France, Normandie, Nouvelle-Aquitaine, Occitanie, Pays de la Loire, Provence-Alpes-Côte d'Azur, Île-de-France
+julia> subregions(GADM, "France")
+13-element Array{String,1}:
+ "Auvergne-Rhône-Alpes"
+ "Bourgogne-Franche-Comté"
+ "Bretagne"
+ "Centre-Val de Loire"
+ [...]
 
-julia> subregions(GADM, "France", "Bretagne");
-GADM(France, Bretagne): Côtes-d'Armor, Finistère, Ille-et-Vilaine, Morbihan
+julia> subregions(GADM, "France", "Bretagne")
+4-element Array{String,1}:
+ "Côtes-d'Armor"
+ "Finistère"
+ "Ille-et-Vilaine"
+ "Morbihan"
 
-julia> subregions(NUTS);
-Showing top level NUTS regions:
-NUTS(): AL, AT, BE, BG, CH, CY, CZ, DE, DK, EE, EL, ES, FI, FR, HR, HU, IE, IS, IT, LI, LT, LU, LV, ME, MK, MT, NL, NO, PL, PT, RO, RS, SE, SI, SK, TR, UK
+julia> subregions(NUTS)
+37-element Array{String,1}:
+ "AL"
+ "AT"
+ "BE"
+ "BG"
+ [...]
 
-julia> subregions(NUTS, "UK");
-NUTS(UK): UKC11, UKC12, UKC13, UKC14, UKC21, UKC22, UKC23, UKD11, UKD12, UKD33, UKD34, UKD35, UKD36, [...]
+julia> subregions(NUTS, "UK")
+179-element Array{String,1}:
+ "UKC11"
+ "UKC12"
+ "UKC13"
+ "UKC14"
+ [...]
 
-julia> subregions(NUTS, "UKC");
-NUTS(UKC): UKC11, UKC12, UKC13, UKC14, UKC21, UKC22, UKC23
-```
+julia> subregions(NUTS, "UKN")
+11-element Array{String,1}:
+ "UKN06"
+ "UKN07"
+ "UKN08"
+ "UKN09"
+ [...]
 
 ### The actual GIS analysis
 

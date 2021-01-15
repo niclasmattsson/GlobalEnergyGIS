@@ -259,7 +259,7 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
     eralons, eralats, lonmap, latmap, cellarea = eralonlat(options, lonrange, latrange)
 
     println("Calculating GW potential and hourly capacity factors for each region and class...")
-    println("Interpolate ERA5 insolation later (maybe 4x runtime).")
+    # println("Interpolate ERA5 insolation later (maybe 4x runtime).")
 
     @unpack era_year, pvclasses_min, cspclasses_min, res, erares, pv_density, csp_density, pvroof_area, plant_area = options
 
