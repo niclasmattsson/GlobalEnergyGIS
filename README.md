@@ -198,19 +198,19 @@ which regions are connected onshore and offshore and calculate distances between
 centers.
 
 ```
-julia> saveregions("Europe6", europe6)
+julia> saveregions("Europe13", europe13)
 
-julia> makedistances("Europe6")
+julia> makedistances("Europe13")
 
 ```
 
-Here `europe6` is a region matrix defined in `regiondefinitions.jl`, but you can refer to your own region
+Here `europe13` is a region matrix defined in `regiondefinitions.jl`, but you can refer to your own region
 matrices defined elsewhere. See the next section for syntax examples. To get visual confirmation of the
 results, run `createmaps(regionset_name)` to create images of onshore and offshore region territories
 (in `/GISdata_folder_path/output`).
 
 ```
-julia> createmaps("Europe6")
+julia> createmaps("Europe13")
 ```
 
 ### Region definition matrix syntax
