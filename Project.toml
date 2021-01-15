@@ -40,3 +40,6 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 StatsMakie = "65254759-4cff-5aa5-8326-61ce017a8c70"
 TimeZones = "f269a46b-ccf7-5d73-abea-4c690281aa53"
 XGBoost = "009559a3-9522-5dbb-924b-0b6ed2b22bb9"
+
+[compat]
+HDF5 = "0.13.1"
