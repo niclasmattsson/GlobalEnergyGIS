@@ -44,5 +44,4 @@ XGBoost = "009559a3-9522-5dbb-924b-0b6ed2b22bb9"
 
 [compat]
 GeoMakie = "= 0.1.10"
-HDF5 = "0.13.1"
 Makie = "= 0.10.0"
