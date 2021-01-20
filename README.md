@@ -198,19 +198,19 @@ which regions are connected onshore and offshore and calculate distances between
 centers.
 
 ```
-julia> saveregions("Europe6", europe6)
+julia> saveregions("Europe13", europe13)
 
-julia> makedistances("Europe6")
+julia> makedistances("Europe13")
 
 ```
 
-Here `europe6` is a region matrix defined in `regiondefinitions.jl`, but you can refer to your own region
+Here `europe13` is a region matrix defined in `regiondefinitions.jl`, but you can refer to your own region
 matrices defined elsewhere. See the next section for syntax examples. To get visual confirmation of the
 results, run `createmaps(regionset_name)` to create images of onshore and offshore region territories
 (in `/GISdata_folder_path/output`).
 
 ```
-julia> createmaps("Europe6")
+julia> createmaps("Europe13")
 ```
 
 ### Region definition matrix syntax
@@ -391,7 +391,7 @@ julia> predictdemand(gisregion="Europe8", sspscenario="ssp2-26", sspyear=2050, e
 ```
 
 This will create a matrix (size 8760x`number_of_regions`) with the predicted electricity demand for each
-model region and hour of the year. This data is saved in a new JLD file in `/GISdata_folder_path/output`. Here the full SSP scenario variant must be specified including the 2-digit code representing radiative forcing target (e.g. -19, 26, 34, 45).
+model region and hour of the year. This data is saved in a new JLD file in `/GISdata_folder_path/output`. Here the full SSP scenario variant must be specified including the 2-digit code representing radiative forcing target (e.g. 19, 26, 34, 45).
 
 ### Selecting variables to train on
 

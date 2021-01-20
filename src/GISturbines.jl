@@ -381,3 +381,62 @@ function return_wind_masks(options, regions, offshoreregions, gridaccess, popden
     return mask_onshoreA, mask_onshoreB, mask_offshore,
             gridA, (popdens .< persons_per_km2), goodland, protected_area
 end
+
+
+function make_turbineCSV_for_postdocs(; mincapac=0, minclass=0, firstyear=1978, plotmasks=false, optionlist...)
+    cols = [:lon, :lat, :capac, :year, :onshore, :elec2018]
+    turbines = DataFrame!(CSV.File(in_datafolder("turbines_DK.csv")))[:, cols]
+    turbines = turbines[turbines[:capac].>=mincapac, :]
+    nrows = size(turbines, 1)
+
+    options = WindOptions(merge(windoptions(), optionlist))
+    @unpack gisregion, downsample_masks, onshore_density, area_onshore, res = options
+    regions, offshoreregions, regionlist, gridaccess, popdens, topo, land,
+        protected_mat, lonrange, latrange =
+                read_datasets(options)
+    mask_onshoreA, mask_onshoreB, mask_offshore,
+        gridA, lowpopdens, goodland, protected_area =
+            return_wind_masks(options, regions, offshoreregions, gridaccess, popdens,
+                            topo, land, protected_mat, lonrange, latrange,
+                            plotmasks=plotmasks, downsample=downsample_masks)
+    mask_onshore = mask_onshoreA .| mask_onshoreB
+    lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
+    cellarea = rastercellarea.(lats, res)
+
+    windatlas = getwindatlas()[lonrange,latrange]
+
+    nreg = length(regionlist)
+
+    pop, area, area_ok, maxcapac, maxcapac_ok =
+        zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg)
+
+    turbines[!, :municipality] = fill("", nrows)
+    turbines[!, :avg_windspeed] = fill(0.0, nrows)
+    turbines[!, :landtype] = fill("", nrows)
+    turbines[!, :popdensity] = fill(0.0, nrows)
+    turbines[!, :masks_ok] = fill(false, nrows)
+
+    for row in eachrow(turbines)
+        reg, flon, flat = getregion_and_index(row[:lon], row[:lat], regions, lonrange, latrange)
+        if (reg == 0 || reg == NOREGION) 
+            reg, flon, flat = getregion_and_index(row[:lon], row[:lat], offshoreregions, lonrange, latrange)
+            (reg == 0 || reg == NOREGION) && continue
+        end
+        row[:municipality] = string(regionlist[reg])
+        row[:avg_windspeed] = windatlas[flon,flat]
+        row[:landtype] = land[flon,flat] > 0 ? landtypes[land[flon,flat]] : "Water"
+        row[:popdensity] = popdens[flon, flat]
+        row[:masks_ok] = row[:onshore] ? mask_onshore[flon, flat] : mask_offshore[flon, flat]
+    end
+
+    for reg = 1:nreg
+        area[reg] += sum((regions .== reg) .* cellarea')
+        area_ok[reg] += sum(((regions .== reg) .& mask_onshore) .* cellarea')
+        pop[reg] = sum((regions .== reg) .* popdens) / area[reg]
+    end
+
+    munic = DataFrame(region=regionlist, avg_popdens=pop, area=area, area_masks_ok=area_ok)
+    CSV.write("turbines_DK.csv", turbines)
+    CSV.write("municipalities_DK.csv", munic)
+    turbines, munic
+end
