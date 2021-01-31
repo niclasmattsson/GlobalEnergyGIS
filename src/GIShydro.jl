@@ -97,7 +97,7 @@ function readhydrodatabases()
     existing = CSV.read(in_datafolder("Hydro database (Gernaat) - existing (GRanD).csv"), DataFrame)
 
     # country,country_long,name,gppd_idnr,capacity_mw,latitude,longitude,fuel1,fuel2,fuel3,fuel4,commissioning_year,owner,source,url,geolocation_source,year_of_capacity_data,generation_gwh_2013,generation_gwh_2014,generation_gwh_2015,generation_gwh_2016,estimated_generation_gwh
-    elecplants = CSV.read(in_datafolder("WRI - Global Power Plant Database v1.10", "global_power_plant_database.csv", DataFrame), copycols=true)
+    elecplants = CSV.read(in_datafolder("WRI - Global Power Plant Database v1.10", "global_power_plant_database.csv"), DataFrame, copycols=true)
 
     # clean up wrong coordinates
     wrong = findall((elecplants.fuel1 .== "Hydro") .& (
