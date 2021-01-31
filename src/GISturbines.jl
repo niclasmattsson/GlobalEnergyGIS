@@ -135,7 +135,8 @@ function exportGISturbinedata(; mincapac=0, minclass=0, firstyear=1978, plotmask
             onshore=replace(onshore, NaN=>missing), offshore=replace(offshore, NaN=>missing),
             masked=masked, nogrid=nogrid, highpop=highpop, badland=badland, protected=protected,
             dens_tot=round.(capac./area, digits=3), dens_ok=round.(capac_ok./area_ok, digits=3), 
-            exploit_tot=round.(capac./maxcapac*100, digits=1), exploit_ok=round.(capac_ok./maxcapac_ok*100, digits=1), 
+            exploit_tot=round.(area_onshore*capac./maxcapac*100, digits=1),
+            exploit_ok=round.(area_onshore*capac_ok./maxcapac_ok*100, digits=1), 
             popdens=pop, land1=commonland[:,1], freq1=freq[:,1], land2=commonland[:,2], freq2=freq[:,2],
             land3=commonland[:,3], freq3=freq[:,3], area=round.(Int, area), class=class)
     CSV.write(in_datafolder("output", "regionalwindGIS_$gisregion.csv"), df)
