@@ -27,4 +27,14 @@ include("mapping.jl")
 include("syntheticdemand_inputdata.jl")
 include("syntheticdemand_training.jl")
 
+function GISsequence(regionname, regionmat)
+    saveregions(regionname, regionmat)
+    makedistances(regionname)
+    createmaps(regionname)
+    GISsolar(gisregion=regionname, plotmasks=true)
+    GISwind(gisregion=regionname, plotmasks=true)
+    GIShydro(gisregion=regionname)
+    predictdemand(gisregion=regionname, sspscenario="ssp2-26", sspyear=2050, era_year=2018)
+end
+
 end
