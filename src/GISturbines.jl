@@ -108,6 +108,8 @@ function exportGISturbinedata(; mincapac=0, minclass=0, firstyear=1978, plotmask
     highpop = round.(highpop ./ maskedturbines * 100, digits=1)
     badland = round.(badland ./ maskedturbines * 100, digits=1)
     protected = round.(protected ./ maskedturbines * 100, digits=1)    
+    println("Calculating results per municipality/county...")
+    updateprogress = Progress(nreg, 1)
     for reg = 1:nreg
         area[reg] += sum((regions .== reg) .* cellarea')
         maxcapac[reg] = area[reg] * onshore_density * area_onshore
@@ -116,6 +118,7 @@ function exportGISturbinedata(; mincapac=0, minclass=0, firstyear=1978, plotmask
         ss = sortslices([landcount[reg, :] collect(1:16)], dims=1, rev=true)
         commonland[reg,:] = getindex.(Ref(landtypes), ss[1:3, 2])
         freq[reg,:] = round.(ss[1:3, 1]/n_onshore[reg] * 100, digits=1)
+        next!(updateprogress)
     end
     println("Turbine density of unmasked land (MW/km2): ",
             round(sum(capac_ok)/sum(area_ok), digits=3),
