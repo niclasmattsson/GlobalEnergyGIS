@@ -100,7 +100,7 @@ function exportGISturbinedata(; mincapac=0, minclass=0, firstyear=1978, plotmask
     println("Total population density (persons/km2): ", round(sum(pop)/sum(n_onshore)/sum(capac), digits=1),
             " ($(round(regionalpopdens, digits=1)))")
     onshore = round.(onshore ./ n_onshore * 100, digits=1)
-    class = round.(class ./ n_onshore, digits=1)
+    class = class ./ n_onshore
     offshore = round.(offshore ./ n_offshore * 100, digits=1)
     pop = round.(pop ./ n_onshore ./ capac, digits=1)
     masked = round.(maskedturbines ./ n_onshore * 100, digits=1)
