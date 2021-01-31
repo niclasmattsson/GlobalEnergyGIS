@@ -89,15 +89,15 @@ function readhydrodatabases()
     # lat,lon,COE ($/kWh),Production (GWh),Lake surface (m2),Lake volume (m3),
     #   Qm1,Qm2,Qm3,Qm4,Qm5,Qm6,Qm7,Qm8,Qm9,Qm10,Qm11,Qm12,Qm13,ContID,BasinID,
     #   SysID (1=DiversionalCanalPower/2=RiverPower), CapCost ($/kW)
-    potential = CSV.read(in_datafolder("Hydro database (Gernaat) - potential.csv"), DataFrame)
+    potential = DataFrame(CSV.File(in_datafolder("Hydro database (Gernaat) - potential.csv")))
 
     # GrandID,lat,lon,Production_kWh,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13
     # original headers:
     # GrandID,lat,lon,Production_GWh,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13
-    existing = CSV.read(in_datafolder("Hydro database (Gernaat) - existing (GRanD).csv"), DataFrame)
+    existing = DataFrame(CSV.File(in_datafolder("Hydro database (Gernaat) - existing (GRanD).csv")))
 
     # country,country_long,name,gppd_idnr,capacity_mw,latitude,longitude,fuel1,fuel2,fuel3,fuel4,commissioning_year,owner,source,url,geolocation_source,year_of_capacity_data,generation_gwh_2013,generation_gwh_2014,generation_gwh_2015,generation_gwh_2016,estimated_generation_gwh
-    elecplants = CSV.read(in_datafolder("WRI - Global Power Plant Database v1.10", "global_power_plant_database.csv"), DataFrame, copycols=true)
+    elecplants = DataFrame(CSV.File(in_datafolder("WRI - Global Power Plant Database v1.10", "global_power_plant_database.csv")), copycols=true)
 
     # clean up wrong coordinates
     wrong = findall((elecplants.fuel1 .== "Hydro") .& (
@@ -123,12 +123,12 @@ function readhydrodatabases()
     # Country, Capacity_MW, Pumped_MW, Other_MW, Generation_GWh, Generation_BP_GWh   % [0 = no data]
     # original headers:
     # Country, Total Hydropower Capacity (MW) in 2015, Pumped Storage Capacity (MW) in 2015, Excluding Pumped Storage (MW) in 2015, Estimated Net Hydropower Generation (GWh) in 2015, Consumption of Hydroelectricity (GWh) in 2015 (BP 2016)
-    WECcapacity = CSV.read(in_datafolder("WEC hydro capacity 2015.csv"), DataFrame)
+    WECcapacity = CSV.File(in_datafolder("WEC hydro capacity 2015.csv")) |> DataFrame
 
     # Country, Undeveloped_GWh, Potential_GWh, Utilisation
     # original headers:
     # Country, Undeveloped (GWh/year), Total Potential (GWh/year), Current Utilisation (%)
-    WECpotential = CSV.read(in_datafolder("WEC hydro potentials.csv"), DataFrame)
+    WECpotential = CSV.File(in_datafolder("WEC hydro potentials.csv")) |> DataFrame
 
     return potential, existing, hydroplants, WECcapacity, WECpotential
 end

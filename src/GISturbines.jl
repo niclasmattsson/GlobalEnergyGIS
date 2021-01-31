@@ -12,10 +12,10 @@ const landtypes = ["Evergreen Needleleaf", "Evergreen Broadleaf",
 
 function exportGISturbinedata(; mincapac=0, minclass=0, firstyear=1978, plotmasks=false, optionlist...)
     cols = [:lon, :lat, :capac, :onshore, :elec2018]
-    df_DK = DataFrame!(CSV.File(in_datafolder("turbines_DK.csv")))[:, cols]
-    df_SE = DataFrame!(CSV.File(in_datafolder("turbines_SE.csv")))[:, cols[1:4]]
-    df_DE = DataFrame!(CSV.File(in_datafolder("turbines_DE.csv")))[:, cols[1:3]]
-    df_USA = DataFrame!(CSV.File(in_datafolder("turbines_USA.csv")))[:, cols[1:3]]
+    df_DK = DataFrame(CSV.File(in_datafolder("turbines_DK.csv")))[:, cols]
+    df_SE = DataFrame(CSV.File(in_datafolder("turbines_SE.csv")))[:, cols[1:4]]
+    df_DE = DataFrame(CSV.File(in_datafolder("turbines_DE.csv")))[:, cols[1:3]]
+    df_USA = DataFrame(CSV.File(in_datafolder("turbines_USA.csv")))[:, cols[1:3]]
     df_SE[:, :elec2018] .= missing    # MWh/year
     df_DE[:, :elec2018] .= missing    # MWh/year
     df_DE[:, :onshore] .= missing    # MWh/year
@@ -181,10 +181,10 @@ function GISturbines_density(; agg=1, optionlist...)
     pop = JLD.load(in_datafolder("population_$scenarioyear.jld"), "population")[lonrange,latrange]
     popdens = aggregate_array(pop, agg) ./ aggregate_array(cellarea, agg)'      # persons/km2
 
-    df_DK = DataFrame!(CSV.File(in_datafolder("turbines_DK.csv")))[:, [:lon, :lat, :capac]]
-    df_USA = DataFrame!(CSV.File(in_datafolder("turbines_USA.csv")))[:, [:lon, :lat, :capac]]
-    df_SE = DataFrame!(CSV.File(in_datafolder("turbines_SE.csv")))[:, [:lon, :lat, :capac]]
-    df_UK = DataFrame!(CSV.File(in_datafolder("turbines_UK.csv")))[:, [:lon, :lat, :capac]]
+    df_DK = DataFrame(CSV.File(in_datafolder("turbines_DK.csv")))[:, [:lon, :lat, :capac]]
+    df_USA = DataFrame(CSV.File(in_datafolder("turbines_USA.csv")))[:, [:lon, :lat, :capac]]
+    df_SE = DataFrame(CSV.File(in_datafolder("turbines_SE.csv")))[:, [:lon, :lat, :capac]]
+    df_UK = DataFrame(CSV.File(in_datafolder("turbines_UK.csv")))[:, [:lon, :lat, :capac]]
     turbines = vcat(df_DK, df_USA, df_SE, df_UK)
 
     turbinecapacity = aggregate_turbine_capacity(gisregion, turbines, regions, regionlist, lonrange, latrange)
@@ -389,7 +389,7 @@ end
 
 function make_turbineCSV_for_postdocs(; mincapac=0, minclass=0, firstyear=1978, plotmasks=false, optionlist...)
     cols = [:lon, :lat, :capac, :year, :onshore, :elec2018]
-    turbines = DataFrame!(CSV.File(in_datafolder("turbines_DK.csv")))[:, cols]
+    turbines = DataFrame(CSV.File(in_datafolder("turbines_DK.csv")))[:, cols]
     turbines = turbines[turbines[:capac].>=mincapac, :]
     nrows = size(turbines, 1)
 
