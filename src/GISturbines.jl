@@ -22,7 +22,7 @@ function exportGISturbinedata(; mincapac=0, minclass=0, firstyear=1978, plotmask
     df_USA[:, :elec2018] .= missing    # MWh/year
     df_USA[:, :onshore] .= missing    # MWh/year
     turbines = vcat(df_DK, df_SE, df_DE, df_USA)
-    turbines = turbines[turbines[:capac].>=mincapac, :]
+    turbines = turbines[turbines[!,:capac].>=mincapac, :]
 
     options = WindOptions(merge(windoptions(), optionlist))
     @unpack gisregion, downsample_masks, onshore_density, area_onshore, res = options
