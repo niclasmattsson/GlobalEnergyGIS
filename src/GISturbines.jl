@@ -1,6 +1,7 @@
 using StatsMakie
 
-export shadedmap, hist, GISturbines_density, aggregate, exportGISturbinedata, landtypes
+export shadedmap, myhist, GISturbines_density, aggregate, exportGISturbinedata, landtypes,
+        makePixelDataframe, savePixelData, groupwinddata
 
 const landtypes = ["Evergreen Needleleaf", "Evergreen Broadleaf",
                 "Deciduous Needleleaf", "Deciduous Broadleaf", "Mixed Forests",
@@ -9,6 +10,135 @@ const landtypes = ["Evergreen Needleleaf", "Evergreen Broadleaf",
 
 # const landtypes = ["Forest", "Forest", "Forest", "Forest", "Forest", "Shrubland", "Shrubland", "Forest",
 #                 "Savanna", "Grassland", "Wetland", "Cropland", "Urban", "Cropland", "Snow/Ice", "Barren"]
+
+function makePixelDataframe(; optionlist...)
+    cols = [:lon, :lat, :capac, :year, :onshore, :elec2018]
+    df_DK = DataFrame(CSV.File(in_datafolder("turbines_DK.csv")))[:, cols]
+    df_SE = DataFrame(CSV.File(in_datafolder("turbines_SE.csv")))[:, cols[1:5]]
+    df_DE = DataFrame(CSV.File(in_datafolder("turbines_DE.csv")))[:, cols[1:4]]
+    df_USA = DataFrame(CSV.File(in_datafolder("turbines_USA.csv")))[:, cols[1:4]]
+    df_SE[:, :elec2018] .= missing    # MWh/year
+    df_DE[:, :elec2018] .= missing    # MWh/year
+    df_DE[:, :onshore] .= missing    # MWh/year
+    df_USA[:, :elec2018] .= missing    # MWh/year
+    df_USA[:, :onshore] .= missing    # MWh/year
+    df_SE[!,:year] = [ismissing(d) ? 2000 : year(d) for d in df_SE[!,:year]]
+    turbines = vcat(df_DK, df_SE, df_DE, df_USA)
+
+    options = WindOptions(merge(windoptions(), optionlist))
+    @unpack gisregion, res = options
+    regions, offshoreregions, regionlist, gridaccess, popdens, topo, land,
+        protected, lonrange, latrange = read_datasets(options)
+
+    windatlas = getwindatlas()[lonrange,latrange]
+
+    nreg = length(regionlist)
+    nlon, nlat = size(windatlas)
+    turbinecapac = zeros(Int, nlon, nlat)
+    nturbines = zeros(Int, nlon, nlat)
+    turbineyear = zeros(Int, nlon, nlat)
+
+    for row in eachrow(turbines)
+        reg, flon, flat = getregion_and_index(row[:lon], row[:lat], regions, lonrange, latrange)
+        if (reg == 0 || reg == NOREGION) 
+            reg, flon, flat = getregion_and_index(row[:lon], row[:lat], offshoreregions, lonrange, latrange)
+            (reg == 0 || reg == NOREGION) && continue
+        end
+        nturbines[flon,flat] += 1
+        turbineyear[flon,flat] = max(turbineyear[flon,flat], row[:year])
+        turbinecapac[flon,flat] += row[:capac]
+    end
+
+    region = max.(regions, offshoreregions)
+    lons = (-180+res/2:res:180-res/2)[lonrange]   # longitude values (pixel center)
+    lats = (90-res/2:-res:-90+res/2)[latrange]    # latitude values (pixel center)
+    cellarea = rastercellarea.(lats, res)
+    lon = repeat(lons, 1, nlat)
+    lat = repeat(lats', nlon)
+    area = repeat(cellarea', nlon)
+
+    r = (region .> 0) .& (region .!= NOREGION)
+
+    return DataFrame(lat=lat[r], lon=lon[r], munic=region[r],
+        area=round.(area[r], sigdigits=4), landtype=land[r], protected=protected[r],
+        popdens=round.(popdens[r], sigdigits=4), windspeed=round.(windatlas[r], sigdigits=4),
+        nturbines=nturbines[r], turbinecapac=turbinecapac[r], turbineyear=turbineyear[r])
+end
+
+function savePixelData()
+    gisregions = ["SwedenGADM3", "Denmark83", "GermanyGADM3", "USAGADM3"]
+    countries = ["Sweden", "Denmark", "Germany", "USA"]
+    println("Building municipality list...")
+    munic, nmunic = Dict(), Dict()
+    for (gisregion, country) in zip(gisregions, countries)
+        _, _, regionlist, _, _ = loadregions(gisregion)
+        munic[country] = regionlist
+        nmunic[gisregion] = length(regionlist)
+    end
+    dfmunic = vcat((DataFrame(country=country, municipality=munic[country])
+                for country in countries)...)
+    insertcols!(dfmunic, 1, :index => 1:nrow(dfmunic))
+    CSV.write("D:/GISdata/municipalities.csv", dfmunic)
+    println("Building main DataFrame...")
+    println(countries[1])
+    dfall = makePixelDataframe(gisregion=gisregions[1])
+    countrynum = 1
+    insertcols!(dfall, 3, :country => countrynum)
+    len = nmunic[gisregions[1]]
+    for gisregion in gisregions[2:end]
+        println(gisregion)
+        df = makePixelDataframe(gisregion=gisregion)
+        df[!,:munic] .+= len
+        countrynum += 1
+        insertcols!(df, 3, :country => countrynum)
+        dfall = vcat(dfall, df)
+        len += nmunic[gisregion]
+    end
+    println("Saving DataFrame...")
+    CSV.write("D:/GISdata/windpixeldata.csv", dfall)
+end
+
+# just for the histogram data Fredrik wanted
+function groupwinddata(country; firstyear=1978, lastyear=2021)
+    df = CSV.File("D:/GISdata/windpixeldata.csv") |> DataFrame
+    df = df[df.country .== country, :]
+    df.inyears = (df.turbineyear.>=firstyear) .& (df.turbineyear.<=lastyear)
+    df.is_onshore = (df.landtype .> 0)
+    df.is_offshore = (df.landtype .== 0)
+    df.nturbines = df.nturbines .* df.inyears
+    df.nturbines_on = df.nturbines .* df.is_onshore
+    df.nturbines_off = df.nturbines .* df.is_offshore
+    df.capac = df.turbinecapac/1000 .* df.inyears
+    df.capac_on = df.capac .* df.is_onshore
+    df.capac_off = df.capac .* df.is_offshore
+    df.windspeed_range = DataFrames.cut(df.windspeed, 0:.25:21, extend=true)
+    gdf = groupby(df, :windspeed_range)
+    cdf = combine(gdf, [:nturbines, :nturbines_on, :nturbines_off] .=> sum, 
+        [:capac, :capac_on, :capac_off] .=> sum,
+        nrow => :pixels, [:is_onshore, :is_offshore] .=> sum .=> [:pixels_on, :pixels_off],
+        renamecols = false)
+    countries = ["Sweden", "Denmark", "Germany", "USA"]
+    filename = "winddata $(countries[country]) $firstyear-$lastyear.csv"
+    CSV.write(filename, cdf)
+end
+
+#=
+# run in REPL with using Plots & plotly()
+function plothists(region, windspeed, onshoreturbine, onshore, offshore, years)
+    region = replace(region, "GADM" => "")
+    region = replace(region, r"\d" => "")
+    title = "$region $(years[1]) - $(years[2])"
+    histopt = (legend=:none, size=(1200,550), tickfont=12, bins=2.8:.1:11.2,
+                    xticks=3:1:11, normalize=true)
+    barhist(windspeed[onshoreturbine], title=title, c=:lightgray; histopt...)
+    stephist!(windspeed[onshore .& (windspeed.>0)], lw=1.5, c=:blue; histopt...)
+    stephist!(windspeed[offshore .& (windspeed.>0)], lw=1.5, c=:red; histopt...)
+end
+
+    # groupedhist([windspeed[onshoreturbine]; windspeed[offshoreturbine]];
+    #     group=[ones(sum(onshoreturbine)); 2*ones(sum(offshoreturbine))],
+    #     bar_position = :stack, c=[:lightgray :red], histopt...)
+=#
 
 function exportGISturbinedata(; mincapac=0, minclass=0, firstyear=1978, plotmasks=false, optionlist...)
     cols = [:lon, :lat, :capac, :onshore, :elec2018]
@@ -48,8 +178,8 @@ function exportGISturbinedata(; mincapac=0, minclass=0, firstyear=1978, plotmask
     landcount, commonland, freq = zeros(Int, nreg, 16), fill("", nreg, 3), zeros(nreg, 3)
     maskedturbines, nogrid, highpop, badland, protected =
         zeros(Int, nreg), zeros(Int, nreg), zeros(Int, nreg), zeros(Int, nreg), zeros(Int, nreg)
-    capac_ok, area, area_ok, maxcapac, maxcapac_ok, class =
-        zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg)
+    capac_ok, area, area_ok, maxcapac, maxcapac_ok, class, windspeed =
+        zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg), zeros(nreg)
 
     for row in eachrow(turbines)
         reg, flon, flat = getregion_and_index(row[:lon], row[:lat], regions, lonrange, latrange)
@@ -61,7 +191,8 @@ function exportGISturbinedata(; mincapac=0, minclass=0, firstyear=1978, plotmask
             onshoreclass[flon, flat] < minclass && continue
             capac[reg] += row[:capac] / 1000
             capac_ok[reg] += row[:capac] / 1000 * mask_onshore[flon, flat]
-            class[reg] += onshoreclass[flon, flat] 
+            class[reg] += onshoreclass[flon, flat]
+            windspeed[reg] += windatlas[flon, flat]
             onshore[reg] += mask_onshore[flon, flat]
             n_onshore[reg] += 1
             if land[flon, flat] != 0
@@ -101,6 +232,7 @@ function exportGISturbinedata(; mincapac=0, minclass=0, firstyear=1978, plotmask
             " ($(round(regionalpopdens, digits=1)))")
     onshore = round.(onshore ./ n_onshore * 100, digits=1)
     class = class ./ n_onshore
+    windspeed = windspeed ./ n_onshore
     offshore = round.(offshore ./ n_offshore * 100, digits=1)
     pop = round.(pop ./ n_onshore ./ capac, digits=1)
     masked = round.(maskedturbines ./ n_onshore * 100, digits=1)
@@ -138,7 +270,8 @@ function exportGISturbinedata(; mincapac=0, minclass=0, firstyear=1978, plotmask
             exploit_tot=round.(area_onshore*capac./maxcapac*100, digits=1),
             exploit_ok=round.(area_onshore*capac_ok./maxcapac_ok*100, digits=1), 
             popdens=pop, land1=commonland[:,1], freq1=freq[:,1], land2=commonland[:,2], freq2=freq[:,2],
-            land3=commonland[:,3], freq3=freq[:,3], area=round.(Int, area), class=class)
+            land3=commonland[:,3], freq3=freq[:,3], area=round.(Int, area), class=class,
+            windspeed=windspeed)
     CSV.write(in_datafolder("output", "regionalwindGIS_$gisregion.csv"), df)
     df
 end
@@ -163,7 +296,7 @@ function turbinecharts(gisregion)
     # shadedmap("Denmark5", log10.(1 .+pd), downsample=2, colorscheme=:magma)
 end
 
-function hist(data; normalize=false, args...)
+function myhist(data; normalize=false, args...)
     h = fit(Histogram, data; args...)
     weights = normalize ? h.weights/sum(h.weights) : h.weights
     barplot(h.edges[1][1:end-1], weights)
