@@ -1,4 +1,4 @@
-using BinDeps
+using BinDeps, UrlDownload
 
 export download_datasets
 
@@ -149,18 +149,8 @@ end
 
 function download_progressbar(url::AbstractString, filename::AbstractString)
     println("Downloading to $filename...")
-    curl = Base.find_curl()
-    if curl == nothing
-        # if curl is not on the system, fall back to a download without progress bar
-        download(url, filename)
-    else
-        download_curl(curl, url, filename)
-    end
-end
-
-function download_curl(curl_exe::AbstractString, url::AbstractString, filename::AbstractString)
-    run(`$curl_exe --progress-bar -g -L -f --retry 5 -o $filename $url`, wait=true)
-    return filename
+    # UrlDownload can take care of unpacking too, look into this.
+    urldownload(url, true, compress=:none, parser=identity, save_raw=filename)
 end
 
 function unpack(inputfilename, outputpath, extension)
