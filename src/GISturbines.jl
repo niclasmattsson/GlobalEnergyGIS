@@ -98,6 +98,48 @@ function savePixelData()
     CSV.write("D:/GISdata/windpixeldata.csv", dfall)
 end
 
+function analyze_protected(; firstyear=1978, lastyear=2021)
+    df = CSV.File("D:/GISdata/windpixeldata.csv") |> DataFrame
+
+    df.inyears = (df.turbineyear.>=firstyear) .& (df.turbineyear.<=lastyear)
+    countries = ["Sweden", "Denmark", "Germany", "USA"]
+    df.countryname = countries[df.country]
+    df.onshore = df.landtype .> 0
+    protected_names = [
+       "(Ia) Strict Nature Reserve"
+       "(Ib) Wilderness Area"
+       "(II) National Park"
+       "(II) Natural Monument"
+       "(IV) Habitat/Species Management"
+       "(V) Protected Landscape/Seascape"
+       "(VI) Managed Resource Protected Area"
+       "Not Reported"
+       "Not Applicable"
+       "Not Assigned"
+    ]
+    protected_type = Dict(i => n for (i,n) in enumerate(protected_names))
+    protected_type[0] = "UNPROTECTED"
+
+    gdf = groupby(df, [:countryname, :onshore, :protected])
+    cdf = combine(gdf,
+            :area => (a -> sum(a)/1000) => :area,
+            [:turbinecapac, :inyears] => ((c,y) -> sum(c.*y)/1000) => :capac
+        )
+    gdf_tot = groupby(cdf, [:countryname, :onshore])
+    cdf_tot = combine(gdf_tot, :area => sum, :capac => sum)
+    
+    cdf.turbinedensity = cdf.capac ./ cdf.area
+    cdf.protected_type = getindex.(Ref(protected_type), cdf.protected)
+    cdf_tot.turbinedensity = cdf_tot.capac_sum ./ cdf_tot.area_sum
+
+    sort!(cdf, [:countryname, :protected, order(:onshore, rev=true)])
+    sort!(cdf_tot, [:countryname, order(:onshore, rev=true)])
+    CSV.write("protectedinfo.csv", cdf)
+    CSV.write("protectedinfo_tot.csv", cdf_tot)
+
+    return cdf, cdf_tot
+end
+
 # just for the histogram data Fredrik wanted
 function groupwinddata(country; firstyear=1978, lastyear=2021)
     df = CSV.File("D:/GISdata/windpixeldata.csv") |> DataFrame
