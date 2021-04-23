@@ -38,11 +38,11 @@ PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-StatsMakie = "65254759-4cff-5aa5-8326-61ce017a8c70"
 TimeZones = "f269a46b-ccf7-5d73-abea-4c690281aa53"
 UrlDownload = "856ac37a-3032-4c1c-9122-f86d88358c8b"
 XGBoost = "009559a3-9522-5dbb-924b-0b6ed2b22bb9"
 
 [compat]
-GeoMakie = "= 0.1.10"
-Makie = "= 0.10.0"
+FileIO = "=1.5.1"       # workaround for https://github.com/JuliaPlots/Makie.jl/issues/863
+GeoMakie = "= 0.1.10"   # remove when map PNGs have correct size
+Makie = "= 0.10.0"      # remove when map PNGs have correct size

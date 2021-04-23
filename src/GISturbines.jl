@@ -1,5 +1,3 @@
-using StatsMakie
-
 export shadedmap, myhist, GISturbines_density, aggregate, exportGISturbinedata, landtypes,
         makePixelDataframe, savePixelData, groupwinddata
 
