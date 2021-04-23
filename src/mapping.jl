@@ -88,7 +88,7 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
     lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
     lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
     source = LonLat()
-    dest = Projection("+proj=moll +lon_0=$(mean(lons))")
+    dest = Projection("+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84")
     xs, ys = xygrid(lons, lats)
     Proj4.transform!(source, dest, vec(xs), vec(ys))
 
@@ -140,7 +140,7 @@ function maskmap(mapname, regions, regionlist, lonrange, latrange;
     lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
     lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
     source = LonLat()
-    dest = Projection("+proj=moll +lon_0=$(mean(lons))")
+    dest = Projection("+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84")
     xs, ys = xygrid(lons, lats)
     Proj4.transform!(source, dest, vec(xs), vec(ys))
 
