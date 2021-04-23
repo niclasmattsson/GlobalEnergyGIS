@@ -8,7 +8,7 @@ function download_datasets(startfile=1)
         mkpath(datafolder)
     end
 
-    WDPA_filename = "WDPA_WDOECM_search_feadb1b4f30799a6dc3ad0b16116d3530ec4a477898f4e10e097e2030e167128_shp"
+    WDPA_filename = "WDPA_WDOECM_Apr2021_Public_feadb1b4f30799a6dc3ad0b16116d3530ec4a477898f4e10e097e2030e167128_shp"
 
     # tuples of (dataset_name, filename, url)
     datasets = [
@@ -20,7 +20,7 @@ function download_datasets(startfile=1)
         ("Global Wind Atlas", "Global Wind Atlas v3 - 100m wind speed.tif",
             "https://chalmersuniversity.box.com/shared/static/wfr6dm9bcmj0mcqtdn0uimhg0otd4ht1.tif"),
         ("WDPA (protected areas):", "WDPA.zip",
-            "https://d1gam3xoknrgr2.cloudfront.net/current/WDPA_WDOECM_search_feadb1b4f30799a6dc3ad0b16116d3530ec4a477898f4e10e097e2030e167128_shp.zip"),
+            "https://d1gam3xoknrgr2.cloudfront.net/current/WDPA_WDOECM_Apr2021_Public_feadb1b4f30799a6dc3ad0b16116d3530ec4a477898f4e10e097e2030e167128_shp.zip"),
             # "https://chalmersuniversity.box.com/shared/static/wn1kznvy7qh1issqcxdlsq64kgtkaayi.zip"),
         ("GADM (global administrative areas)", "gadm36.zip",
             "https://biogeo.ucdavis.edu/data/gadm3.6/gadm36_shp.zip"),
@@ -85,7 +85,7 @@ function download_datasets(startfile=1)
     if startfile <= 2
         renameWDPAfiles(joinpath(datafolder, "WDPA"))
         for i = 0:2
-            foldername = "WDPA-shapefile$i"
+            foldername = "WDPA-shapefile_$i"
             println("\nUnpacking archive: $foldername.zip")
             unpack(joinpath(datafolder, "WDPA", "$foldername.zip"),
                     joinpath(datafolder, "WDPA", foldername), ".zip")

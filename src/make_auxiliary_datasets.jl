@@ -54,7 +54,7 @@ function cleanup_datasets(; cleanup=:all)
 end
 
 function rasterize_GADM()
-    println("\nRasterizing GADM shapefile for global administrative areas (2-10 minute run time)...")
+    println("\nRasterizing GADM shapefile for global administrative areas (1-10 minute run time)...")
     shapefile = in_datafolder("gadm36", "gadm36.shp")
     outfile = in_datafolder("gadm.tif")
     options = "-a UID -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
@@ -109,11 +109,11 @@ function read_nuts()
 end
 
 function rasterize_protected()
-    println("\nRasterizing three WDPA shapefiles for protected areas (total run time 10 minutes - 2 hours)...")
+    println("\nRasterizing three WDPA shapefiles for protected areas (total run time 6 minutes - 2 hours)...")
 
     for i = 0:2
         println("\nFile $(i+1)/3:")
-        shapefile = in_datafolder("WDPA", "WDPA-shapefile$i", "WDPA-shapefile-polygons.shp")
+        shapefile = in_datafolder("WDPA", "WDPA-shapefile_$i", "WDPA-shapefile-polygons.shp")
 
         println("Rasterizing...")
         gdal_rasterize_path() do gdal_rasterize

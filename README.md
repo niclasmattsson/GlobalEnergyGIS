@@ -100,7 +100,7 @@ to the data folder you supplied when you created the configuration file.
 julia> download_datasets()
 ```
 
-A total of 13 files will be downloaded and unpacked. This will probably take 15 minutes or so depending on
+A total of 15 files will be downloaded and unpacked. This will probably take 30 minutes or so depending on
 your internet connection.
 
 ### 4. Rasterization
