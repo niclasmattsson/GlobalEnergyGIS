@@ -96,6 +96,42 @@ function savePixelData()
     CSV.write("D:/GISdata/windpixeldata.csv", dfall)
 end
 
+extent2bbox(ex) = [ex[2] ex[1]; ex[4] ex[3]]
+
+function protected_vs_natura2000(; optionlist...)
+    options = WindOptions(merge(windoptions(), optionlist))
+    regions, offshoreregions, regionlist, gridaccess, popdens, topo, land,
+        protected, lonrange, latrange = read_datasets(options)
+    windatlas = getwindatlas()[lonrange,latrange]
+
+    n2000, ex_n2000 = readraster(in_datafolder("natura2000.tif"), :getextent)
+    latrange_n2000, lonrange_n2000 = bbox2ranges(extent2bbox(ex_n2000), 100)
+    lons_n2000, lats_n2000 = (lonrange[1]:lonrange[end]) .- lonrange_n2000[1], latrange .- latrange_n2000[1]
+
+    return protected, n2000[lons_n2000, lats_n2000]
+end
+
+function miuu_vs_windatlas()
+    options = windoptions()
+    options[:gisregion] = "SwedenGADM3"
+    regions, offshoreregions, regionlist, gridaccess, popdens, topo, land,
+        protected, lonrange, latrange = read_datasets(options)
+
+    windatlas = getwindatlas()[lonrange,latrange]
+    onshore = (regions .> 0) .& (regions .!= NOREGION) .& (land .> 0)
+    offshore = (offshoreregions .> 0) .& (offshoreregions .!= NOREGION) .& (land .== 0)
+
+    miuu, ex_miuu = readraster(in_datafolder("miuu_windatlas.tif"), :getextent)
+    latrange_miuu, lonrange_miuu = bbox2ranges(extent2bbox(ex_miuu), 100)
+    # MIUU has a smaller extent than SwedenGADM3
+    lons_miuu, lats_miuu = lonrange_miuu .- lonrange[1], latrange_miuu .- latrange[1]
+
+    windatlas = windatlas[lons_miuu, lats_miuu]
+    onshore = onshore[lons_miuu, lats_miuu] .& (miuu .> 0)
+    offshore = offshore[lons_miuu, lats_miuu] .& (miuu .> 0)    
+
+    return miuu, windatlas, onshore, offshore
+end
 function analyze_protected(; firstyear=1978, lastyear=2021)
     df = CSV.File("D:/GISdata/windpixeldata.csv") |> DataFrame
 

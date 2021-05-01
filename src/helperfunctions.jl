@@ -9,8 +9,8 @@ function bbox2ranges(bbox, rasterdensity)
 end
 
 function bbox2indexes(bbox, rasterdensity)
-    latindexes = Int.(reverse(rasterdensity*(90 .- bbox[:,1]), dims=1) + [1 0]')
-    lonindexes = Int.(rasterdensity*(bbox[:,2] .- (-180)) + [1 0]')
+    latindexes = round.(Int, reverse(rasterdensity*(90 .- bbox[:,1]), dims=1) + [1 0]')
+    lonindexes = round.(Int, rasterdensity*(bbox[:,2] .- (-180)) + [1 0]')
     return latindexes, lonindexes
 end
 
