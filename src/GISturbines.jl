@@ -1,5 +1,6 @@
 export shadedmap, myhist, GISturbines_density, aggregate, exportGISturbinedata, landtypes,
-        makePixelDataframe, savePixelData, groupwinddata
+        makePixelDataframe, savePixelData, groupwinddata,
+        scatter, plot, plot!, Point2f0, RGBA, FRect, plotfix!, heatmap, colorlegend, vbox
 
 const landtypes = ["Evergreen Needleleaf", "Evergreen Broadleaf",
                 "Deciduous Needleleaf", "Deciduous Broadleaf", "Mixed Forests",
@@ -132,6 +133,23 @@ function miuu_vs_windatlas()
 
     return miuu, windatlas, onshore, offshore
 end
+
+function plotfix!(scene)
+    xlabel!(scene, "Global Wind Atlas [m/s]")
+    ylabel!(scene, "MIUU [m/s]")
+    plot!(scene, [0,14],[0,14], color=:red)
+end
+
+#=
+mm,ww,on,off = GE.miuu_vs_windatlas();
+p = heatmap(reverse(ww.*(mm.>0),dims=2), resolution=(950,950), colorrange=(3,10), highclip=:red, lowclip=:black)
+p = heatmap(reverse(mm,dims=2), resolution=(950,950), colorrange=(3,10), highclip=:red, lowclip=:black)
+        # cl = colorlegend(p[end], resolution=(950,950)); vbox(p,vl)
+opt = (color=RGBA(0,0,0,0.2), markersize=0.01, limits=FRect(0,0,14,14), textsize=10)
+p = scatter(Point2f0.(ww[on], mm[on]+randn(sum(on))*.05); opt..., color=RGBA(0,0,0,1)); plotfix!(p)
+p = scatter(Point2f0.(ww[off], mm[off]+randn(sum(off))*.05); opt..., color=RGBA(0,0,0,1)); plotfix!(p)
+=#
+
 function analyze_protected(; firstyear=1978, lastyear=2021)
     df = CSV.File("D:/GISdata/windpixeldata.csv") |> DataFrame
 
