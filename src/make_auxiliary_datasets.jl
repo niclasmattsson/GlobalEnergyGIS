@@ -371,3 +371,62 @@ function downsample_windatlas3()
         @time run(`$gdalwarp $options -co COMPRESS=LZW $infile $outfile`)
     end
 end
+
+function ogrinfo(file, options=["-al", "-so"])
+    ogrinfo_path() do ogrinfo
+        @time run(`$ogrinfo $options $file`)
+    end
+end
+
+# GE.ogrinfo("D:/GISdata/Natura2000_end2019_Shapefile/Natura2000_end2019_epsg3035.shp")
+# GE.ogrinfo("D:/GISdata/Natura2000_end2019_Shapefile/Natura2000_end2019_epsg3035.shp", ["-dialect", "sqlite",  "-sql", "select sitecode, sitename, release_da, ms, sitetype, inspire_id from Natura2000_end2019_epsg3035 limit 10"])
+
+function rasterize_Natura2000()
+    shapefile = in_datafolder("Natura2000_end2019_Shapefile", "Natura2000_end2019_epsg3035.shp")
+    shapefile_proj = in_datafolder("Natura2000_end2019_Shapefile", "Natura2000_reprojected.shp")
+
+    # Couldn't figure out how to make gdal_rasterize reproject on the fly, so...
+    if !isfile(shapefile_proj)
+        println("Reprojecting shapefile to EPSG:4326...")
+        ogr2ogr_path() do ogr2ogr
+            @time run(`$ogr2ogr -t_srs epsg:4326 -lco ENCODING=UTF-8 $shapefile_proj $shapefile`)
+        end
+    end
+
+    println("Rasterizing...")
+    gdal_rasterize_path() do gdal_rasterize
+        outfile = in_datafolder("natura2000.tif")
+        isfile(outfile) && rm(outfile)
+        # https://sdi.eea.europa.eu/catalogue/copernicus9129929/api/records/e40ca403-b81a-4ecb-b484-cade980e9a2f
+        # SITETYPE contains "A", "B" or "C":  
+        #   A: SPAs (Special Protection Areas - sites designated under the Birds Directive); 
+        #   B: SCIs and SACs (Sites of Community Importance and Special Areas of Conservation - sites designated under the Habitats Directive); 
+        #   C: where SPAs and SCIs/SACs boundaries are identical (sites designated under both directives).
+        sql = "select unicode(SITETYPE)-64 as CODE,* from Natura2000_reprojected"
+        @time run(`$gdal_rasterize -a CODE -ot Byte -tr 0.01 0.01 -te -32 28 34 70
+                -co COMPRESS=LZW -dialect sqlite -sql $sql $shapefile_proj $outfile`)
+    end
+    readraster(in_datafolder("natura2000.tif"))
+end
+
+function rasterize_MIUU()
+    shapefile = in_datafolder("MIUU vindkartering-100m-sweref99", "vindkartering 2011_100m.shp")
+    shapefile_proj = in_datafolder("MIUU vindkartering-100m-sweref99", "MIUU_reprojected.shp")
+
+    # Couldn't figure out how to make gdal_rasterize reproject on the fly, so...
+    if !isfile(shapefile_proj)
+        println("Reprojecting shapefile to EPSG:4326...")
+        ogr2ogr_path() do ogr2ogr
+            @time run(`$ogr2ogr -t_srs epsg:4326 -lco ENCODING=UTF-8 $shapefile_proj $shapefile`)
+        end
+    end
+
+    println("Rasterizing...")
+    gdal_rasterize_path() do gdal_rasterize
+        outfile = in_datafolder("miuu_windatlas.tif")
+        isfile(outfile) && rm(outfile)
+        @time run(`$gdal_rasterize -a Z -ot Float32 -tr 0.01 0.01 -te 10.65 55.07 24.17 69.07
+                -co COMPRESS=LZW $shapefile_proj $outfile`)
+    end
+    readraster(in_datafolder("miuu_windatlas.tif"))
+end
