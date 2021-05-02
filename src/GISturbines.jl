@@ -103,13 +103,28 @@ function protected_vs_natura2000(; optionlist...)
     options = WindOptions(merge(windoptions(), optionlist))
     regions, offshoreregions, regionlist, gridaccess, popdens, topo, land,
         protected, lonrange, latrange = read_datasets(options)
-    windatlas = getwindatlas()[lonrange,latrange]
 
     n2000, ex_n2000 = readraster(in_datafolder("natura2000.tif"), :getextent)
     latrange_n2000, lonrange_n2000 = bbox2ranges(extent2bbox(ex_n2000), 100)
     lons_n2000, lats_n2000 = (lonrange[1]:lonrange[end]) .- lonrange_n2000[1], latrange .- latrange_n2000[1]
+    n2000 = n2000[lons_n2000, lats_n2000]
 
-    return protected, n2000[lons_n2000, lats_n2000]
+    onshore = (regions .> 0) .& (regions .!= NOREGION) .& (land .> 0)
+    offshore = (offshoreregions .> 0) .& (offshoreregions .!= NOREGION) .& (land .== 0)
+
+    count_onshore = zeros(Int, 11, 4)
+    count_offshore = zeros(Int, 11, 4)
+    for i = 1:length(protected)
+        if onshore[i]
+            count_onshore[protected[i]+1, n2000[i]+1] += 1
+        elseif offshore[i]
+            count_offshore[protected[i]+1, n2000[i]+1] += 1
+        end
+    end
+    display(count_onshore)
+    display(count_offshore)
+
+    return protected, n2000
 end
 
 function miuu_vs_windatlas()
@@ -148,6 +163,11 @@ p = heatmap(reverse(mm,dims=2), resolution=(950,950), colorrange=(3,10), highcli
 opt = (color=RGBA(0,0,0,0.2), markersize=0.01, limits=FRect(0,0,14,14), textsize=10)
 p = scatter(Point2f0.(ww[on], mm[on]+randn(sum(on))*.05); opt..., color=RGBA(0,0,0,1)); plotfix!(p)
 p = scatter(Point2f0.(ww[off], mm[off]+randn(sum(off))*.05); opt..., color=RGBA(0,0,0,1)); plotfix!(p)
+
+pp,nn = GE.protected_vs_natura2000(gisregion="SwedenGADM3");
+p = heatmap(reverse(nn,dims=2), resolution=(950,950), highclip=:red, lowclip=:black)
+p = heatmap(reverse(pp,dims=2), resolution=(950,950), highclip=:red, lowclip=:black)
+
 =#
 
 function analyze_protected(; firstyear=1978, lastyear=2021)
@@ -161,7 +181,7 @@ function analyze_protected(; firstyear=1978, lastyear=2021)
        "(Ia) Strict Nature Reserve"
        "(Ib) Wilderness Area"
        "(II) National Park"
-       "(II) Natural Monument"
+       "(III) Natural Monument"
        "(IV) Habitat/Species Management"
        "(V) Protected Landscape/Seascape"
        "(VI) Managed Resource Protected Area"
