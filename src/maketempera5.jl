@@ -16,8 +16,8 @@ function maketempera5(; year=2018, land_cells_only=true)
     println("Creating HDF5 file:  $filename")
     h5open(filename, "w") do file 
         group = file["/"]
-        dataset_temp = d_create(group, "temp", datatype(Float32), dataspace(hours,gridsize...), "chunk", (hours,16,16), "blosc", 3)
-        dataset_meantemp = d_create(group, "meantemp", datatype(Float32), dataspace(gridsize...), "chunk", gridsize, "blosc", 3)
+        dataset_temp = create_dataset(group, "temp", datatype(Float32), dataspace(hours,gridsize...), chunk=(hours,16,16), blosc=3)
+        dataset_meantemp = create_dataset(group, "meantemp", datatype(Float32), dataspace(gridsize...), chunk=gridsize, blosc=3)
 
         totaltemp = zeros(gridsize)
         hour = 1

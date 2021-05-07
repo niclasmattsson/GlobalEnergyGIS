@@ -20,10 +20,10 @@ function makesolarera5(; year=2018, land_cells_only=true)
     h5open(filename, "w") do file 
         group = file["/"]
         # create GTI and DNI variables (Global Tilted Irradiance and Direct Normal Irradiance)
-        dataset_GTI = d_create(group, "GTI", datatype(Float32), dataspace(hours,gridsize...), "chunk", (hours,16,16), "blosc", 3)
-        dataset_DNI = d_create(group, "DNI", datatype(Float32), dataspace(hours,gridsize...), "chunk", (hours,16,16), "blosc", 3)
-        dataset_meanGTI = d_create(group, "meanGTI", datatype(Float32), dataspace(gridsize...), "chunk", gridsize, "blosc", 3)
-        dataset_meanDNI = d_create(group, "meanDNI", datatype(Float32), dataspace(gridsize...), "chunk", gridsize, "blosc", 3)
+        dataset_GTI = create_dataset(group, "GTI", datatype(Float32), dataspace(hours,gridsize...), chunk=(hours,16,16), blosc=3)
+        dataset_DNI = create_dataset(group, "DNI", datatype(Float32), dataspace(hours,gridsize...), chunk=(hours,16,16), blosc=3)
+        dataset_meanGTI = create_dataset(group, "meanGTI", datatype(Float32), dataspace(gridsize...), chunk=gridsize, blosc=3)
+        dataset_meanDNI = create_dataset(group, "meanDNI", datatype(Float32), dataspace(gridsize...), chunk=gridsize, blosc=3)
 
         totalGTI = zeros(gridsize)
         totalDNI = zeros(gridsize)
@@ -85,10 +85,10 @@ function makemonthlysolarera5(; land_cells_only=true)
     h5open(filename, "w") do file 
         group = file["/"]
         # create GTI and DNI variables (Global Tilted Irradiance and Direct Normal Irradiance)
-        dataset_ssrd = d_create(group, "monthlyssrd", datatype(Float32), dataspace(nmonths,gridsize...), "chunk", (nmonths,16,16), "blosc", 3)
-        dataset_fdir = d_create(group, "monthlyfdir", datatype(Float32), dataspace(nmonths,gridsize...), "chunk", (nmonths,16,16), "blosc", 3)
-        dataset_annualssrd = d_create(group, "annualssrd", datatype(Float32), dataspace(nyears,gridsize...), "chunk", (nyears,16,16), "blosc", 3)
-        dataset_annualfdir = d_create(group, "annualfdir", datatype(Float32), dataspace(nyears,gridsize...), "chunk", (nyears,16,16), "blosc", 3)
+        dataset_ssrd = create_dataset(group, "monthlyssrd", datatype(Float32), dataspace(nmonths,gridsize...), chunk=(nmonths,16,16), blosc=3)
+        dataset_fdir = create_dataset(group, "monthlyfdir", datatype(Float32), dataspace(nmonths,gridsize...), chunk=(nmonths,16,16), blosc=3)
+        dataset_annualssrd = create_dataset(group, "annualssrd", datatype(Float32), dataspace(nyears,gridsize...), chunk=(nyears,16,16), blosc=3)
+        dataset_annualfdir = create_dataset(group, "annualfdir", datatype(Float32), dataspace(nyears,gridsize...), chunk=(nyears,16,16), blosc=3)
    
         erafile = in_datafolder("downloads", "monthlysolar_$(years[1])-$(years[end]).nc")
 

@@ -16,8 +16,8 @@ function makewindera5(; year=2018, windatlas_only=true)
     println("Creating HDF5 file:  $filename")
     h5open(filename, "w") do file 
         group = file["/"]
-        dataset_wind = d_create(group, "wind", datatype(Float32), dataspace(hours,gridsize...), "chunk", (hours,16,16), "blosc", 3)
-        dataset_meanwind = d_create(group, "meanwind", datatype(Float32), dataspace(gridsize...), "chunk", gridsize, "blosc", 3)
+        dataset_wind = create_dataset(group, "wind", datatype(Float32), dataspace(hours,gridsize...), chunk=(hours,16,16), blosc=3)
+        dataset_meanwind = create_dataset(group, "meanwind", datatype(Float32), dataspace(gridsize...), chunk=gridsize, blosc=3)
 
         totalwind = zeros(gridsize)
         hour = 1
@@ -75,8 +75,8 @@ function makemonthlywindera5(; windatlas_only=true)
     println("Creating HDF5 file:  $filename")
     h5open(filename, "w") do file 
         group = file["/"]
-        monthlywind = d_create(group, "monthlywind", datatype(Float32), dataspace(nmonths,gridsize...), "chunk", (nmonths,16,16), "blosc", 3)
-        annualwind = d_create(group, "annualwind", datatype(Float32), dataspace(nyears,gridsize...), "chunk", (nyears,16,16), "blosc", 3)
+        monthlywind = create_dataset(group, "monthlywind", datatype(Float32), dataspace(nmonths,gridsize...), chunk=(nmonths,16,16), blosc=3)
+        annualwind = create_dataset(group, "annualwind", datatype(Float32), dataspace(nyears,gridsize...), chunk=(nyears,16,16), blosc=3)
 
         for (y, year) in enumerate(years)
             print("$year: ")
