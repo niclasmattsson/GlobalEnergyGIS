@@ -106,7 +106,8 @@ function protected_vs_natura2000(; optionlist...)
 
     n2000, ex_n2000 = readraster(in_datafolder("natura2000.tif"), :getextent)
     latrange_n2000, lonrange_n2000 = bbox2ranges(extent2bbox(ex_n2000), 100)
-    lons_n2000, lats_n2000 = (lonrange[1]:lonrange[end]) .- lonrange_n2000[1], latrange .- latrange_n2000[1]
+    lons_n2000 = (lonrange[1]:lonrange[end]) .- lonrange_n2000[1] .+ 1
+    lats_n2000 = latrange .- latrange_n2000[1] .+ 1
     n2000 = n2000[lons_n2000, lats_n2000]
 
     onshore = (regions .> 0) .& (regions .!= NOREGION) .& (land .> 0)
@@ -140,7 +141,8 @@ function miuu_vs_windatlas()
     miuu, ex_miuu = readraster(in_datafolder("miuu_windatlas.tif"), :getextent)
     latrange_miuu, lonrange_miuu = bbox2ranges(extent2bbox(ex_miuu), 100)
     # MIUU has a smaller extent than SwedenGADM3
-    lons_miuu, lats_miuu = lonrange_miuu .- lonrange[1], latrange_miuu .- latrange[1]
+    lons_miuu = lonrange_miuu .- lonrange[1] .+ 1
+    lats_miuu = latrange_miuu .- latrange[1] .+ 1
 
     windatlas = windatlas[lons_miuu, lats_miuu]
     onshore = onshore[lons_miuu, lats_miuu] .& (miuu .> 0)
