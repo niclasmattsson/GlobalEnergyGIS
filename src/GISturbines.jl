@@ -1,3 +1,5 @@
+using CategoricalArrays
+
 export shadedmap, myhist, GISturbines_density, aggregate, exportGISturbinedata, landtypes,
         makePixelDataframe, savePixelData, groupwinddata,
         scatter, plot, plot!, Point2f0, RGBA, FRect, plotfix!, heatmap, colorlegend, vbox
@@ -30,6 +32,16 @@ function makePixelDataframe(; optionlist...)
         protected, lonrange, latrange = read_datasets(options)
 
     windatlas = getwindatlas()[lonrange,latrange]
+    miuu = zeros(Float32, size(windatlas))
+
+    if gisregion == "SwedenGADM3"
+        miuu_raw, ex_miuu = readraster(in_datafolder("miuu_windatlas.tif"), :getextent)
+        latrange_miuu, lonrange_miuu = bbox2ranges(extent2bbox(ex_miuu), 100)
+        # MIUU has a smaller extent than SwedenGADM3
+        lons_miuu = lonrange_miuu .- lonrange[1] .+ 1
+        lats_miuu = latrange_miuu .- latrange[1] .+ 1
+        miuu[lons_miuu, lats_miuu] = miuu_raw
+    end
 
     nreg = length(regionlist)
     nlon, nlat = size(windatlas)
@@ -60,7 +72,7 @@ function makePixelDataframe(; optionlist...)
 
     return DataFrame(lat=lat[r], lon=lon[r], munic=region[r],
         area=round.(area[r], sigdigits=4), landtype=land[r], protected=protected[r],
-        popdens=round.(popdens[r], sigdigits=4), windspeed=round.(windatlas[r], sigdigits=4),
+        popdens=round.(popdens[r], sigdigits=4), windspeed=round.(windatlas[r], sigdigits=4), miuu=round.(miuu[r], sigdigits=4),
         nturbines=nturbines[r], turbinecapac=turbinecapac[r], turbineyear=turbineyear[r])
 end
 
@@ -215,7 +227,7 @@ function analyze_protected(; firstyear=1978, lastyear=2021)
 end
 
 # just for the histogram data Fredrik wanted
-function groupwinddata(country; firstyear=1978, lastyear=2021)
+function groupwinddata(country; firstyear=1978, lastyear=2021, usemiuu=false)
     df = CSV.File("D:/GISdata/windpixeldata.csv") |> DataFrame
     df = df[df.country .== country, :]
     df.inyears = (df.turbineyear.>=firstyear) .& (df.turbineyear.<=lastyear)
@@ -227,14 +239,15 @@ function groupwinddata(country; firstyear=1978, lastyear=2021)
     df.capac = df.turbinecapac/1000 .* df.inyears
     df.capac_on = df.capac .* df.is_onshore
     df.capac_off = df.capac .* df.is_offshore
-    df.windspeed_range = DataFrames.cut(df.windspeed, 0:.25:21, extend=true)
+    df.speed = usemiuu ? df.miuu : df.windspeed
+    df.windspeed_range = CategoricalArrays.cut(df.speed, 0:.25:21, extend=true)
     gdf = groupby(df, :windspeed_range)
     cdf = combine(gdf, [:nturbines, :nturbines_on, :nturbines_off] .=> sum, 
         [:capac, :capac_on, :capac_off] .=> sum,
         nrow => :pixels, [:is_onshore, :is_offshore] .=> sum .=> [:pixels_on, :pixels_off],
         renamecols = false)
     countries = ["Sweden", "Denmark", "Germany", "USA"]
-    filename = "winddata $(countries[country]) $firstyear-$lastyear.csv"
+    filename = "winddata $(countries[country]) $(usemiuu ? "MIUU " : "")$firstyear-$lastyear.csv"
     CSV.write(filename, cdf)
 end
 
