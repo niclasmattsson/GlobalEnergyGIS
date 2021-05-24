@@ -239,16 +239,25 @@ function groupwinddata(country; firstyear=1978, lastyear=2021, usemiuu=false)
     df.capac = df.turbinecapac/1000 .* df.inyears
     df.capac_on = df.capac .* df.is_onshore
     df.capac_off = df.capac .* df.is_offshore
+    df.area_on = df.area .* df.is_onshore
+    df.area_off = df.area .* df.is_offshore
     df.speed = usemiuu ? df.miuu : df.windspeed
     df.windspeed_range = CategoricalArrays.cut(df.speed, 0:.25:21, extend=true)
     gdf = groupby(df, :windspeed_range)
     cdf = combine(gdf, [:nturbines, :nturbines_on, :nturbines_off] .=> sum, 
         [:capac, :capac_on, :capac_off] .=> sum,
         nrow => :pixels, [:is_onshore, :is_offshore] .=> sum .=> [:pixels_on, :pixels_off],
+        [:area, :area_on, :area_off] .=> sum, 
         renamecols = false)
+    allranges = CategoricalArrays.cut(0:.25:20.75, 0:.25:21, extend=true)
+    df_out = similar(cdf, length(allranges))
+    df_out.windspeed_range = allranges
+    df_out[:,2:end] .= 0
+    indexes = [findfirst(allranges .== r) for r in cdf.windspeed_range]
+    df_out[indexes, :] = cdf
     countries = ["Sweden", "Denmark", "Germany", "USA"]
     filename = "winddata $(countries[country]) $(usemiuu ? "MIUU " : "")$firstyear-$lastyear.csv"
-    CSV.write(filename, cdf)
+    CSV.write(filename, df_out)
 end
 
 #=
