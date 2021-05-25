@@ -1,7 +1,7 @@
 using CategoricalArrays
 
 export shadedmap, myhist, GISturbines_density, aggregate, exportGISturbinedata, landtypes,
-        makePixelDataframe, savePixelData, groupwinddata,
+        makePixelDataframe, savePixelData, grouppopulationdensity, groupwindspeeds,
         scatter, plot, plot!, Point2f0, RGBA, FRect, plotfix!, heatmap, colorlegend, vbox
 
 const landtypes = ["Evergreen Needleleaf", "Evergreen Broadleaf",
@@ -226,8 +226,32 @@ function analyze_protected(; firstyear=1978, lastyear=2021)
     return cdf, cdf_tot
 end
 
+function grouppopulationdensity(country; firstyear=1978, lastyear=2021)
+    df = CSV.File("D:/GISdata/windpixeldata.csv") |> DataFrame
+    df = df[df.country .== country, :]
+    df.inyears = (df.turbineyear.>=firstyear) .& (df.turbineyear.<=lastyear)
+    df.nturbines = df.nturbines .* df.inyears
+    df.capac = df.turbinecapac/1000 .* df.inyears
+    pops = [[i*10.0^j for j = -1:3 for i in [1,2,5]]; 100_000]
+    popmin = [0; pops[1:end-1]]
+    df.poprange = CategoricalArrays.cut(df.popdens, pops, extend=true)
+    gdf = groupby(df, :poprange)
+    cdf = combine(gdf, :nturbines .=> sum, :capac .=> sum, nrow => :pixels, :area .=> sum, 
+        renamecols = false)    
+    allranges = CategoricalArrays.cut(popmin, pops, extend=true)
+    df_out = similar(cdf, length(allranges))
+    df_out.poprange = allranges
+    df_out[:,2:end] .= 0
+    insertcols!(df_out, 2, :popmin => popmin, :popmax => pops)
+    indexes = [findfirst(allranges .== r) for r in cdf.poprange]
+    df_out[indexes, 4:end] = cdf[:, 2:end]
+    countries = ["Sweden", "Denmark", "Germany", "USA"]
+    filename = "wind_popdens $(countries[country]) $firstyear-$lastyear.csv"
+    CSV.write(filename, df_out[:, 2:end])
+end
+
 # just for the histogram data Fredrik wanted
-function groupwinddata(country; firstyear=1978, lastyear=2021, usemiuu=false)
+function groupwindspeeds(country; firstyear=1978, lastyear=2021, usemiuu=false)
     df = CSV.File("D:/GISdata/windpixeldata.csv") |> DataFrame
     df = df[df.country .== country, :]
     df.inyears = (df.turbineyear.>=firstyear) .& (df.turbineyear.<=lastyear)
