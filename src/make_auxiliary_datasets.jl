@@ -359,13 +359,13 @@ end
 # Interpolate using bilinear, which is a simple and robust choice for GIS applications that avoids
 # creating artifacts. See: 
 # https://gis.stackexchange.com/questions/10931/what-is-lanczos-resampling-useful-for-in-a-spatial-context
-function downsample_windatlas3()
-    infile = in_datafolder("gwa3_250_wind-speed_100m.tif")
+function downsample_windatlas3(altitude=100)
+    infile = in_datafolder("gwa3_250_wind-speed_$(altitude)m.tif")
     gdalinfo_path() do gdalinfo
         run(`$gdalinfo $infile`)
     end
     println("\n")
-    outfile = in_datafolder("Global Wind Atlas v3 - 100m wind speed.tif")
+    outfile = in_datafolder("Global Wind Atlas v3 - $(altitude)m wind speed.tif")
     options = split("-r bilinear -te -180 -90 180 90 -tr 0.01 0.01", ' ')
     gdalwarp_path() do gdalwarp
         @time run(`$gdalwarp $options -co COMPRESS=LZW $infile $outfile`)
