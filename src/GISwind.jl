@@ -20,6 +20,8 @@ windoptions() = Dict(
     :scenarioyear => "ssp2_2050",       # default scenario and year for population and grid access datasets
     :era_year => 2018,                  # which year of the ERA5 time series to use 
     :rescale_to_wind_atlas => true,     # rescale the ERA5 time series to fit annual wind speed averages from the Global Wind Atlas
+    :wind_speed_altitude => 100,        # (m) altitude of GWA wind speeds that determine hourly power output & potentials 
+    :wind_class_altitude => 100,        # (m) altitude of GWA wind speeds for selection of wind classes 
 
     :res => 0.01,                       # resolution of auxiliary datasets [degrees per pixel]
     :erares => 0.28125,                 # resolution of ERA5 datasets [degrees per pixel]
@@ -80,6 +82,8 @@ mutable struct WindOptions
     scenarioyear            ::String
     era_year                ::Int
     rescale_to_wind_atlas   ::Bool
+    wind_speed_altitude     ::Int
+    wind_class_altitude     ::Int
     res                     ::Float64           # degrees/pixel
     erares                  ::Float64           # degrees/pixel
     onshoreclasses_min      ::Vector{Float64}
@@ -90,7 +94,7 @@ mutable struct WindOptions
     classB_threshold        ::Float64
 end
 
-WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,0,0,[],[],[],[],0,0.0)
+WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,100,100,0,0,[],[],[],[],0,0.0)
 
 function WindOptions(d::Dict{Symbol,Any})
     options = WindOptions()
@@ -113,11 +117,11 @@ function GISwind(; savetodisk=true, plotmasks=false, optionlist...)
 
     plotmasks == :onlymasks && return nothing
 
-    windatlas, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
+    windatlas, windatlas_class, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
 
     windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore =
-        calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
-                mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
+        calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed, regions, offshoreregions,
+                regionlist, mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
 
     if savetodisk
         mkpath(in_datafolder("output"))
@@ -157,8 +161,7 @@ function read_datasets(options)
 end
 
 function read_wind_datasets(options, lonrange, latrange)
-    @unpack res, erares, era_year = options
-    windatlas = getwindatlas()[lonrange,latrange]
+    @unpack res, erares, era_year, wind_speed_altitude, wind_class_altitude = options
 
     println("Reading ERA5 wind speeds and calculating capacity factors...")
     eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
@@ -172,7 +175,15 @@ function read_wind_datasets(options, lonrange, latrange)
                 [file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]]
         end
     end
-    return windatlas, meanwind, windspeed
+
+    windatlas = getwindatlas(wind_speed_altitude)[lonrange,latrange]
+
+    if wind_speed_altitude == wind_class_altitude
+        return windatlas, windatlas, meanwind, windspeed
+    else
+        windatlas_class = getwindatlas(wind_class_altitude)[lonrange,latrange]
+        return windatlas, windatlas_class, meanwind, windspeed
+    end
 end
 
 function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange; plotmasks=false, downsample=1)
@@ -305,13 +316,13 @@ function makewindclasses(options, windatlas)
     return onshoreclass, offshoreclass
 end
 
-function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
-                mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
+function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed, regions, offshoreregions,
+                regionlist, mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
 
     println("Calculating GW potential and hourly capacity factors for each region and wind class...")
     println("Interpolate ERA5 wind speeds later (maybe 4x runtime).")
 
-    onshoreclass, offshoreclass = makewindclasses(options, windatlas)
+    onshoreclass, offshoreclass = makewindclasses(options, windatlas_class)
     eralons, eralats, lonmap, latmap, cellarea = eralonlat(options, lonrange, latrange)
 
     _, _, meanwind_allyears, _ = annualwindindex(options)
@@ -463,24 +474,24 @@ function GISwindmap(; optionlist...)
 
     regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
                 read_datasets(options)
-    windatlas, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
+    _, windatlas_class, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
 
     mask_onshoreA, mask_onshoreB, mask_offshore =
         create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange, plotmasks=true)
 
-    onshoremap, offshoremap = calc_wind_map(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
+    onshoremap, offshoremap = calc_wind_map(options, windatlas_class, meanwind, windspeed, regions, offshoreregions, regionlist,
                 mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
 
     return onshoremap, offshoremap
 end
 
-function calc_wind_map(options, windatlas, meanwind, windspeed, regions, offshoreregions, regionlist,
+function calc_wind_map(options, windatlas_class, meanwind, windspeed, regions, offshoreregions, regionlist,
                 mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
 
     println("Calculating GW potential and hourly capacity factors for each region and wind class...")
     # println("Interpolate ERA5 wind speeds later (maybe 4x runtime).")
 
-    onshoreclass, offshoreclass = makewindclasses(options, windatlas)
+    onshoreclass, offshoreclass = makewindclasses(options, windatlas_class)
     eralons, eralats, lonmap, latmap, cellarea = eralonlat(options, lonrange, latrange)
 
     @unpack onshoreclasses_min, offshoreclasses_min, rescale_to_wind_atlas, res, erares,

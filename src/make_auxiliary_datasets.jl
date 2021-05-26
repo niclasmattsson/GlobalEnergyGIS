@@ -344,12 +344,12 @@ function creategridaccess(scen, year)
     # loop through countries, index all pixels into vector, sort by GDP, use electrification to assign grid access
 end
 
-function getwindatlas()
+function getwindatlas(altitude=100)
     # filename = in_datafolder("gwa3_250_wind-speed_100m.tif") # v3.0 (lon extent [-180.3, 180.3], strangely)
     # filename = in_datafolder("global_ws.tif") # v2.3 (lon extent [-180.3, 180.3], strangely)
     # filename = in_datafolder("Global Wind Atlas v1 - 100m wind speed.tif")   # v1.0
     # windatlas = readraster(filename, :extend_to_full_globe)[1]
-    filename = in_datafolder("Global Wind Atlas v3 - 100m wind speed.tif")   # v3.0
+    filename = in_datafolder("Global Wind Atlas v3 - $(altitude)m wind speed.tif")   # v3.0
     windatlas = readraster(filename)
     clamp!(windatlas, 0, 25)
 end

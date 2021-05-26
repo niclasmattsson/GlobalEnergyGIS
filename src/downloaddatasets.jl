@@ -10,8 +10,12 @@ get_dataset_info() = [
     # https://globalwindatlas.info/api/gis/global/wind-speed/100
     # https://globalwindatlas.info/api/gis/global/wind-speed/150
     # https://globalwindatlas.info/api/gis/global/wind-speed/200
-    "GWA"          ("Global Wind Atlas", "Global Wind Atlas v3 - 100m wind speed.tif",
+    "GWA100"       ("Global Wind Atlas", "Global Wind Atlas v3 - 100m wind speed.tif",
         "https://chalmersuniversity.box.com/shared/static/wfr6dm9bcmj0mcqtdn0uimhg0otd4ht1.tif")
+    "GWA150"       ("Global Wind Atlas", "Global Wind Atlas v3 - 150m wind speed.tif",
+        "https://chalmersuniversity.box.com/shared/static/ghexnwa7crukl58nkwric8v9kmlymvj2.tif")
+    "GWA200"       ("Global Wind Atlas", "Global Wind Atlas v3 - 200m wind speed.tif",
+        "https://chalmersuniversity.box.com/shared/static/7ib2jdni6hu9uwe1hp1mqoeeyqtg5601.tif")
     "WDPA"         ("WDPA (protected areas):", "WDPA.zip",
         "https://d1gam3xoknrgr2.cloudfront.net/current/WDPA_WDOECM_May2021_Public_feadb1b4f30799a6dc3ad0b16116d3530ec4a477898f4e10e097e2030e167128_shp.zip")
         # "https://chalmersuniversity.box.com/shared/static/wn1kznvy7qh1issqcxdlsq64kgtkaayi.zip")

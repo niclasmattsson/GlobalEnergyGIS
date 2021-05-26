@@ -81,7 +81,7 @@ function makemonthlywindera5(; windatlas_only=true)
         for (y, year) in enumerate(years)
             print("$year: ")
             options = WindOptions(merge(windoptions(), Dict(:era_year => year)))
-            windatlas, meanwind, windspeed = read_wind_datasets(options, 1:36000, 1:18000)
+            windatlas, _, meanwind, windspeed = read_wind_datasets(options, 1:36000, 1:18000)
             monthdays = [Dates.daysinmonth(Date("$year-$m")) for m in 1:12]
             lasthour = cumsum(24*monthdays)
             firsthour = [1; lasthour[1:end-1] .+ 1]
