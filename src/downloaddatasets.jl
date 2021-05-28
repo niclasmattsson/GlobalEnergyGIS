@@ -72,7 +72,7 @@ function download_datasets(shortnames::String...)
 end
 
 function unpack_and_cleanup(shortname, filename, datafolder, dataset_info)
-    WDPA_filename = splitext(basename(dataset_info[2, 2][3]))[1]
+    WDPA_filename = splitext(basename(dataset_info[4, 2][3]))[1]
 
     foldername, extension = splitext(filename)
     fullpath = joinpath(datafolder, filename)
