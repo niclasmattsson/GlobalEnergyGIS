@@ -1,6 +1,44 @@
-using FileIO, GeoMakie, Makie, ColorSchemes, GLMakie
+using FileIO, GeoMakie, ColorSchemes, GLMakie
 
 export createmaps, plotmap
+
+using GeoMakie.GeoJSON, GeoMakie.GeoInterface
+function geotest()
+    source = LonLat()
+    dest = WinkelTripel()
+    states = download("https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json")
+    states_geo = GeoJSON.read(read(states, String))
+    lons = LinRange(-179.5, 179.5, 360 ÷ 2)
+    lats = LinRange(-89.5, 89.5, 180 ÷ 2)
+    field = [exp(cosd(l)) + 3(y/90) for l in lons, y in lats]
+    points = map(CartesianIndices(size(field))) do xy
+        x, y = Tuple(xy)
+        Point2f0(lons[x], lats[y])
+    end
+
+    proj = GeoMakie.proj(source, dest)
+    limits = FRect2D(Makie.apply_transform(proj, points))
+    fig = Figure()
+
+    ax = Makie.Axis(fig[1,1])
+    limits!(limits)
+    ax.scene.transformation.transform_func[] = proj
+
+    # wireframe!(ax, lons, lats, field, color=(:gray, 0.2), transparency=true)
+    # wireframe!(-180:15.0:180, -90:15.0:90, ones(25,13), color=(:black, 1.0), transparency=true)
+    # wireframe!(repeat(-180:15.0:180, inner=15), repeat(-90:15.0:90, inner=15), ones(25*15,13*15), color=(:black, 1.0), transparency=true)
+    # xgrid, ygrid = xygrid(repeat(-180:15.0:180, inner=15), repeat(-90:15.0:90, inner=15))
+    # Proj4.transform!(source, dest, vec(xgrid), vec(ygrid))
+    # wireframe!(xgrid, ygrid, ones(25*15,13*15), color=(:black, 1.0), transparency=true)
+
+    n = length(GeoInterface.features(states_geo))
+    lines!(ax, GeoMakie.coastlines())
+    poly!(ax, states_geo, color= 1:n, strokecolor = :blue, strokewidth = 1)
+    # display(fig)
+    # nothing
+    Makie.save("geomakie_figtest.png", ax.scene, resolution=(1000,600))
+    GLMakie.destroy!(GLMakie.global_gl_screen())
+end
 
 function createmap(gisregion, regions, regionlist, lons, lats, colors, source, dest, xs, ys,
                     landcenters, popcenters, connected, connectedoffshore;
@@ -17,14 +55,16 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     pngsize = pngwidth, round(Int, pngwidth * aspect_ratio)     # use aspect ratio after projection transformation
 
     println("...constructing map...")
-    scene = surface(xs, ys; color=float.(regions), colormap=colors,
-                            shading=false, show_axis=false, scale_plot=false, interpolate=false)
-    ga = geoaxis!(scene, extrema(lons), extrema(lats); crs=(src=source, dest = dest,))[end]
-
-    ga.x.tick.color = RGBA(colorant"black", 0.4)
-    ga.y.tick.color = RGBA(colorant"black", 0.4)
-    ga.x.tick.width = scale
-    ga.y.tick.width = scale
+    proj = GeoMakie.proj(source, dest)
+    fig = Figure()
+    ax = Makie.Axis(fig[1,1], xtickcolor=RGBA(colorant"black", 0.4), ytickcolor=RGBA(colorant"black", 0.4),
+                        xtickwidth=scale*2, ytickwidth=scale*2)
+    # ax.scene.transformation.transform_func[] = proj
+    # surface!(xs, ys; color=float.(regions), colormap=colors, shading=false, transparency=true)
+    # xgrid, ygrid = xygrid(-180:15.0:180, -90:15.0:90)
+    # display(xgrid)
+    # Proj4.transform!(source, dest, vec(xgrid), vec(ygrid))
+    # wireframe!(xgrid, ygrid, ones(25,13), color=(:black, 1.0), transparency=true)
 
     if lines
         println("...drawing transmission lines...")
@@ -33,32 +73,35 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
                 reg1 <= reg2 && continue
                 !conn[reg1, reg2] && continue
                 # line = [lonlatpoint(popcenters[reg1,:]), lonlatpoint(popcenters[reg2,:])]     # straight line on projected map
-                line = greatcircletrack(popcenters[reg1,:], popcenters[reg2,:], 50)             # great circle segments
-                projectedline = Point2f0.(GeoMakie.transform.(source, dest, line))
+                line = greatcircletrack(popcenters[reg1,:], popcenters[reg2,:], 20)             # great circle segments
+                projectedline = Makie.apply_transform(proj, Point2f0.(line))
                 color = (i == 1) ? :black : :white
-                lines!(scene, projectedline, color=color, linewidth=resolutionscale*scale*textscale*3)
+                lines!(projectedline, color=color, linewidth=resolutionscale*scale*textscale*5)
             end
         end
     end
     if labels
         for reg = 1:nreg
-            pos = Point2f0(GeoMakie.transform(source, dest, lonlatpoint(popcenters[reg,:])))
-            text!(scene, string(regionlist[reg]); position=pos, align=(:center,:center), textsize=textscale*scale*50000)
+            pos = Makie.apply_transform(proj, lonlatpoint(popcenters[reg,:]))
+            text!(string(regionlist[reg]); position=pos, align=(:center,:center), textsize=textscale*scale*resolutionscale*100)
         end
     end
+    
+    # draw the high resolution surface last, so the above calls to lines! go 20x faster
+    surface!(xs, ys; color=float.(regions), colormap=colors, shading=false)
 
     println("...saving...")
     mkpath(in_datafolder("output"))
     filename = in_datafolder("output", "$gisregion.png")
     isfile(filename) && rm(filename)
-    Makie.save(filename, scene, resolution=pngsize)
+    Makie.save(filename, ax.scene, resolution=pngsize)
     if legend
-        makelegend(regionlist, colors[2:end-1])
+        makelegend(string.(regionlist), colors[2:end-1], scale=(4*scale)^0.7)
         img = load(filename)
         legend = autocrop(load(in_datafolder("output", "legend.png")))
         height = max(size(img,1), size(legend,1))
         legendwidth = size(legend, 2)
-        combined = [ypad(img, height) ypad(legend, height) fill(RGB{N0f8}(1.0,1.0,1.0), (height, 550 - legendwidth))]
+        combined = [ypad(img, height) ypad(legend, height) fill(RGB{N0f8}(1.0,1.0,1.0), (height, legendwidth÷5))]
         FileIO.save(filename, combined)
         rm(in_datafolder("output", "legend.png"))
     end
@@ -81,6 +124,8 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
     colorindices = greedycolor(mergeconnected, 1:7, 1:nreg, randseed=randseed)
     onshorecolors = [RGB(0.2,0.3,0.4); colorschemes[:Set2_7].colors[colorindices]; RGB(0.4,0.4,0.4)]
     offshorecolors = [RGB(0.4,0.4,0.4); colorschemes[:Set2_7].colors[colorindices]; RGB(0.2,0.3,0.4)]
+    # onshorecolors = RGBA.([RGB(0.2,0.3,0.4); colorschemes[:Set2_7].colors[colorindices]; RGB(0.4,0.4,0.4)], 0.8)
+    # offshorecolors = RGBA.([RGB(0.4,0.4,0.4); colorschemes[:Set2_7].colors[colorindices]; RGB(0.2,0.3,0.4)], 0.8)
 
     println("\nProjecting coordinates (Mollweide)...")
     res = 0.01
@@ -101,13 +146,15 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
 
     println("\nOnshore map...")
     createmap(gisregion, regions, regionlist, lons, lats, onshorecolors, source, dest, xs, ys,
-        landcenters, popcenters, connected, connectedoffshore, lines=lines, labels=labels, resolutionscale=resolutionscale, textscale=textscale)
+        landcenters, popcenters, connected, connectedoffshore; lines, labels, resolutionscale, textscale)
     println("\nOffshore map...")
     createmap("$(gisregion)_offshore", offshoreregions, regionlist, lons, lats, offshorecolors, source, dest, xs, ys,
         landcenters, popcenters, connected, connectedoffshore, lines=false, labels=false, resolutionscale=resolutionscale, textscale=textscale)
     # exit()
     return nothing
 end
+
+xygrid(lons, lats) = [lon for lon in lons, lat in lats], [lat for lon in lons, lat in lats]
 
 # ColorBrewer Set2_7:  https://juliagraphics.github.io/ColorSchemes.jl/stable/basics/#colorbrewer-1
 function maskmap(mapname, regions, regionlist, lonrange, latrange;
@@ -119,7 +166,7 @@ function maskmap(mapname, regions, regionlist, lonrange, latrange;
 
     colors = [
         RGB([174,140,114]/255...),  # bad land type
-        RGB([214,64,64]/255...),    # high population
+        RGB([230,0,0]/255...),      # high population
         RGB([255,100,255]/255...),  # protected area
         RGB([120,170,80]/255...),   # no grid
         RGB([255,217,47]/255...),   # solar plant A
@@ -145,7 +192,7 @@ function maskmap(mapname, regions, regionlist, lonrange, latrange;
     Proj4.transform!(source, dest, vec(xs), vec(ys))
 
     println("\nOnshore map...")
-    scene = createmap(mapname, regions, regionlist, lons, lats, onshorecolors, source, dest, xs, ys,
+    createmap(mapname, regions, regionlist, lons, lats, onshorecolors, source, dest, xs, ys,
         [], [], connected, connected, lines=false, labels=false, resolutionscale=resolutionscale, textscale=textscale, legend=legend)
     return nothing
 end
@@ -172,23 +219,22 @@ function makelegend(labels, colors; scale=2)
     colors = colors[i]
     len = length(labels)
     markerpositions = Point2f0.(0, len:-1:1) .* scale
-    textpositions = Point2f0.(0.7, (len:-1:1) .+ 0.03) .* scale
-    scene = scatter(
+    textpositions = Point2f0.(0.4, (len:-1:1) .+ 0) .* scale
+    fig = scatter(
         markerpositions,
         color = colors,
         marker = :rect,
-        markersize = 0.8 * scale,
-        show_axis = false
+        markersize = 64*scale,
+        axis = (show_axis = false,)
     )
     annotations!(
-        scene,
         labels,
         textpositions,
         align = (:left, :center),
-        textsize = 0.4 * scale,
-        raw = true
+        textsize = 36*scale
     )
-    update_cam!(scene, FRect(-scale, 0, 2, 10 + 1))     # allow for 10 lines (to get constant text size for any number of labels)
+    scene = fig.axis.scene
+    limits!(FRect(-1, 0.25, 4, len+0.5)*scale)     # allow for 10 lines (to get constant text size for any number of labels)
     filename = in_datafolder("output", "legend.png")
     isfile(filename) && rm(filename)
     Makie.save(filename, scene, resolution = scene.resolution.val .* scale)
@@ -228,7 +274,7 @@ end
 lonlatpoint(latlon) = Point2f0(latlon[2], latlon[1])
 
 # returns great circle track between points given as Point2f0 objects (lon, lat order, in degrees).
-greatcircletrack(point1::AbstractArray, point2::AbstractArray, segments) = Point2f0.(greatcircletrack(Tuple(point1), Tuple(point2), segments))
+greatcircletrack(point1::AbstractArray, point2::AbstractArray, segments) = greatcircletrack(Tuple(point1), Tuple(point2), segments)
 
 # returns great circle track between points given as (lon, lat) tuples (in degrees).
 greatcircletrack(point1::Tuple, point2::Tuple, segments) = [reverse(intermediatepoint(point1, point2, f)) for f in LinRange(0, 1, segments)]
