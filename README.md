@@ -115,60 +115,15 @@ julia> rasterize_datasets(cleanup=:all)
 This command will automatically delete the original datasets to save disk space. Use the argument
 `cleanup=:limited` to keep the original files, or `cleanup=:none` to also keep intermediate raster files.
 
-### 5. Download ERA5 data and disk usage
+### 5. Download and convert ERA5 data
 
-Run `era5download(data_year)` to begin downloading the ERA5 solar, wind and temperature data for a given year.
-
-```
-julia> era5download(2018)
-```
-
-If you're not interested in synthetic electricity demand you can skip the download of temperature data by
-running `era5download(2018, datasets=["wind", "solar"])`. If you change your mind later and want to download
-just the temperature data, run `era5download(2018, datasets=["temp"])`. 
-
-One year of global solar and wind data consists of roughly 53 GB of raw data. It will likely take several
-hours or possibly a day or more to download, depending on your internet connection and whether or not there
-is congestion in the CDS download queue. A total of 48 files will be downloaded, so please note that the
-first progress bar you see will be followed by 47 more... :) 
-
-### 6. Conversion and recompression of ERA5 data
-
-Next we need to convert the ERA5 data to a more suitable file format (HDF5). Additionally, to save some disk
-space in the long run, the raw data will be reduced (by default we discard wind direction, far offshore wind
-speeds and solar insolation over oceans) and recompressed. This will reduce disk usage to about 28-29 GB per
-year of ERA5 data (on average 14.7 GB for solar, 6.3 GB for wind and 7.4 GB for temperatures). 
+Run `download_and_convert_era5(data_year)` to begin downloading the ERA5 wind, solar and temperature data for a given year. About 26 GB of raw data must be downloaded (split into 24 files of 1.1 GB) *per variable, per year*. So 72 downloads in total. It will likely take several hours to download, depending on your internet connection and whether or not there is congestion in the CDS download queue.
 
 ```
-julia> makewindera5(year=2018)
+julia> download_and_convert_era5(2018)
 ```
 
-Now you can optionally delete the original data. One of the upstream packages sometimes keeps a lock on the
-files, so you may need to restart Julia to run this command.
-
-```
-julia> clearvars_era5(year=2018, datasets=["wind"])
-```
-
-Now convert the solar data, and optionally delete the original data.
-
-```
-julia> makesolarera5(year=2018)
-```
-
-```
-julia> clearvars_era5(year=2018, datasets=["solar"])
-```
-
-Finally convert the temperature data, and optionally delete the original data.
-
-```
-julia> maketempera5(year=2018)
-```
-
-```
-julia> clearvars_era5(year=2018, datasets=["temp"])
-```
+After the raw data for a variable has been downloaded, it is immediately aggregated and converted into more suitable file format (HDF5) and recompressed to save disk space. To minimize disk usage we also throw away data we won't need (by default we discard wind direction, far offshore wind speeds and solar insolation over oceans). This will reduce disk usage to about 31 GB per year of ERA5 data in total (on average 14.7 GB for solar, 8.6 GB for wind and 7.4 GB for temperatures - solar needs roughly twice the space since we need to store both direct and diffuse solar insolation). 
 
 ## Usage (creating renewable energy input data for arbitrary model regions)
 

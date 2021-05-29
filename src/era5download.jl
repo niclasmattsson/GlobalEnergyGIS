@@ -1,6 +1,6 @@
 using PyCall, Pkg.TOML
 
-export era5download, monthlyera5download, saveconfig
+export era5download, monthlyera5download, saveconfig, download_and_convert_era5
 
 getconfig(key) = getconfig()[key]
 
@@ -33,6 +33,24 @@ function cds_id(uid::Int, api_key::AbstractString)
         write(file, "key: $uid:$api_key\n")
         println("Copernicus credentials written to $filename.")
     end
+end
+
+function download_and_convert_era5(year=2018; datasets=["wind", "solar", "temp"])
+    for dataset in datasets
+        println("\nDownloading ERA5 $dataset data from Copernicus...")
+        era5download(year; datasets=[dataset])
+        println("\nConverting downloaded $dataset data to HDF5 and recompressing...")
+        if dataset == "solar"
+            makesolarera5(; year)
+        elseif dataset == "wind"
+            makewindera5(; year)
+        elseif dataset == "temp"
+            maketempera5(; year)
+        end
+        println("\nCleanup: deleting downloaded $dataset data...")
+        clearvars_era5(; year, datasets=[dataset])
+    end
+    println("\nERA5 datasets $datasets downloaded and converted. Temporary files cleaned up.")
 end
 
 function era5download(year=2018; datasets=["wind", "solar", "temp"])
