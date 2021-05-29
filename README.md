@@ -19,10 +19,10 @@ data download. You also need a minimum of 8 GB of RAM memory.
 
 ## Installation
 
-Make sure you are on Julia v1.3 or higher. Type `]` to enter Julia's package mode, then:
+Make sure you are on Julia v1.6 or higher. Type `]` to enter Julia's package mode, then:
 
 ```
-(@v1.4) pkg> add https://github.com/niclasmattsson/GlobalEnergyGIS
+(@v1.6) pkg> add https://github.com/niclasmattsson/GlobalEnergyGIS
 ``` 
 
 Grab some coffee, because installing and compiling dependencies can take quite some time to run. If you don't
@@ -100,7 +100,7 @@ to the data folder you supplied when you created the configuration file.
 julia> download_datasets()
 ```
 
-A total of 15 files will be downloaded and unpacked. This will probably take 30 minutes or so depending on
+A total of 17 files will be downloaded and unpacked. This will probably take 30 minutes or so depending on
 your internet connection.
 
 ### 4. Rasterization
