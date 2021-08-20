@@ -235,7 +235,17 @@ function regional_timezone_offsets_Jan1(; gisregion="Europe8", scenarioyear="ssp
         pops = Float64[]
         for idx in zoneindices
             tzname = tznames[idx]
-            zone = tzname[1:3] == "Etc" ? TimeZone(tzname, TimeZones.Class(:LEGACY)) : TimeZone(tzname)
+            # TimeZones contains TZs designated "LEGACY", but no list to query against.
+            # Triage using exception handling
+            zone = try
+                    TimeZone(tzname)
+            catch e
+                if isa(e, ArgumentError)
+                    TimeZone(tzname, TimeZones.Class(:LEGACY))
+                else
+                    throw(e)
+                end 
+            end
             push!(zones, zone)
             firsthour = ZonedDateTime(DateTime(era_year,1,1,0), zone)
             hours = firsthour : Hour(1) : firsthour + Hour(numhours-1)
