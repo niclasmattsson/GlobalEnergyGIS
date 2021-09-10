@@ -4,7 +4,7 @@ export createmaps, plotmap
 
 using GeoMakie.GeoJSON, GeoMakie.GeoInterface
 function geotest()
-    source = LonLat()
+    source = Projection("+proj=longlat +datum=WGS84")
     dest = WinkelTripel()
     states = download("https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json")
     states_geo = GeoJSON.read(read(states, String))
@@ -42,7 +42,7 @@ end
 
 function createmap(gisregion, regions, regionlist, lons, lats, colors, source, dest, xs, ys,
                     landcenters, popcenters, connected, connectedoffshore;
-                    lines=false, labels=false, resolutionscale=1, textscale=1, legend=false)
+                    lines=false, labels=false, resolutionscale=1, textscale=1, legend=false, dots=nothing)
     nreg = length(regionlist)
     scale = maximum(size(regions))/6500
 
@@ -88,7 +88,12 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     end
     
     # draw the high resolution surface last, so the above calls to lines! go 20x faster
-    surface!(xs, ys; color=float.(regions), colormap=colors, shading=false)
+    surface!(xs, ys; color=regions, colormap=cgrad(colors, categorical=true), shading=false)
+    
+    if dots != nothing
+        tx, ty = dots
+        scatter!(tx, ty, markersize=2, color=RGB(1,0,0))
+    end
 
     println("...saving...")
     mkpath(in_datafolder("output"))
@@ -132,7 +137,7 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
     res2 = res/2
     lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
     lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
-    source = LonLat()
+    source = Projection("+proj=longlat +datum=WGS84")
     dest = Projection("+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84")
     xs, ys = xygrid(lons, lats)
     Proj4.transform!(source, dest, vec(xs), vec(ys))
@@ -186,7 +191,7 @@ function maskmap(mapname, regions, regionlist, lonrange, latrange;
     res2 = res/2
     lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
     lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
-    source = LonLat()
+    source = Projection("+proj=longlat +datum=WGS84")
     dest = Projection("+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84")
     xs, ys = xygrid(lons, lats)
     Proj4.transform!(source, dest, vec(xs), vec(ys))
@@ -358,7 +363,7 @@ function testmap()
 
     field = [exp(cosd(l)) + 3(y/90) for l in lons, y in lats]
 
-    source = LonLat()
+    source = Projection("+proj=longlat +datum=WGS84")
     dest = WinkelTripel()
 
     xs, ys = xygrid(lons, lats)

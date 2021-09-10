@@ -41,3 +41,6 @@ TimeZones = "f269a46b-ccf7-5d73-abea-4c690281aa53"
 UrlDownload = "856ac37a-3032-4c1c-9122-f86d88358c8b"
 XGBoost = "009559a3-9522-5dbb-924b-0b6ed2b22bb9"
 XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
+
+[compat]
+GeoMakie = "=0.1.17"
