@@ -1,4 +1,4 @@
-using CategoricalArrays
+using CategoricalArrays, XLSX
 
 export shadedmap, myhist, GISturbines_density, aggregate, exportGISturbinedata, landtypes,
         makePixelDataframe, savePixelData, grouppopulationdensity, groupwindspeeds,
@@ -11,6 +11,67 @@ const landtypes = ["Evergreen Needleleaf", "Evergreen Broadleaf",
 
 # const landtypes = ["Forest", "Forest", "Forest", "Forest", "Forest", "Shrubland", "Shrubland", "Forest",
 #                 "Savanna", "Grassland", "Wetland", "Cropland", "Urban", "Cropland", "Snow/Ice", "Barren"]
+
+function map_protected(; downsample=1, resolutionscale=1, textscale=1, optionlist...)
+    options = WindOptions(merge(windoptions(), optionlist))
+    @unpack gisregion, res, protected_codes = options
+    regions, offshoreregions, regionlist, gridaccess, popdens, topo, land,
+        protected, lonrange, latrange = read_datasets(options)
+
+    n2000_full, ex_n2000 = readraster(in_datafolder("natura2000.tif"), :getextent)
+    latrange_n2000, lonrange_n2000 = bbox2ranges(extent2bbox(ex_n2000), 100)
+    lons_n2000 = (lonrange[1]:lonrange[end]) .- lonrange_n2000[1] .+ 1
+    lats_n2000 = latrange .- latrange_n2000[1] .+ 1
+    n2000 = n2000_full[lons_n2000, lats_n2000]
+
+    wdpa = zeros(Bool, size(protected))
+    for i in protected_codes
+        wdpa[protected .== i] .= true
+    end
+
+    reg = (regions.>0) .& (regions .< NOREGION)
+
+    mask = zeros(Int16, size(regions))
+    mask[reg] .= 1
+    mask[wdpa .& reg] .= 2
+    mask[reg .& (n2000 .> 0)] .= 3
+    mask[reg .& wdpa .& (n2000 .> 0)] .= 4
+    mask[regions.==NOREGION] .= NOREGION
+
+    legendtext = ["unprotected", "WDPA", "Natura2000", "both", "wind turbines"]
+
+    mask = mask[1:downsample:end, 1:downsample:end]
+    lonrange = lonrange[1:downsample:end]
+    latrange = latrange[1:downsample:end]
+    nreg = length(legendtext)
+
+    colors = RGBA.([RGB(0.2,0.3,0.4), RGB(0.7,0.7,0.7), RGB(0,.7,0), RGB(0,0,.7), RGB(.9,.9,0), RGB(1,0,0), RGB(0.4,0.4,0.4)], 0.8)
+
+    println("Mapping colors to regions (avoid same color in adjacent regions)...")
+    connected = connectedregions(mask, nreg)
+    # colorindices = (nreg > 7) ? greedycolor(connected, 1:7, 1:nreg, randseed=randseed) : collect(1:nreg)
+    # colors = colorschemes[Symbol("Set2_$nreg")].colors[colorindices]
+
+    println("\nProjecting coordinates (Mollweide)...")
+    res = 0.01
+    res2 = res/2
+    lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
+    lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
+    source = Projection("+proj=longlat +datum=WGS84")
+    dest = Projection("+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84")
+    xs, ys = xygrid(lons, lats)
+    Proj4.transform!(source, dest, vec(xs), vec(ys))
+
+    cols = [:lon, :lat, :capac, :year, :onshore, :elec2018]
+    df = DataFrame(CSV.File(in_datafolder("turbines_DE.csv")))[:, cols[1:4]]
+    tx, ty = df.lon, df.lat
+    Proj4.transform!(source, dest, vec(tx), vec(ty))
+
+    println("\nOnshore map...")
+    createmap("$(gisregion)_protected", mask, legendtext, lons, lats, colors, source, dest, xs, ys,
+        [], [], connected, connected; lines=false, labels=false, resolutionscale=resolutionscale,
+        textscale=textscale, legend=true, dots=(tx,ty))
+end
 
 function makePixelDataframe(; optionlist...)
     cols = [:lon, :lat, :capac, :year, :onshore, :elec2018]
@@ -43,6 +104,12 @@ function makePixelDataframe(; optionlist...)
         miuu[lons_miuu, lats_miuu] = miuu_raw
     end
 
+    n2000, ex_n2000 = readraster(in_datafolder("natura2000.tif"), :getextent)
+    latrange_n2000, lonrange_n2000 = bbox2ranges(extent2bbox(ex_n2000), 100)
+    lons_n2000 = (lonrange[1]:lonrange[end]) .- lonrange_n2000[1] .+ 1
+    lats_n2000 = latrange .- latrange_n2000[1] .+ 1
+    n2000 = occursin("USA", gisregion) ? zeros(UInt8, size(windatlas)) : n2000[lons_n2000, lats_n2000]
+
     nreg = length(regionlist)
     nlon, nlat = size(windatlas)
     turbinecapac = zeros(Int, nlon, nlat)
@@ -71,14 +138,17 @@ function makePixelDataframe(; optionlist...)
     r = (region .> 0) .& (region .!= NOREGION)
 
     return DataFrame(lat=lat[r], lon=lon[r], munic=region[r],
-        area=round.(area[r], sigdigits=4), landtype=land[r], protected=protected[r],
+        area=round.(area[r], sigdigits=4), landtype=land[r], protected=protected[r], natura2000=Int.(n2000[r]),
         popdens=round.(popdens[r], sigdigits=4), windspeed=round.(windatlas[r], sigdigits=4), miuu=round.(miuu[r], sigdigits=4),
         nturbines=nturbines[r], turbinecapac=turbinecapac[r], turbineyear=turbineyear[r])
 end
 
 function savePixelData()
-    gisregions = ["SwedenGADM3", "Denmark83", "GermanyGADM3", "USAGADM3"]
-    countries = ["Sweden", "Denmark", "Germany", "USA"]
+    gisregions = ["SwedenGADM3", "Denmark83", "GermanyGADM3", "USA_Texas", "USA_Iowa", "USA_Oklahoma",
+        "USA_Kansas", "USA_Illinois", "USA_South Dakota", "USA_North Dakota", "USA_California",
+        "USA_Minnesota", "USA_Colorado", "USA_Oregon"]
+    countries = ["Sweden", "Denmark", "Germany", "Texas", "Iowa", "Oklahoma", "Kansas", "Illinois",
+        "South Dakota", "North Dakota", "California", "Minnesota", "Colorado", "Oregon"]
     println("Building municipality list...")
     munic, nmunic = Dict(), Dict()
     for (gisregion, country) in zip(gisregions, countries)
@@ -188,7 +258,8 @@ function analyze_protected(; firstyear=1978, lastyear=2021)
     df = CSV.File("D:/GISdata/windpixeldata.csv") |> DataFrame
 
     df.inyears = (df.turbineyear.>=firstyear) .& (df.turbineyear.<=lastyear)
-    countries = ["Sweden", "Denmark", "Germany", "USA"]
+    countries = ["Sweden", "Denmark", "Germany", "Texas", "Iowa", "Oklahoma", "Kansas", "Illinois",
+        "South Dakota", "North Dakota", "California", "Minnesota", "Colorado", "Oregon"]
     df.countryname = countries[df.country]
     df.onshore = df.landtype .> 0
     protected_names = [
@@ -218,10 +289,115 @@ function analyze_protected(; firstyear=1978, lastyear=2021)
     cdf.protected_type = getindex.(Ref(protected_type), cdf.protected)
     cdf_tot.turbinedensity = cdf_tot.capac_sum ./ cdf_tot.area_sum
 
-    sort!(cdf, [:countryname, :protected, order(:onshore, rev=true)])
-    sort!(cdf_tot, [:countryname, order(:onshore, rev=true)])
-    CSV.write("protectedinfo.csv", cdf)
-    CSV.write("protectedinfo_tot.csv", cdf_tot)
+    sort!(cdf, [order(:countryname, by = x -> findfirst(countries.==x)), :protected, order(:onshore, rev=true)])
+    sort!(cdf_tot, [order(:countryname, by = x -> findfirst(countries.==x)), order(:onshore, rev=true)])
+    # CSV.write("protectedinfo.csv", cdf)
+    # CSV.write("protectedinfo_tot.csv", cdf_tot)
+
+    filename = "protected WDPA.xlsx"
+    XLSX.openxlsx(filename, mode=isfile(filename) ? "rw" : "w") do xf
+        sheetname = "$firstyear-$lastyear"
+        sheet = sheetname in XLSX.sheetnames(xf) ? xf[sheetname] : XLSX.addsheet!(xf, sheetname)
+        XLSX.writetable!(sheet, [cdf[:,i] for i=1:size(cdf,2)], names(cdf), anchor_cell=XLSX.CellRef("A4"))
+        XLSX.writetable!(sheet, [cdf_tot[:,i] for i=1:size(cdf_tot,2)], names(cdf_tot), anchor_cell=XLSX.CellRef("L4"))
+    end
+
+    return cdf, cdf_tot
+end
+
+function analyze_natura2000(; firstyear=1978, lastyear=2021)
+    df = CSV.File("D:/GISdata/windpixeldata.csv") |> DataFrame
+
+    df.inyears = (df.turbineyear.>=firstyear) .& (df.turbineyear.<=lastyear)
+    countries = ["Sweden", "Denmark", "Germany", "Texas", "Iowa", "Oklahoma", "Kansas", "Illinois",
+        "South Dakota", "North Dakota", "California", "Minnesota", "Colorado", "Oregon"]
+    df.countryname = countries[df.country]
+    df.onshore = df.landtype .> 0
+    protected_names = [
+       "A: SPAs"
+       "B: SCIs and SACs"
+       "C: both categories A + B"
+    ]
+    protected_type = Dict(i => n for (i,n) in enumerate(protected_names))
+    protected_type[0] = "UNPROTECTED"
+
+    gdf = groupby(df, [:countryname, :onshore, :natura2000])
+    cdf = combine(gdf,
+            :area => (a -> sum(a)/1000) => :area,
+            [:turbinecapac, :inyears] => ((c,y) -> sum(c.*y)/1000) => :capac
+        )
+    gdf_tot = groupby(cdf, [:countryname, :onshore])
+    cdf_tot = combine(gdf_tot, :area => sum, :capac => sum)
+    
+    cdf.turbinedensity = cdf.capac ./ cdf.area
+    cdf.protected_type = getindex.(Ref(protected_type), cdf.natura2000)
+    cdf_tot.turbinedensity = cdf_tot.capac_sum ./ cdf_tot.area_sum
+
+    sort!(cdf, [order(:countryname, by = x -> findfirst(countries.==x)), :natura2000, order(:onshore, rev=true)])
+    sort!(cdf_tot, [order(:countryname, by = x -> findfirst(countries.==x)), order(:onshore, rev=true)])
+
+    filename = "protected Natura2000.xlsx"
+    XLSX.openxlsx(filename, mode=isfile(filename) ? "rw" : "w") do xf
+        sheetname = "$firstyear-$lastyear"
+        sheet = sheetname in XLSX.sheetnames(xf) ? xf[sheetname] : XLSX.addsheet!(xf, sheetname)
+        XLSX.writetable!(sheet, [cdf[:,i] for i=1:size(cdf,2)], names(cdf), anchor_cell=XLSX.CellRef("A4"))
+        XLSX.writetable!(sheet, [cdf_tot[:,i] for i=1:size(cdf_tot,2)], names(cdf_tot), anchor_cell=XLSX.CellRef("L4"))
+    end
+    # CSV.write("protectedinfo.csv", cdf)
+    # CSV.write("protectedinfo_tot.csv", cdf_tot)
+
+    return cdf, cdf_tot
+end
+
+function analyze_landtype(; firstyear=1978, lastyear=2021, minspeed=0)
+    df = CSV.File("D:/GISdata/windpixeldata.csv") |> DataFrame
+
+    df.inyears = (df.turbineyear.>=firstyear) .& (df.turbineyear.<=lastyear) .& (df.windspeed .>= minspeed)
+    countries = ["Sweden", "Denmark", "Germany", "Texas", "Iowa", "Oklahoma", "Kansas", "Illinois",
+        "South Dakota", "North Dakota", "California", "Minnesota", "Colorado", "Oregon"]
+    df.countryname = countries[df.country]
+    landtype_names = [
+        "Water" 
+        "Evergreen Needleleaf Forests"
+        "Evergreen Broadleaf Forests"
+        "Deciduous Needleleaf Forests"
+        "Deciduous Broadleaf Forests"
+        "Mixed Forests"
+        "Closed Shrublands"
+        "Open Shrublands"
+        "Woody Savannas"
+        "Savannas"
+        "Grasslands"
+        "Permanent Wetlands"
+        "Croplands"
+        "Urban"
+        "Cropland/Natural"
+        "Snow/Ice"
+        "Barren"
+    ]
+    landtype = Dict(i-1 => n for (i,n) in enumerate(landtype_names))
+
+    gdf = groupby(df, [:countryname, :landtype])
+    cdf = combine(gdf,
+            :area => (a -> sum(a)/1000) => :area,
+            [:turbinecapac, :inyears] => ((c,y) -> sum(c.*y)/1000) => :capac
+        )
+    gdf_tot = groupby(cdf, :countryname)
+    cdf_tot = combine(gdf_tot, :area => sum, :capac => sum)
+    cdf.turbinedensity = cdf.capac ./ cdf.area
+    cdf.landtype_name = getindex.(Ref(landtype), cdf.landtype)
+    cdf_tot.turbinedensity = cdf_tot.capac_sum ./ cdf_tot.area_sum
+
+    sort!(cdf, [order(:countryname, by = x -> findfirst(countries.==x)), :landtype])
+    sort!(cdf_tot, [order(:countryname, by = x -> findfirst(countries.==x))])
+
+    filename = "landtypes minspeed $minspeed.xlsx"
+    XLSX.openxlsx(filename, mode=isfile(filename) ? "rw" : "w") do xf
+        sheetname = "$firstyear-$lastyear"
+        sheet = sheetname in XLSX.sheetnames(xf) ? xf[sheetname] : XLSX.addsheet!(xf, sheetname)
+        XLSX.writetable!(sheet, [cdf[:,i] for i=1:size(cdf,2)], names(cdf), anchor_cell=XLSX.CellRef("A4"))
+        XLSX.writetable!(sheet, [cdf_tot[:,i] for i=1:size(cdf_tot,2)], names(cdf_tot), anchor_cell=XLSX.CellRef("L4"))
+    end
 
     return cdf, cdf_tot
 end
@@ -245,9 +421,16 @@ function grouppopulationdensity(country; firstyear=1978, lastyear=2021)
     insertcols!(df_out, 2, :popmin => popmin, :popmax => pops)
     indexes = [findfirst(allranges .== r) for r in cdf.poprange]
     df_out[indexes, 4:end] = cdf[:, 2:end]
-    countries = ["Sweden", "Denmark", "Germany", "USA"]
-    filename = "wind_popdens $(countries[country]) $firstyear-$lastyear.csv"
-    CSV.write(filename, df_out[:, 2:end])
+    countries = ["Sweden", "Denmark", "Germany", "Texas", "Iowa", "Oklahoma", "Kansas", "Illinois",
+        "South Dakota", "North Dakota", "California", "Minnesota", "Colorado", "Oregon"]
+    
+    filename = "wind_popdens 1978-2021.xlsx"
+    XLSX.openxlsx(filename, mode=isfile(filename) ? "rw" : "w") do xf
+        sheetname = "$(countries[country]) $firstyear-$lastyear"
+        sheet = sheetname in XLSX.sheetnames(xf) ? xf[sheetname] : XLSX.addsheet!(xf, sheetname)
+        XLSX.writetable!(sheet, [df_out[:,i] for i=2:size(df_out,2)], names(df_out)[2:end], anchor_cell=XLSX.CellRef("A1"))
+    end
+    # CSV.write(filename, df_out[:, 2:end])
 end
 
 # just for the histogram data Fredrik wanted
@@ -279,9 +462,18 @@ function groupwindspeeds(country; firstyear=1978, lastyear=2021, usemiuu=false)
     df_out[:,2:end] .= 0
     indexes = [findfirst(allranges .== r) for r in cdf.windspeed_range]
     df_out[indexes, :] = cdf
-    countries = ["Sweden", "Denmark", "Germany", "USA"]
-    filename = "winddata $(countries[country]) $(usemiuu ? "MIUU " : "")$firstyear-$lastyear.csv"
-    CSV.write(filename, df_out)
+    insertcols!(df_out, 2, :windspeed_low => 0:.25:20.75, :windspeed_high => .25:.25:21)
+
+    countries = ["Sweden", "Denmark", "Germany", "Texas", "Iowa", "Oklahoma", "Kansas", "Illinois",
+        "South Dakota", "North Dakota", "California", "Minnesota", "Colorado", "Oregon"]
+
+    filename = "winddata 1978-2021.xlsx"
+    XLSX.openxlsx(filename, mode=isfile(filename) ? "rw" : "w") do xf
+        sheetname = "$(countries[country]) $(usemiuu ? "MIUU " : "")$firstyear-$lastyear"
+        sheet = sheetname in XLSX.sheetnames(xf) ? xf[sheetname] : XLSX.addsheet!(xf, sheetname)
+        XLSX.writetable!(sheet, [df_out[:,i] for i=2:size(df_out,2)], names(df_out)[2:end], anchor_cell=XLSX.CellRef("A1"))
+    end
+    # CSV.write(filename, df_out)
 end
 
 #=
@@ -434,7 +626,8 @@ function exportGISturbinedata(; mincapac=0, minclass=0, firstyear=1978, plotmask
             popdens=pop, land1=commonland[:,1], freq1=freq[:,1], land2=commonland[:,2], freq2=freq[:,2],
             land3=commonland[:,3], freq3=freq[:,3], area=round.(Int, area), class=class,
             windspeed=windspeed)
-    CSV.write(in_datafolder("output", "regionalwindGIS_$gisregion.csv"), df)
+    outfile = "regionalwindGIS_$(gisregion)_minturbine=$(mincapac)_maxpopdens=$(Int(options.persons_per_km2)).csv"
+    CSV.write(in_datafolder("output", outfile), df)
     df
 end
 
@@ -605,7 +798,7 @@ function shadedmap(gisregion, plotdata; resolutionscale=1, downsample=1, colorsc
     res2 = res/2
     lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
     lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
-    source = LonLat()
+    source = Projection("+proj=longlat +datum=WGS84")
     dest = Projection("+proj=moll +lon_0=$(mean(lons))")
     xs, ys = xygrid(lons, lats)
     Proj4.transform!(source, dest, vec(xs), vec(ys))
