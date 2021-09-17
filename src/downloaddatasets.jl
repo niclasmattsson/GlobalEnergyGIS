@@ -4,7 +4,8 @@ export download_datasets
 
 # tuples of (dataset_name, filename, url)
 # not a const to avoid errors when updating urls
-get_dataset_info() = [
+function get_dataset_info()
+    [
     # https://globalwindatlas.info/api/gis/global/wind-speed/10
     # https://globalwindatlas.info/api/gis/global/wind-speed/50
     # https://globalwindatlas.info/api/gis/global/wind-speed/100
@@ -16,8 +17,7 @@ get_dataset_info() = [
         "https://chalmersuniversity.box.com/shared/static/ghexnwa7crukl58nkwric8v9kmlymvj2.tif")
     "GWA200"       ("Global Wind Atlas", "Global Wind Atlas v3 - 200m wind speed.tif",
         "https://chalmersuniversity.box.com/shared/static/7ib2jdni6hu9uwe1hp1mqoeeyqtg5601.tif")
-    "WDPA"         ("WDPA (protected areas):", "WDPA.zip",
-        "https://d1gam3xoknrgr2.cloudfront.net/current/WDPA_WDOECM_May2021_Public_feadb1b4f30799a6dc3ad0b16116d3530ec4a477898f4e10e097e2030e167128_shp.zip")
+    "WDPA"         ("WDPA (protected areas):", "WDPA.zip", url_WDPA("Aug2021"))
         # "https://chalmersuniversity.box.com/shared/static/wn1kznvy7qh1issqcxdlsq64kgtkaayi.zip")
     "GADM"         ("GADM (global administrative areas)", "gadm36.zip",
         "https://biogeo.ucdavis.edu/data/gadm3.6/gadm36_shp.zip")
@@ -48,8 +48,10 @@ get_dataset_info() = [
     "various"      ("Various smaller datasets", "Various_smaller_datasets.zip",
         "https://chalmersuniversity.box.com/shared/static/w3pmx4xhgorgd6jejv23gn4ycsnza8s6.zip")
 ]
-
+end
 download_datasets(startfrom::Int) = download_datasets(get_dataset_info()[startfrom:end, 1]...)
+
+url_WDPA(monthyear=Dates.format(now(), "uyyyy")) = "https://d1gam3xoknrgr2.cloudfront.net/current/WDPA_WDOECM_$(monthyear)_Public_all_shp.zip"
 
 function download_datasets(shortnames::String...)
     datafolder = getconfig("datafolder")
@@ -65,7 +67,18 @@ function download_datasets(shortnames::String...)
         fullname, filename, url = datasets[shortname]
 
         println("\nDownloading dataset $i: $fullname")
-        download_progressbar(url, joinpath(datafolder, filename))
+        try
+            download_progressbar(url, joinpath(datafolder, filename))
+        catch
+            guess_url = url_WDPA()
+            if shortname == "WDPA" && url != guess_url
+                println("\nHardcoded WDPA url no longer working, probably due to an end-of-month update at www.protectedplanet.net.")
+                println("Retrying using a guessed url for the current month...")
+                download_progressbar(guess_url, joinpath(datafolder, filename))
+            else
+                rethrow()
+            end
+        end
         unpack_and_cleanup(shortname, filename, datafolder, dataset_info)
     end
     println("\nDownloads complete.")
