@@ -70,33 +70,31 @@ end
 
 readraster(infile::String, dim::Int=1) = readraster(infile, :none, dim)[1]
 
-function saveTIFF(x::AbstractMatrix, filename::String, extent::Vector{Float64})
+function saveTIFF(x::AbstractArray, filename::String, extent::Vector{Float64}; nodata=Inf32, compressmethod="LZW")
     # EPSG:4326 (switch to importEPSG later)
     # http://yeesian.com/ArchGDAL.jl/latest/projections/#Creating-Spatial-References-1
     wkt_string = "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433],AUTHORITY[\"EPSG\",\"4326\"]]"
     width, height = size(x)
     xres = (extent[3]-extent[1])/width
     yres = (extent[4]-extent[2])/height
-    raster = ArchGDAL.create(
-        filename,
+    nbands = size(x, 3)
+    ArchGDAL.create(filename;
         driver = ArchGDAL.getdriver("GTiff"),
-        width = width,
-        height = height,
-        nbands = 1,
+        width,
+        height,
+        nbands,
         dtype = eltype(x),
-        options = ["COMPRESS=LZW"]
-    )
-    ## assign the projection and transformation parameters
-    ArchGDAL.setgeotransform!(raster, [extent[1], xres, 0, extent[4], 0, -yres])
-    ArchGDAL.setproj!(raster, wkt_string)
-    
-    ## write the raster    
-    ArchGDAL.write!(
-        raster,
-        x,      # image to "burn" into the raster
-        1,      # update band 1
-    )
-    ArchGDAL.destroy(raster)
+        options = ["BIGTIFF=YES", "COMPRESS=$compressmethod"]
+    ) do dataset
+        ## assign the projection and transformation parameters
+        ArchGDAL.setgeotransform!(dataset, [extent[1], xres, 0, extent[4], 0, -yres])
+        ArchGDAL.setproj!(dataset, wkt_string)
+        for b = 1:nbands
+            band = ArchGDAL.getband(dataset, b)
+            ArchGDAL.setnodatavalue!(band, nodata)
+            ArchGDAL.write!(band, x[:,:,b])
+        end
+    end
     nothing
 end
 
