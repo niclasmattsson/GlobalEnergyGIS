@@ -2,19 +2,23 @@ export readSMHI, testSMHI, metadataSMHI
 
 include("coordinatedescent.jl")
 
-const MODELDATA = Dict(
+const MODELDATA_CORDEX = Dict(
     "cnrm" =>   ("CNRM-CERFACS-CNRM-CM5", "r1i1p1", "v2"),  # ICTP: RCP85           CNRM: RCP85 & RCP26
     "mpi" =>    ("MPI-M-MPI-ESM-LR", "r1i1p1", "v1"),       # ICTP: RCP85 & RCP26
-    "ece" =>    ("ICHEC-EC-EARTH", "r12i1p1", "v1"),        # ICTP: RCP85
+    "ecearth" =>    ("ICHEC-EC-EARTH", "r12i1p1", "v1"),    # ICTP: RCP85
     "ncc" =>    ("NCC-NorESM1-M", "r1i1p1", "v1"),          # ICTP: RCP85 & RCP26   CNRM: RCP85
     "mohc" =>   ("MOHC-HadGEM2-ES", "r1i1p1", "v1")         #                       CNRM: RCP85
+)
+
+const MODELDATA_HCLIM = Dict(
+    "ecearth" => ("EC-Earth_driven", "ICHEC-EC-EARTH")
 )
 
 const ALLSIMS = [
     ("cnrm", 85, true),
     ("mpi", 85, true),
     ("mpi", 26, true),
-    ("ece", 85, true),
+    ("ecearth", 85, true),
     ("ncc", 85, true),
     ("ncc", 26, true),
     ("cnrm", 85, false),
@@ -23,17 +27,27 @@ const ALLSIMS = [
     ("cnrm", 85, false)
 ]
 
-testfilename_hclim(variable, altitude, year) =
-    "D:/SMHI/$(variable)a$(altitude)m_NEU-3_ECMWF-ERAINT_evaluation_r1i1p1_HCLIMcom-HCLIM38-AROME_x2yn2v1_3hr_$(year)01010000-$(year)12312100.nc"
+function simname_hclim(model, rcp, variable, altitude, year)
+    driven, modelname = MODELDATA_HCLIM[model]
+    varalt = "$(variable)a$(altitude)m"
+    yearrange = year <= 2060 ? "2040_2060" : "2080_2100"
+    rcpfolder = year > 2005 ? "RCP$(rcp)_$yearrange" : "historical"
+    rcpname = year > 2005 ? "rcp$(rcp)" : "historical"
+    path = "E:/clim/hclim3km/$driven/$rcpfolder/3hr/$varalt"
+    time = "3hr_$(year)01010000-$(year)12312100"
+    file = "$(varalt)_NEU-3_$(modelname)_$(rcpname)_r12i1p1_HCLIMcom-HCLIM38-AROME_x2yn2v1_$(time).nc"
+    return "$path/$file"
+end
 
 function simname_cordex(model, rcp, variable, altitude, year, orgICTP=true)
-    modelname, rip, v1v2 = MODELDATA[model]
+    modelname, rip, v1v2 = MODELDATA_CORDEX[model]
     org = orgICTP ? "ICTP" : "CNRM"
     variant = orgICTP ? "RegCM4-6" : "ALADIN63"
     varalt = "$(variable)a$(altitude)m"
-    path = "E:/clim/CORDEX/$org/$modelname/rcp$rcp/$rip/$variant/$v1v2/3hr/$varalt/latest"
+    rcpfolder = year > 2005 ? "rcp$rcp" : "historical"
+    path = "E:/clim/CORDEX/$org/$modelname/$rcpfolder/$rip/$variant/$v1v2/3hr/$varalt/latest"
     time = "3hr_$(year)01010300-$(year+1)01010000"
-    file = "$(varalt)_EUR-11_$(modelname)_rcp$(rcp)_$(rip)_$(org)-$(variant)_$(v1v2)_$(time).nc"
+    file = "$(varalt)_EUR-11_$(modelname)_$(rcpfolder)_$(rip)_$(org)-$(variant)_$(v1v2)_$(time).nc"
     return "$path/$file"
 end
 
@@ -262,6 +276,9 @@ function saveSMHIwind(altitude=100, year=2018; compress=4)
         dataset_meanwind[:,:] = meandrop(wind, dims=3)
     end
 end
+
+testfilename_hclim(variable, altitude, year) =
+    "D:/SMHI/$(variable)a$(altitude)m_NEU-3_ECMWF-ERAINT_evaluation_r1i1p1_HCLIMcom-HCLIM38-AROME_x2yn2v1_3hr_$(year)01010000-$(year)12312100.nc"
 
 function metadataSMHI(variable="v", altitude=100, year=2018)
     fn = testfilename_hclim(variable, altitude, year)
