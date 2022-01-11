@@ -1,0 +1,476 @@
+export readSMHI, testSMHI, metadataSMHI
+
+include("coordinatedescent.jl")
+
+const MODELDATA = Dict(
+    "cnrm" =>   ("CNRM-CERFACS-CNRM-CM5", "r1i1p1", "v2"),  # ICTP: RCP85           CNRM: RCP85 & RCP26
+    "mpi" =>    ("MPI-M-MPI-ESM-LR", "r1i1p1", "v1"),       # ICTP: RCP85 & RCP26
+    "ece" =>    ("ICHEC-EC-EARTH", "r12i1p1", "v1"),        # ICTP: RCP85
+    "ncc" =>    ("NCC-NorESM1-M", "r1i1p1", "v1"),          # ICTP: RCP85 & RCP26   CNRM: RCP85
+    "mohc" =>   ("MOHC-HadGEM2-ES", "r1i1p1", "v1")         #                       CNRM: RCP85
+)
+
+const ALLSIMS = [
+    ("cnrm", 85, true),
+    ("mpi", 85, true),
+    ("mpi", 26, true),
+    ("ece", 85, true),
+    ("ncc", 85, true),
+    ("ncc", 26, true),
+    ("cnrm", 85, false),
+    ("cnrm", 26, false),
+    ("mohc", 85, false),
+    ("cnrm", 85, false)
+]
+
+testfilename_hclim(variable, altitude, year) =
+    "D:/SMHI/$(variable)a$(altitude)m_NEU-3_ECMWF-ERAINT_evaluation_r1i1p1_HCLIMcom-HCLIM38-AROME_x2yn2v1_3hr_$(year)01010000-$(year)12312100.nc"
+
+function simname_cordex(model, rcp, variable, altitude, year, orgICTP=true)
+    modelname, rip, v1v2 = MODELDATA[model]
+    org = orgICTP ? "ICTP" : "CNRM"
+    variant = orgICTP ? "RegCM4-6" : "ALADIN63"
+    varalt = "$(variable)a$(altitude)m"
+    path = "E:/clim/CORDEX/$org/$modelname/rcp$rcp/$rip/$variant/$v1v2/3hr/$varalt/latest"
+    time = "3hr_$(year)01010300-$(year+1)01010000"
+    file = "$(varalt)_EUR-11_$(modelname)_rcp$(rcp)_$(rip)_$(org)-$(variant)_$(v1v2)_$(time).nc"
+    return "$path/$file"
+end
+
+function nearest_lonlat(lons, lats, xylon, xylat)
+    indices = zeros(CartesianIndex{2}, length(lons), length(lats))
+    distances = zeros(length(lons), length(lats))
+    @time for (i, lon) in enumerate(lons)
+        lastindex = i > 1 ? indices[i-1, 1] : CartesianIndex(200,200)
+        for (j, lat) in enumerate(lats)
+            f = ndx -> checkbounds(Bool, xylon, ndx) ? (xylon[ndx] - lon)^2 + (xylat[ndx] - lat)^2 : Inf
+            dmin, newindex = coordinate_descent(f, lastindex)
+            distances[i, j] = dmin
+            indices[i, j] = newindex
+        end
+    end
+    return distances, indices
+end
+
+extent2range(extent, res) =
+    range(extent[1]+res/2, extent[3]-res/2, step=res), range(extent[4]-res/2, extent[2]+res/2, step=-res)
+
+function reproject_hclim(variable, altitude, year)
+    varalt = "$(variable)a$(altitude)m"
+    bulkname = "NEU-3_ECMWF-ERAINT_evaluation_r1i1p1_HCLIMcom-HCLIM38-AROME_x2yn2v1_3hr"
+    ncfile = "D:/SMHI/$(varalt)_$(bulkname)_$(year)01010000-$(year)12312100.nc"
+    println("Loading NetCDF file...")
+    @time begin
+        nc = Dataset(ncfile)
+        xylon = nc["lon"][:,:]
+        xylat = nc["lat"][:,:]
+        varalt = "$(variable)a$(altitude)m"
+        ncdata = Float32.(nc[varalt][:,:,:])
+        nhours = size(ncdata, 3)
+        res = 0.03
+        extent = [1, 50.5, 32, 71.5]
+        lons, lats = extent2range(extent, res)
+    end
+    println("Calculating nearest neighbors...")
+    distances, indices = nearest_lonlat(lons, lats, xylon, xylat)
+    println("Reading time series data from nearest neighbors...")
+    @time begin
+        newdata = zeros(Float32, size(indices)..., nhours)
+        maxdist = 2.1*res^2
+        infdata = fill(Inf32, nhours)
+        ci = CartesianIndices(indices)
+        for (i,j) in enumerate(indices)
+            index = ci[i]
+            newdata[index, :] = distances[index] < maxdist ? ncdata[j, :] : infdata
+        end
+    end
+    println("Saving...")
+    filename = "D:/SMHI/testCORDEXv3.tif"
+    @time saveTIFF(newdata, filename, extent, compressmethod="ZSTD")
+    if filesize(filename) > 2^32
+        println("Recompressing...")
+        temp = tempname("D:/SMHI")
+        @time recompress_gtiff(filename, temp)
+        mv(temp, filename, force=true)
+    end
+    # filename = "D:/SMHI/testCORDEXv3.hdf5"
+    # println("Creating HDF5 file:  $filename")
+    # @time h5open(filename, "w") do file 
+    #     group = file["/"]
+    #     dataset_data = create_dataset(group, "data", datatype(Float32), dataspace(size(newdata)), chunk=(16,16,size(newdata,3)), blosc=3)
+    #     dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(4,1))
+    #     dataset_data[:,:,:] = newdata
+    #     dataset_extent[:,:] = extent
+    # end
+    nothing
+end
+
+function reproject_cordex_gdalv2(variable, altitude, year, rcp)
+    println("Loading NetCDF file...")
+    @time begin
+        nc = Dataset(simname_cordex("mohc", rcp, variable, altitude, year, false))
+        xylon = nc["lon"][:,:]
+        xylat = nc["lat"][:,:]
+        varalt = "$(variable)a$(altitude)m"
+        ncdata = Float32.(nc[varalt][:,:,:])
+        nhours = size(ncdata, 3)
+        res = 0.1
+        extent = [-10.5, 34.5, 32, 71.5]
+        lons, lats = extent2range(extent, res)
+    end
+    println("Calculating nearest neighbors...")
+    distances, indices = nearest_lonlat(lons, lats, xylon, xylat)
+    println("Reading time series data from nearest neighbors...")
+    @time begin
+        newdata = zeros(Float32, size(indices)..., nhours)
+        maxdist = 2.7*res^2
+        infdata = fill(Inf32, nhours)
+        ci = CartesianIndices(indices)
+        for (i,j) in enumerate(indices)
+            index = ci[i]
+            newdata[index, :] = distances[index] < maxdist ? ncdata[j, :] : infdata
+        end
+    end
+    println("Saving...")
+    filename = "D:/SMHI/testCORDEXv2.tif"
+    @time saveTIFF(newdata, filename, extent, compressmethod="ZSTD")
+    if filesize(filename) > 2^32
+        println("Recompressing...")
+        temp = tempname("D:/SMHI")
+        @time recompress_gtiff(filename, temp)
+        mv(temp, filename, force=true)
+    end
+    # filename = "D:/SMHI/testCORDEXv2.hdf5"
+    # println("Creating HDF5 file:  $filename")
+    # @time h5open(filename, "w") do file 
+    #     group = file["/"]
+    #     dataset_data = create_dataset(group, "data", datatype(Float32), dataspace(size(newdata)), chunk=(16,16,size(newdata,3)), blosc=3)
+    #     dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(4,1))
+    #     dataset_data[:,:,:] = newdata
+    #     dataset_extent[:,:] = extent
+    # end
+    nothing
+end
+
+function reproject_hclim_gdal(altitude, year)
+    println("Reprojecting u variable...")
+    filename1 = reproject_hclim_gdal("u", altitude, year)
+    println("Reprojecting v variable...")
+    filename2 = reproject_hclim_gdal("v", altitude, year)
+    println("Read & save absolute wind speed...")
+    saveSMHIwind(altitude, year)
+    rm(filename1)
+    rm(filename1 * ".aux.xml")
+    rm(filename2)
+    rm(filename2 * ".aux.xml")
+end
+
+function reproject_hclim_gdal(variable, altitude, year)
+    varalt = "$(variable)a$(altitude)m"
+    bulkname = "NEU-3_ECMWF-ERAINT_evaluation_r1i1p1_HCLIMcom-HCLIM38-AROME_x2yn2v1_3hr"
+    ncfile = "D:/SMHI/$(varalt)_$(bulkname)_$(year)01010000-$(year)12312100.nc"
+    outfile = "D:/SMHI/TEST$(varalt)_$(year)_03d.tif"
+    # using nearest neighbor, retains more variation than bilinear  (see -r option)
+    targetproj = split("-te 1 50.5 32 71.5 -tr 0.03 0.03 -t_srs EPSG:4326", ' ')
+    options = split("--config GDAL_CACHEMAX 9999 -wm 9999 -co COMPRESS=ZSTD -co BIGTIFF=YES", ' ')
+    @time run(`gdalwarp $(targetproj) $(options) NETCDF:"$(ncfile)"://$(varalt) $(outfile)`)
+    return outfile
+end
+
+# not working because of incomplete metadata in many CORDEX files
+function reproject_cordex_gdal(variable, altitude, year, hours=3)
+    varalt = "$(variable)a$(altitude)m"
+    bulkname = "EUR-11_MOHC-HadGEM2-ES_rcp85_r1i1p1_CNRM-ALADIN63_v1_$(hours)hr"
+    ncfile = "D:/SMHI/$(varalt)_$(bulkname)_$(year)01010$(hours)00-$(year+1)01010000.nc"  # note not same hours of day, but no matter since it's the future
+    outfile = "D:/SMHI/TESTcordex_$(varalt)_$(year)_10d3.tif"
+    # using nearest neighbor, retains more variation than bilinear  (see -r option)
+    proj4 = "+proj=lcca +lat_1=49.5 +lat_0=49.5 +lon_0=10.5 +k_0=1.0 +units=km" # +a=6371.220 +b=6371.220"
+    targetproj = split("-te -10.5 34.5 32 71.5 -tr 0.10 0.10 -t_srs EPSG:4326", ' ')
+    options = split("--config GDAL_CACHEMAX 9999 -wm 9999 -co COMPRESS=ZSTD -co BIGTIFF=YES", ' ')
+    @time run(`gdalwarp -s_srs $(proj4) $(targetproj) $(options) NETCDF:"$(ncfile)"://$(varalt) $(outfile)`)
+    return outfile
+end
+
+# gdalsrsinfo -o proj4 NETCDF:ua100m_NEU-3_ECMWF-ERAINT_evaluation_r1i1p1_HCLIMcom-HCLIM38-AROME_x2yn2v1_3hr_200601010000-200612312100.nc://ua100m
+# gdalsrsinfo -o proj4 NETCDF:va100m_EUR-11_MOHC-HadGEM2-ES_rcp85_r1i1p1_CNRM-ALADIN63_v1_3hr_205001010300-205101010000.nc://va100m
+
+function readprojected(variable="v", altitude=100, year=2018)
+    filename = "D:/SMHI/$(variable)a$(altitude)m_$(year)_03d.tif"
+    ArchGDAL.readraster(filename)
+end
+
+AGread(filename) = ArchGDAL.readraster(filename)[:,:,:]
+filesizeMB(filename) = round(filesize(filename)/1024^2, digits=1)
+
+function readalldata(filename)
+    ArchGDAL.readraster(filename) do dataset
+        return dataset[:,:,:]
+    end
+end
+
+function getGWArangesfromSMHI(variable="v", altitude=100, year=2018, method="")
+    suffix = isempty(method) ? "" : "_$method"
+    filename = "D:/SMHI/$(variable)a$(altitude)m_$(year)_03d$(suffix).tif"
+    ArchGDAL.read(filename) do dataset
+        geotransform = ArchGDAL.getgeotransform(dataset)
+        size = convert.(Int, (ArchGDAL.width(dataset), ArchGDAL.height(dataset)))
+        coordextent = getextent(geotransform, size)
+        # display(size)
+        # display(coordextent)
+        latrange_gwa, lonrange_gwa = bbox2ranges(extent2bbox(coordextent), 100)
+        return lonrange_gwa, latrange_gwa
+    end
+end
+
+function plotSMHImaps(altitude=100, year=2018; method="")
+    suffix = "$(altitude)m$year$method"
+    # smhi = getSMHIwind(altitude, year, method)  # reads mean wind
+    drawmap(smhi; scalefactor=(1.0,1.8), colorrange=(0,12), save="smhi_$suffix.png")
+    lonrange, latrange = getGWArangesfromSMHI("v", altitude, year, method)
+    gwa_full = getwindatlas(altitude)[lonrange,latrange]
+    gwa = gwa_full[2:3:end, 2:3:end]
+    drawmap(gwa; scalefactor=(1.0,1.8), colorrange=(0,12), save="gwa_$suffix.png")
+    drawmap(gwa_full; scalefactor=(1.0,1.8), colorrange=(0,12), save="gwa_full_$suffix.png")
+    GLMakie.destroy!(GLMakie.global_gl_screen())
+    return gwa, smhi
+end
+
+function getSMHIwind(altitude=100, year=2018)
+    # u = readprojected("u", altitude, year, method)[:,:,:]
+    # v = readprojected("v", altitude, year, method)[:,:,:]
+    # return meandrop(sqrt.(u.^2 + v.^2), dims=3)
+    filename = "D:/SMHI/windSMHI_$(altitude)m$(year).h5"
+    h5open(filename, "r") do file
+        file["meanwind"][:,:]  #, file["wind"][:,:,:]
+    end
+end
+
+function saveSMHIwind(altitude=100, year=2018; compress=4)
+    u = readprojected("u", altitude, year)[:,:,:]
+    v = readprojected("v", altitude, year)[:,:,:]
+    wind = sqrt.(u.^2 + v.^2)
+    filename = "D:/SMHI/windSMHI_$(altitude)m$(year).h5"
+    gridsize = size(u)[1:2]
+    hours = size(u, 3)
+    # saveTIFF(wind, filename, [1.0, 50.5, 31.99, 71.5])
+    # similar_dataset(origdataset, wind, filename; compressmethod="ZSTD")
+    h5open(filename, "w") do file 
+        group = file["/"]
+        dataset_wind = create_dataset(group, "wind", datatype(Float32), dataspace(size(u)...); chunk=(16,16,hours), compress)
+        dataset_meanwind = create_dataset(group, "meanwind", datatype(Float32), dataspace(gridsize...); chunk=gridsize, compress)
+        dataset_wind[:,:,:] = wind
+        dataset_meanwind[:,:] = meandrop(wind, dims=3)
+    end
+end
+
+function metadataSMHI(variable="v", altitude=100, year=2018)
+    fn = testfilename_hclim(variable, altitude, year)
+    nc = Dataset(fn)
+    display(nc)
+    # gdalinfo_path() do gdalinfo
+    #     # run(`$gdalinfo NETCDF:$fn`)
+    #     run(`$gdalinfo --formats`)
+    # end
+    proj = nc["Lambert_Conformal"].attrib["proj4"]
+    # nc["lon"][1,1], nc["lon"][1,end], nc["lon"][end,1], nc["lon"][end,end]
+    nc["lon"][:,:], nc["lat"][:,:]
+end
+
+function get_minimum_lonlat_spacing()
+    lon, lat = metadataSMHI()
+    get_minimum_lonlat_spacing(lon, lat)
+end
+
+function get_minimum_lonlat_spacing(lon, lat)
+    dist = similar(lon)
+    rows, cols = size(lon)
+    for r=1:rows, c=1:cols
+        dist[r,c] = sqrt(minimum((lon[rr,cc] - lon[r,c])^2 + (lat[rr,cc] - lat[r,c])^2
+                                for rr = max(1,r-1):min(rows,r+1) for cc = max(1,c-1):min(cols,c+1)
+                                    if rr != r || cc != c))
+    end
+    return dist
+end
+
+function testSMHI(variable="v", altitude=100, year=2018)
+    fn = testfilename_hclim(variable, altitude, year)
+    nc = Dataset(fn)
+    proj = nc["Lambert_Conformal"].attrib["proj4"]
+    var = "$(variable)a$(altitude)m"
+
+    # infile = in_datafolder("gwa3_250_wind-speed_$(altitude)m.tif")
+    # gdalinfo_path() do gdalinfo
+    #     run(`$gdalinfo $infile`)
+    # end
+    # println("\n")
+    # outfile = in_datafolder("Global Wind Atlas v3 - $(altitude)m wind speed.tif")
+    # options = split("-r bilinear -te -180 -90 180 90 -tr 0.01 0.01", ' ')
+    # gdalwarp_path() do gdalwarp
+    #     @time run(`$gdalwarp $options -co COMPRESS=LZW $infile $outfile`)
+    # end
+
+    # options = split("-r bilinear -te -180 -90 180 90 -tr 0.01 0.01", ' ')
+    # ds = ArchGDAL.gdalwarp(Float32.(nc[var][:,:,23]), options) do warped
+    #     band = ArchGDAL.getband(warped, 1)
+    #     ArchGDAL.read(band)
+    # end
+
+    # TimeMem-1.0 gdalwarp -te 1 50 36 70 -tr 0.03 0.03 -t_srs EPSG:4326 NETCDF:"ua200m_NEU-3_ECMWF-ERAINT_evaluation_r1i1p1_HCLIMcom-HCLIM38-AROME_x2yn2v1_3hr_201801010000-201812312100.nc"://ua200m --config GDAL_CACHEMAX 9999 -wm 9999 -co COMPRESS=ZSTD -co BIGTIFF=YES ua200m_2018_03d.tif
+    # gdal_translate -b 1 -b 2 -b 3 --config GDAL_CACHEMAX 9999 -co COMPRESS=ZSTD -co BIGTIFF=YES testag.tif testag_small.tif 
+
+    # gdalwarp -of netCDF -te 1 51 32 70  -s_srs "+proj=lcca +lat_1=62.200000 +lat_0=62.200000 +lon_0=10.000000 +k_0=1.0 +x_0=669102.401911 +y_0=1265895.127345 +a=6371220.000000 +b=6371220.000000" -t_srs EPSG:4326 HDF5:"va200m_NEU-3_ECMWF-ERAINT_evaluation_r1i1p1_HCLIMcom-HCLIM38-AROME_x2yn2v1_3hr_201801010000-201812312100.nc"://va200m -to SRC_METHOD=NO_GEOTRANSFORM test.nc
+
+    # return ds
+    Float32.(nc[var][:,:,:])
+end
+
+# Can optionally zero cells that are zero in the Global Wind Atlas to save a lot of disk space.
+function readSMHI(; year=2018, windatlas_only=true)
+    hours = 24*Dates.daysinyear(year)
+    gridsize = (1280,640)
+
+    datafolder = getconfig("datafolder")
+    downloadsfolder = joinpath(datafolder, "downloads")
+    
+    filename = joinpath(datafolder, "era5wind$year.h5")
+    isfile(filename) && error("File $filename exists in $datafolder, please delete or rename manually.")
+
+    windatlas = reshape(imresize(getwindatlas(), gridsize), (1,gridsize...))
+
+    println("Creating HDF5 file:  $filename")
+    h5open(filename, "w") do file 
+        group = file["/"]
+        dataset_wind = create_dataset(group, "wind", datatype(Float32), dataspace(hours,gridsize...), chunk=(hours,16,16), blosc=3)
+        dataset_meanwind = create_dataset(group, "meanwind", datatype(Float32), dataspace(gridsize...), chunk=gridsize, blosc=3)
+
+        totalwind = zeros(gridsize)
+        hour = 1
+
+        count = 0
+        for month = 1:12, monthhalf = 1:2
+            if monthhalf == 1
+                firstday, lastday = "01", "15"
+            else
+                firstday = "16"
+                lastday = Dates.daysinmonth(Date("$year-$month"))
+            end
+            monthstr = lpad(month,2,'0')
+            date = "$year-$monthstr-$firstday/$year-$monthstr-$lastday"
+            erafile = joinpath(downloadsfolder, "wind$year-$monthstr$firstday-$monthstr$lastday.nc")
+
+            count += 1
+            println("\nFile $count of 24:")
+            println("Reading wind components from $erafile...")
+            # Permute dimensions to get hours as dimension 1 (for efficient iteration in GISwind())
+            ncdataset = Dataset(erafile)
+            u100 = permutedims(ncdataset["u100"][:,:,:], [3,1,2])
+            v100 = permutedims(ncdataset["v100"][:,:,:], [3,1,2])
+
+            println("Calculating absolute speed...")
+            wind = replace(sqrt.(u100.^2 + v100.^2), missing => 0.0) .* (windatlas .> 0)
+
+            totalwind = totalwind + sumdrop(wind, dims=1)
+            len = size(wind,1)
+            println("Writing to $filename...")
+            dataset_wind[hour:hour+len-1,:,:] = wind
+            hour += len
+        end
+        println("\nWriting meanwind to $filename...")
+        dataset_meanwind[:,:] = totalwind/hours
+    end
+    nothing
+end
+
+function copy_gtiff(infile, outfile; compressmethod="ZSTD")
+    ArchGDAL.readraster(infile) do origdataset
+        nbands = ArchGDAL.nraster(origdataset)
+        band1 = ArchGDAL.getband(origdataset, 1)
+        nodata = ArchGDAL.getnodatavalue(band1)
+        isfile(outfile) && rm(outfile)
+        origdata = origdataset[:,:,:]
+        ArchGDAL.create(outfile,
+            driver = ArchGDAL.getdriver("GTiff"),
+            width = ArchGDAL.width(origdataset),
+            height = ArchGDAL.height(origdataset),
+            nbands = nbands,
+            dtype = ArchGDAL.pixeltype(band1),
+            options = ["BIGTIFF=YES", "COMPRESS=$compressmethod"]
+        ) do dataset
+            geotransform = ArchGDAL.getgeotransform(origdataset)
+            proj = ArchGDAL.getproj(origdataset)
+            ArchGDAL.setgeotransform!(dataset, geotransform)
+            ArchGDAL.setproj!(dataset, proj)
+            for b = 1:nbands
+                band = ArchGDAL.getband(dataset, b)
+                ArchGDAL.setnodatavalue!(band, nodata)
+                ArchGDAL.write!(band, origdata[:,:,b])
+            end
+        end
+        return origdata
+    end
+end
+
+function recompress_gtiff(infile, outfile; compressmethod="ZSTD")
+    gdal_translate_path() do gdal_translate
+        run(`$gdal_translate -q -co BIGTIFF=YES -co COMPRESS=$compressmethod $infile $outfile`)
+    end
+end
+
+function save_dataset_with_new_data(origdataset, newdata, outfile; compressmethod="ZSTD")
+    nbands = ArchGDAL.nraster(origdataset)
+    ArchGDAL.create(outfile,
+        driver = ArchGDAL.getdriver("GTiff"),
+        width = ArchGDAL.width(origdataset),
+        height = ArchGDAL.height(origdataset),
+        nbands = nbands,
+        dtype = Float32,
+        options = ["BIGTIFF=YES", "COMPRESS=$compressmethod"]
+    ) do dataset
+        geotransform = ArchGDAL.getgeotransform(origdataset)
+        proj = ArchGDAL.getproj(origdataset)
+        ArchGDAL.setgeotransform!(dataset, geotransform)
+        ArchGDAL.setproj!(dataset, proj)
+        nodata = ArchGDAL.getnodatavalue(ArchGDAL.getband(origdataset, 1))
+        for b = 1:nbands
+            band = ArchGDAL.getband(dataset, b)
+            ArchGDAL.setnodatavalue!(band, nodata)
+            ArchGDAL.write!(band, newdata[:,:,b])
+        end
+    end
+    nothing
+end
+
+function read_gtiff(infile)
+    ArchGDAL.readraster(infile) do origdataset
+        nbands = ArchGDAL.nraster(origdataset)
+        band1 = ArchGDAL.getband(origdataset, 1)
+        nodata = ArchGDAL.getnodatavalue(band1)
+        origdata = origdataset[:,:,:]
+        width = ArchGDAL.width(origdataset)
+        height = ArchGDAL.height(origdataset)
+        dtype = ArchGDAL.pixeltype(band1)
+        geotransform = ArchGDAL.getgeotransform(origdataset)
+        proj = ArchGDAL.getproj(origdataset)
+        @show(nbands, band1, nodata, width, height, dtype, geotransform, proj)
+        return origdata
+    end
+end
+
+# function XY_Lambert_Conformal_Conical_2_Lat_Lon(x,y,λ0,ϕ0,ϕ1)
+#     R = 6371 # Radius of Earth
+#     λ0_rad = λ0*π/180
+#     ϕ0_rad = ϕ0*π/180
+#     ϕ1_rad = ϕ1*π/180
+#     x_skaliert = x/R
+#     y_skaliert = y/R
+#     n = sin(ϕ1_rad)
+#     F = (cos(ϕ1_rad)*(tan(π/4 + ϕ1_rad/2))^n)/n
+#     ρ0 = F*(cot(π/4 + ϕ0_rad/2))^n
+#     θ = atan(x_skaliert/(ρ0 - y_skaliert))
+#     ρ = sign(n)*sqrt(x_skaliert^2 + (ρ0 - y_skaliert)^2)
+#     ϕ_rad = 2atan((F/ρ)^(1/n)) - π/2
+#     λ_rad = λ0_rad + θ/n
+#     ϕ = ϕ_rad*180/π
+#     λ = λ_rad*180/π
+#     return λ,ϕ
+# end
