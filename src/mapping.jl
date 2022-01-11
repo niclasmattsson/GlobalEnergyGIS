@@ -42,7 +42,7 @@ end
 
 function createmap(gisregion, regions, regionlist, lons, lats, colors, source, dest, xs, ys,
                     landcenters, popcenters, connected, connectedoffshore;
-                    lines=false, labels=false, resolutionscale=1, textscale=1, legend=false, dots=nothing)
+                    lines=false, labels=false, resolutionscale=1, textscale=1, dotscale=1.5, legend=false, dots=nothing, project=true)
     nreg = length(regionlist)
     scale = maximum(size(regions))/6500
 
@@ -88,11 +88,15 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     end
     
     # draw the high resolution surface last, so the above calls to lines! go 20x faster
-    surface!(xs, ys; color=regions, colormap=cgrad(colors, categorical=true), shading=false)
+    if project
+        surface!(xs, ys; color=regions, colormap=cgrad(colors, categorical=true), shading=false)
+    else
+        heatmap!(xs, ys, reverse(regions, dims=2); colormap=cgrad(colors, categorical=true), shading=false)
+    end
     
     if dots != nothing
         tx, ty = dots
-        scatter!(tx, ty, markersize=2, color=RGB(1,0,0))
+        scatter!(tx, ty, markersize=dotscale*resolutionscale, color=RGB(1,0,0))
     end
 
     println("...saving...")
@@ -101,7 +105,7 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     isfile(filename) && rm(filename)
     Makie.save(filename, ax.scene, resolution=pngsize)
     if legend
-        makelegend(string.(regionlist), colors[2:end-1], scale=(4*scale)^0.7)
+        makelegend(string.(regionlist), colors[2:end-1], scale=(4*scale)^0.7*resolutionscale)
         img = load(filename)
         legend = autocrop(load(in_datafolder("output", "legend.png")))
         height = max(size(img,1), size(legend,1))
@@ -239,7 +243,7 @@ function makelegend(labels, colors; scale=2)
         textsize = 36*scale
     )
     scene = fig.axis.scene
-    limits!(FRect(-1, 0.25, 4, len+0.5)*scale)     # allow for 10 lines (to get constant text size for any number of labels)
+    limits!(FRect(-1, 0.25, 4, len+0.5)*scale*1.6)     # allow for 10 lines (to get constant text size for any number of labels)
     filename = in_datafolder("output", "legend.png")
     isfile(filename) && rm(filename)
     Makie.save(filename, scene, resolution = scene.resolution.val .* scale)

@@ -12,7 +12,7 @@ const landtypes = ["Evergreen Needleleaf", "Evergreen Broadleaf",
 # const landtypes = ["Forest", "Forest", "Forest", "Forest", "Forest", "Shrubland", "Shrubland", "Forest",
 #                 "Savanna", "Grassland", "Wetland", "Cropland", "Urban", "Cropland", "Snow/Ice", "Barren"]
 
-function map_protected(; downsample=1, resolutionscale=1, textscale=1, optionlist...)
+function map_protected(; downsample=1, resolutionscale=1, textscale=1, project=true, dotscale=1.5, optionlist...)
     options = WindOptions(merge(windoptions(), optionlist))
     @unpack gisregion, res, protected_codes = options
     regions, offshoreregions, regionlist, gridaccess, popdens, topo, land,
@@ -34,18 +34,35 @@ function map_protected(; downsample=1, resolutionscale=1, textscale=1, optionlis
     mask = zeros(Int16, size(regions))
     mask[reg] .= 1
     mask[wdpa .& reg] .= 2
-    mask[reg .& (n2000 .> 0)] .= 3
-    mask[reg .& wdpa .& (n2000 .> 0)] .= 4
+    # mask[reg .& (n2000 .> 0)] .= 3
+    # mask[reg .& wdpa .& (n2000 .> 0)] .= 4
     mask[regions.==NOREGION] .= NOREGION
 
-    legendtext = ["unprotected", "WDPA", "Natura2000", "both", "wind turbines"]
+    # legendtext = ["unprotected", "WDPA", "Natura2000", "both", "wind turbines"]
+    legendtext = ["not protected", "protected area", "wind turbines"]
 
-    mask = mask[1:downsample:end, 1:downsample:end]
-    lonrange = lonrange[1:downsample:end]
-    latrange = latrange[1:downsample:end]
+    res = 0.01
+    res2 = res/2
+    lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
+    lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
+
+    lonmin, lonmax = 8.2, 9.0
+    latmin, latmax = 51.3, 51.8
+    # lonmin, lonmax = extrema(lons)
+    # latmin, latmax = extrema(lats)
+    ilon = findall((lons .>= lonmin) .& (lons .<= lonmax))
+    ilat = findall((lats .>= latmin) .& (lats .<= latmax))
+    mask = mask[ilon[1:downsample:end], ilat[1:downsample:end]]
+    lonrange = lonrange[ilon[1:downsample:end]]
+    latrange = latrange[ilat[1:downsample:end]]
+    lons, lats = lons[ilon], lats[ilat]
+    # mask[1:7, 1] = [0:5; NOREGION]        # quick hack to make sure color scale is correct
+    mask[1:5, 1] = [0:3; NOREGION]        # quick hack to make sure color scale is correct
+
     nreg = length(legendtext)
 
-    colors = RGBA.([RGB(0.2,0.3,0.4), RGB(0.7,0.7,0.7), RGB(0,.7,0), RGB(0,0,.7), RGB(.9,.9,0), RGB(1,0,0), RGB(0.4,0.4,0.4)], 0.8)
+    # colors = RGBA.([RGB(0.2,0.3,0.4), RGB(0.7,0.7,0.7), RGB(0,.7,0), RGB(0,0,.7), RGB(.9,.9,0), RGB(1,0,0), RGB(0.4,0.4,0.4)], 0.8)
+    colors = RGBA.([RGB(0.2,0.3,0.4), RGB(0.7,0.7,0.7), RGB(0,.7,0), RGB(1,0,0), RGB(0.4,0.4,0.4)], 0.8)
 
     println("Mapping colors to regions (avoid same color in adjacent regions)...")
     connected = connectedregions(mask, nreg)
@@ -53,24 +70,28 @@ function map_protected(; downsample=1, resolutionscale=1, textscale=1, optionlis
     # colors = colorschemes[Symbol("Set2_$nreg")].colors[colorindices]
 
     println("\nProjecting coordinates (Mollweide)...")
-    res = 0.01
-    res2 = res/2
-    lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
-    lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
     source = Projection("+proj=longlat +datum=WGS84")
     dest = Projection("+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84")
     xs, ys = xygrid(lons, lats)
-    Proj4.transform!(source, dest, vec(xs), vec(ys))
+    project && Proj4.transform!(source, dest, vec(xs), vec(ys))
 
     cols = [:lon, :lat, :capac, :year, :onshore, :elec2018]
-    df = DataFrame(CSV.File(in_datafolder("turbines_DE.csv")))[:, cols[1:4]]
-    tx, ty = df.lon, df.lat
-    Proj4.transform!(source, dest, vec(tx), vec(ty))
+    df_DK = DataFrame(CSV.File(in_datafolder("turbines_DK.csv")))[:, cols]
+    df_SE = DataFrame(CSV.File(in_datafolder("turbines_SE.csv")))[:, cols[1:5]]
+    df_DE = DataFrame(CSV.File(in_datafolder("turbines_DE.csv")))[:, cols[1:4]]
+    df_SE[:, :elec2018] .= missing    # MWh/year
+    df_DE[:, :elec2018] .= missing    # MWh/year
+    df_DE[:, :onshore] .= missing    # MWh/year
+    # df = vcat(df_DK, df_SE, df_DE)
+    df = vcat(df_DE)
+    ok = findall((df.lon .>= lonmin) .& (df.lon .<= lonmax) .& (df.lat .>= latmin) .& (df.lat .<= latmax))
+    tx, ty = vec(df.lon[ok]), vec(df.lat[ok])
+    project && Proj4.transform!(source, dest, tx, ty)
 
     println("\nOnshore map...")
-    createmap("$(gisregion)_protected", mask, legendtext, lons, lats, colors, source, dest, xs, ys,
-        [], [], connected, connected; lines=false, labels=false, resolutionscale=resolutionscale,
-        textscale=textscale, legend=true, dots=(tx,ty))
+    zoom = 8
+    createmap("$(gisregion)_protected", repeat(mask, inner=(zoom,zoom)), legendtext, lons, lats, colors, source, dest, repeat(xs, inner=(zoom,zoom)), repeat(ys, inner=(zoom,zoom)),
+        [], [], connected, connected; lines=false, labels=false, resolutionscale, textscale, dotscale, project, legend=true, dots=(tx,ty))
 end
 
 function makePixelDataframe(; optionlist...)

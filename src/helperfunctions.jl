@@ -299,12 +299,19 @@ function uncrop(croppedarray, lonrange, latrange, res)
     return full
 end
 
-function drawmap(mapdata)
+function drawmap(mapdata; scalefactor=(1.0, 1.0), save="", opt...)
     skip = ceil(Int, maximum(size(mapdata))/3000)
     mirrormap = reverse(mapdata[1:skip:end,1:skip:end], dims=2)
     # display(heatmap(mirrormap, size=(1200, 900), c=[cgrad(:viridis)[x] for x in 0.0:0.2:1.0]))
     # display(heatmap(mirrormap, size=(1200, 900), c=cgrad(:viridis, [0, 0.5, 1])))
-    heatmap(mirrormap)
+
+    # https://discourse.julialang.org/t/how-can-i-save-a-makie-heatmap-as-png-with-one-pixel-per-matrix-element/70579
+    scene = Scene(camera=campixel!, resolution=size(mirrormap))
+    heatmap!(scene, mirrormap; opt...)
+    scale!(scene, scalefactor...)
+    !isempty(save) && Makie.save(save, scene, resolution=size(mirrormap).*scalefactor)
+    return scene
+    # heatmap(mirrormap; opt...)
     # display(countmap(mirrormap[:]))
 end
 
