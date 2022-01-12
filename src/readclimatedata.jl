@@ -30,12 +30,13 @@ const ALLSIMS = [
 
 function simname_hclim(model, rcp, variable, altitude, year)
     driven, modelname = MODELDATA_HCLIM[model]
-    varalt = "$(variable)a$(altitude)m"
+    varalt = variable in ["u", "v"] ? "$(variable)a$(altitude)m" : variable
     yearrange = year <= 2060 ? "2040_2060" : "2080_2100"
     rcpfolder = year > 2005 ? "RCP$(rcp)_$yearrange" : "historical"
     rcpname = year > 2005 ? "rcp$(rcp)" : "historical"
     path = "E:/clim/hclim3km/$driven/$rcpfolder/3hr/$varalt"
-    time = "3hr_$(year)01010000-$(year)12312100"
+    time = variable in ["rsns", "rsdsdir"] ? "3hr_$(year)01010130-$(year)12312230" :
+                                             "3hr_$(year)01010000-$(year)12312100"
     file = "$(varalt)_NEU-3_$(modelname)_$(rcpname)_r12i1p1_HCLIMcom-HCLIM38-AROME_x2yn2v1_$(time).nc"
     return "$path/$file"
 end
@@ -44,10 +45,11 @@ function simname_cordex(model, org, rcp, variable, altitude, year)
     modelname, rip, v1v2 = MODELDATA_CORDEX[model]
     org = uppercase(org)
     variant = org == "ICTP" ? "RegCM4-6" : "ALADIN63"
-    varalt = "$(variable)a$(altitude)m"
+    varalt = variable in ["u", "v"] ? "$(variable)a$(altitude)m" : variable
     rcpfolder = year > 2005 ? "rcp$rcp" : "historical"
     path = "E:/clim/CORDEX/$org/$modelname/$rcpfolder/$rip/$variant/$v1v2/3hr/$varalt/latest"
-    time = "3hr_$(year)01010300-$(year+1)01010000"
+    time = variable == "rsds" ? "3hr_$(year)01010130-$(year)12312230" :
+                                "3hr_$(year)01010300-$(year+1)01010000"
     file = "$(varalt)_EUR-11_$(modelname)_$(rcpfolder)_$(rip)_$(org)-$(variant)_$(v1v2)_$(time).nc"
     return "$path/$file"
 end
