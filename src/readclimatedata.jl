@@ -79,29 +79,78 @@ function savewind(datasource, org, model, rcp, altitude, year)
     filename = "E:/clim/wind_$(datasource)$(orgname)_$(model)_$(altitude)m_$(rcpname)_$(year).h5"
     println("\nProcessing $filename...")
     println("Reprojecting u variable...")
-    u, extent = reproject_wind(datasource, org, model, rcp, "u", altitude, year)
+    u, extent = reproject(datasource, org, model, rcp, "u", altitude, year)
     println("Reprojecting v variable...")
-    v, _ = reproject_wind(datasource, org, model, rcp, "v", altitude, year)
-    savewind_uv(u, v, filename, extent)
+    v, _ = reproject(datasource, org, model, rcp, "v", altitude, year)
+    println("Calculating absolute and annual average wind speeds...")
+    @time begin
+        wind = sqrt.(u.^2 + v.^2)
+        meanwind = meandrop(wind, dims=3)
+    end
+    sz = size(wind)
+    println("Saving as $filename...")
+    @time h5open(filename, "w") do file 
+        group = file["/"]
+        dataset_data = create_dataset(group, "wind", datatype(Float32), dataspace(sz), chunk=(16,16,sz[3]), blosc=3)
+        dataset_mean = create_dataset(group, "meanwind", datatype(Float32), dataspace(sz[1:2]), chunk=(16,16), blosc=3)
+        dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(4,1))
+        dataset_data[:,:,:] = wind
+        dataset_mean[:,:] = meanwind
+        dataset_extent[:,:] = extent
+    end
+    nothing
 end
 
-function save_all_sims()
+function savesolartemp(datavar, datasource, org, model, rcp, altitude, year)
+    datasource, org = uppercase(datasource), lowercase(org)
+    rcpname = year > 2005 ? "rcp$(rcp)" : "historical"
+    orgname = isempty(org) ? "" : "_$org"
+    filename = "E:/clim/$(datavar)_$(datasource)$(orgname)_$(model)_$(altitude)m_$(rcpname)_$(year).h5"
+    println("\nProcessing $filename...")
+    println("Reprojecting...")
+    if datavar == "temp"
+        var = datasource == "CORDEX" ? "tas" : "tasLand"
+    else
+        var = datasource == "CORDEX" ? "rsds" : "rsns"
+    end
+    data, extent = reproject(datasource, org, model, rcp, var, altitude, year)
+    @time meandata = meandrop(data, dims=3)
+    sz = size(data)
+    println("Saving as $filename...")
+    @time h5open(filename, "w") do file 
+        group = file["/"]
+        dataset_data = create_dataset(group, datavar, datatype(Float32), dataspace(sz), chunk=(16,16,sz[3]), blosc=3)
+        dataset_mean = create_dataset(group, "mean$datavar", datatype(Float32), dataspace(sz[1:2]), chunk=(16,16), blosc=3)
+        dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(4,1))
+        dataset_data[:,:,:] = data
+        dataset_mean[:,:] = meandata
+        dataset_extent[:,:] = extent
+    end
+    nothing
+end
+
+function save_climate_data()
     for (datasource, org, model, rcp) in ALLSIMS
         @time savewind(datasource, org, model, rcp, 100, 2050)
         model == "EC-EARTH" && @time savewind(datasource, org, model, rcp, 100, 2005)
+        @time savesolartemp("temp", datasource, org, model, rcp, 0, 2050)
+        model == "EC-EARTH" && datasource == "HCLIM" && @time savetemp("temp", datasource, org, model, rcp, 0, 2005)
+        @time savesolartemp("solar", datasource, org, model, rcp, 0, 2050)
+        model == "EC-EARTH" && datasource == "HCLIM" && @time savesolartemp("solar", datasource, org, model, rcp, 0, 2005)
     end
 end
 
-function plot_meanwind()
+function plot_meandata(var)
     dir = "E:/clim"
     files = readdir(dir, join=true)
     for file in files
         base, ext = splitext(file)
-        if ext == ".h5"
+        if startswith(basename(base), var) && ext == ".h5"
             println(file)
-            meanwind = h5read(file, "/meanwind")
-            # println(extrema(meanwind))
-            s = heatmap(reverse(meanwind, dims=2), colorrange=(2,11))
+            meandata = h5read(file, "/mean$var")
+            cr = var == "wind" ? (2,11) : var == "solar" ? (60,250) : (263,295)
+            println(extrema(meandata[isfinite.(meandata)]), " ", cr)
+            s = heatmap(reverse(meandata, dims=2); colorrange=cr)
             Makie.save("$base.png", s, resolution=(800,600).*4)
         end
     end
@@ -109,7 +158,7 @@ end
 
 remove_singleton_dims(a) = dropdims(a, dims = (findall(size(a) .== 1)...,))
 
-function reproject_wind(datasource, org, model, rcp, variable, altitude, year)
+function reproject(datasource, org, model, rcp, variable, altitude, year)
     if datasource == "HCLIM"
         simname = simname_hclim(model, rcp, variable, altitude, year)
         res = 0.03
@@ -126,8 +175,8 @@ function reproject_wind(datasource, org, model, rcp, variable, altitude, year)
         nc = Dataset(simname)
         xylon = nc["lon"][:,:]
         xylat = nc["lat"][:,:]
-        varalt = "$(variable)a$(altitude)m"
-        ncdata = remove_singleton_dims(Float32.(nc[varalt][:,:,:]))
+        varalt = variable in ["u", "v"] ? "$(variable)a$(altitude)m" : variable
+        ncdata = remove_singleton_dims(Float32.(replace(nc[varalt][:,:,:], missing => Inf32)))
         nhours = size(ncdata, 3)
         lons, lats = extent2range(extent, res)
     end
@@ -423,26 +472,6 @@ function save_dataset_with_new_data(origdataset, newdata, outfile; compressmetho
             ArchGDAL.setnodatavalue!(band, nodata)
             ArchGDAL.write!(band, newdata[:,:,b])
         end
-    end
-    nothing
-end
-
-function savewind_uv(u, v, filename, extent)
-    println("Calculating absolute and annual average wind speeds...")
-    @time begin
-        wind = sqrt.(u.^2 + v.^2)
-        meanwind = meandrop(wind, dims=3)
-    end
-    sz = size(wind)
-    println("Saving as $filename...")
-    @time h5open(filename, "w") do file 
-        group = file["/"]
-        dataset_data = create_dataset(group, "wind", datatype(Float32), dataspace(sz), chunk=(16,16,sz[3]), blosc=3)
-        dataset_mean = create_dataset(group, "meanwind", datatype(Float32), dataspace(sz[1:2]), chunk=(16,16), blosc=3)
-        dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(4,1))
-        dataset_data[:,:,:] = wind
-        dataset_mean[:,:] = meanwind
-        dataset_extent[:,:] = extent
     end
     nothing
 end
