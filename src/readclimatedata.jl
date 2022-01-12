@@ -73,7 +73,8 @@ extent2range(extent, res) =
 function savewind(datasource, org, model, rcp, altitude, year)
     datasource, org = uppercase(datasource), lowercase(org)
     rcpname = year > 2005 ? "rcp$(rcp)" : "historical"
-    filename = "E:/clim/wind_$(datasource)_$(org)_$(model)_$(altitude)m_$(rcpname)_$(year).h5"
+    orgname = isempty(org) ? "" : "_$org"
+    filename = "E:/clim/wind_$(datasource)$(orgname)_$(model)_$(altitude)m_$(rcpname)_$(year).h5"
     println("\nProcessing $filename...")
     println("Reprojecting u variable...")
     u, extent = reproject_wind(datasource, org, model, rcp, "u", altitude, year)
@@ -86,6 +87,21 @@ function save_all_sims()
     for (datasource, org, model, rcp) in ALLSIMS
         @time savewind(datasource, org, model, rcp, 100, 2050)
         model == "EC-EARTH" && @time savewind(datasource, org, model, rcp, 100, 2005)
+    end
+end
+
+function plot_meanwind()
+    dir = "E:/clim"
+    files = readdir(dir, join=true)
+    for file in files
+        base, ext = splitext(file)
+        if ext == ".h5"
+            println(file)
+            meanwind = h5read(file, "/meanwind")
+            # println(extrema(meanwind))
+            s = heatmap(reverse(meanwind, dims=2), colorrange=(2,11))
+            Makie.save("$base.png", s, resolution=(800,600).*4)
+        end
     end
 end
 
