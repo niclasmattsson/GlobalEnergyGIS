@@ -1,30 +1,31 @@
-export readSMHI, testSMHI, metadataSMHI
+export savewind
 
 include("coordinatedescent.jl")
 
 const MODELDATA_CORDEX = Dict(
-    "cnrm" =>   ("CNRM-CERFACS-CNRM-CM5", "r1i1p1", "v2"),  # ICTP: RCP85           CNRM: RCP85 & RCP26
-    "mpi" =>    ("MPI-M-MPI-ESM-LR", "r1i1p1", "v1"),       # ICTP: RCP85 & RCP26
-    "ecearth" =>    ("ICHEC-EC-EARTH", "r12i1p1", "v1"),    # ICTP: RCP85
-    "ncc" =>    ("NCC-NorESM1-M", "r1i1p1", "v1"),          # ICTP: RCP85 & RCP26   CNRM: RCP85
-    "mohc" =>   ("MOHC-HadGEM2-ES", "r1i1p1", "v1")         #                       CNRM: RCP85
+    "CNRM-CM5" =>   ("CNRM-CERFACS-CNRM-CM5", "r1i1p1", "v2"),
+    "MPI-ESM" =>    ("MPI-M-MPI-ESM-LR", "r1i1p1", "v1"),
+    "EC-EARTH" =>   ("ICHEC-EC-EARTH", "r12i1p1", "v1"),
+    "NorESM1-M" =>  ("NCC-NorESM1-M", "r1i1p1", "v1"),
+    "HadGEM2-ES" => ("MOHC-HadGEM2-ES", "r1i1p1", "v1")
 )
 
 const MODELDATA_HCLIM = Dict(
-    "ecearth" => ("EC-Earth_driven", "ICHEC-EC-EARTH")
+    "EC-EARTH" => ("EC-Earth_driven", "ICHEC-EC-EARTH")
 )
 
 const ALLSIMS = [
-    ("cnrm", 85, true),
-    ("mpi", 85, true),
-    ("mpi", 26, true),
-    ("ecearth", 85, true),
-    ("ncc", 85, true),
-    ("ncc", 26, true),
-    ("cnrm", 85, false),
-    ("cnrm", 26, false),
-    ("mohc", 85, false),
-    ("cnrm", 85, false)
+    ("CORDEX", "ictp", "CNRM-CM5", 85),
+    ("CORDEX", "cnrm", "CNRM-CM5", 85),
+    ("CORDEX", "cnrm", "CNRM-CM5", 26),
+    ("CORDEX", "ictp", "MPI-ESM", 85),
+    ("CORDEX", "ictp", "MPI-ESM", 26),
+    ("CORDEX", "ictp", "EC-EARTH", 85),
+    ("CORDEX", "ictp", "NorESM1-M", 85),
+    ("CORDEX", "ictp", "NorESM1-M", 26),
+    ("CORDEX", "cnrm", "NorESM1-M", 85),
+    ("CORDEX", "cnrm", "HadGEM2-ES", 85),
+    ("HCLIM", "", "EC-EARTH", 85),
 ]
 
 function simname_hclim(model, rcp, variable, altitude, year)
@@ -39,10 +40,10 @@ function simname_hclim(model, rcp, variable, altitude, year)
     return "$path/$file"
 end
 
-function simname_cordex(model, rcp, variable, altitude, year, orgICTP=true)
+function simname_cordex(model, org, rcp, variable, altitude, year)
     modelname, rip, v1v2 = MODELDATA_CORDEX[model]
-    org = orgICTP ? "ICTP" : "CNRM"
-    variant = orgICTP ? "RegCM4-6" : "ALADIN63"
+    org = uppercase(org)
+    variant = org == "ICTP" ? "RegCM4-6" : "ALADIN63"
     varalt = "$(variable)a$(altitude)m"
     rcpfolder = year > 2005 ? "rcp$rcp" : "historical"
     path = "E:/clim/CORDEX/$org/$modelname/$rcpfolder/$rip/$variant/$v1v2/3hr/$varalt/latest"
@@ -69,67 +70,47 @@ end
 extent2range(extent, res) =
     range(extent[1]+res/2, extent[3]-res/2, step=res), range(extent[4]-res/2, extent[2]+res/2, step=-res)
 
-function reproject_hclim(variable, altitude, year)
-    varalt = "$(variable)a$(altitude)m"
-    bulkname = "NEU-3_ECMWF-ERAINT_evaluation_r1i1p1_HCLIMcom-HCLIM38-AROME_x2yn2v1_3hr"
-    ncfile = "D:/SMHI/$(varalt)_$(bulkname)_$(year)01010000-$(year)12312100.nc"
-    println("Loading NetCDF file...")
-    @time begin
-        nc = Dataset(ncfile)
-        xylon = nc["lon"][:,:]
-        xylat = nc["lat"][:,:]
-        varalt = "$(variable)a$(altitude)m"
-        ncdata = Float32.(nc[varalt][:,:,:])
-        nhours = size(ncdata, 3)
-        res = 0.03
-        extent = [1, 50.5, 32, 71.5]
-        lons, lats = extent2range(extent, res)
-    end
-    println("Calculating nearest neighbors...")
-    distances, indices = nearest_lonlat(lons, lats, xylon, xylat)
-    println("Reading time series data from nearest neighbors...")
-    @time begin
-        newdata = zeros(Float32, size(indices)..., nhours)
-        maxdist = 2.1*res^2
-        infdata = fill(Inf32, nhours)
-        ci = CartesianIndices(indices)
-        for (i,j) in enumerate(indices)
-            index = ci[i]
-            newdata[index, :] = distances[index] < maxdist ? ncdata[j, :] : infdata
-        end
-    end
-    println("Saving...")
-    filename = "D:/SMHI/testCORDEXv3.tif"
-    @time saveTIFF(newdata, filename, extent, compressmethod="ZSTD")
-    if filesize(filename) > 2^32
-        println("Recompressing...")
-        temp = tempname("D:/SMHI")
-        @time recompress_gtiff(filename, temp)
-        mv(temp, filename, force=true)
-    end
-    # filename = "D:/SMHI/testCORDEXv3.hdf5"
-    # println("Creating HDF5 file:  $filename")
-    # @time h5open(filename, "w") do file 
-    #     group = file["/"]
-    #     dataset_data = create_dataset(group, "data", datatype(Float32), dataspace(size(newdata)), chunk=(16,16,size(newdata,3)), blosc=3)
-    #     dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(4,1))
-    #     dataset_data[:,:,:] = newdata
-    #     dataset_extent[:,:] = extent
-    # end
-    nothing
+function savewind(datasource, org, model, rcp, altitude, year)
+    datasource, org = uppercase(datasource), lowercase(org)
+    rcpname = year > 2005 ? "rcp$(rcp)" : "historical"
+    filename = "E:/clim/wind_$(datasource)_$(org)_$(model)_$(altitude)m_$(rcpname)_$(year).h5"
+    println("\nProcessing $filename...")
+    println("Reprojecting u variable...")
+    u, extent = reproject_wind(datasource, org, model, rcp, "u", altitude, year)
+    println("Reprojecting v variable...")
+    v, _ = reproject_wind(datasource, org, model, rcp, "v", altitude, year)
+    savewind_uv(u, v, filename, extent)
 end
 
-function reproject_cordex_gdalv2(variable, altitude, year, rcp)
+function save_all_sims()
+    for (datasource, org, model, rcp) in ALLSIMS
+        @time savewind(datasource, org, model, rcp, 100, 2050)
+        model == "EC-EARTH" && @time savewind(datasource, org, model, rcp, 100, 2005)
+    end
+end
+
+remove_singleton_dims(a) = dropdims(a, dims = (findall(size(a) .== 1)...,))
+
+function reproject_wind(datasource, org, model, rcp, variable, altitude, year)
+    if datasource == "HCLIM"
+        simname = simname_hclim(model, rcp, variable, altitude, year)
+        res = 0.03
+        extent = [1, 50.5, 32, 71.5]
+        maxdist = 2.1 * res^2
+    else
+        simname = simname_cordex(model, org, rcp, variable, altitude, year)
+        res = 0.1
+        extent = [-10.5, 34.5, 32, 71.5]
+        maxdist = 2.7 * res^2
+    end
     println("Loading NetCDF file...")
     @time begin
-        nc = Dataset(simname_cordex("mohc", rcp, variable, altitude, year, false))
+        nc = Dataset(simname)
         xylon = nc["lon"][:,:]
         xylat = nc["lat"][:,:]
         varalt = "$(variable)a$(altitude)m"
-        ncdata = Float32.(nc[varalt][:,:,:])
+        ncdata = remove_singleton_dims(Float32.(nc[varalt][:,:,:]))
         nhours = size(ncdata, 3)
-        res = 0.1
-        extent = [-10.5, 34.5, 32, 71.5]
         lons, lats = extent2range(extent, res)
     end
     println("Calculating nearest neighbors...")
@@ -137,7 +118,6 @@ function reproject_cordex_gdalv2(variable, altitude, year, rcp)
     println("Reading time series data from nearest neighbors...")
     @time begin
         newdata = zeros(Float32, size(indices)..., nhours)
-        maxdist = 2.7*res^2
         infdata = fill(Inf32, nhours)
         ci = CartesianIndices(indices)
         for (i,j) in enumerate(indices)
@@ -145,25 +125,7 @@ function reproject_cordex_gdalv2(variable, altitude, year, rcp)
             newdata[index, :] = distances[index] < maxdist ? ncdata[j, :] : infdata
         end
     end
-    println("Saving...")
-    filename = "D:/SMHI/testCORDEXv2.tif"
-    @time saveTIFF(newdata, filename, extent, compressmethod="ZSTD")
-    if filesize(filename) > 2^32
-        println("Recompressing...")
-        temp = tempname("D:/SMHI")
-        @time recompress_gtiff(filename, temp)
-        mv(temp, filename, force=true)
-    end
-    # filename = "D:/SMHI/testCORDEXv2.hdf5"
-    # println("Creating HDF5 file:  $filename")
-    # @time h5open(filename, "w") do file 
-    #     group = file["/"]
-    #     dataset_data = create_dataset(group, "data", datatype(Float32), dataspace(size(newdata)), chunk=(16,16,size(newdata,3)), blosc=3)
-    #     dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(4,1))
-    #     dataset_data[:,:,:] = newdata
-    #     dataset_extent[:,:] = extent
-    # end
-    nothing
+    return newdata, extent
 end
 
 function reproject_hclim_gdal(altitude, year)
@@ -247,16 +209,6 @@ function plotSMHImaps(altitude=100, year=2018; method="")
     drawmap(gwa_full; scalefactor=(1.0,1.8), colorrange=(0,12), save="gwa_full_$suffix.png")
     GLMakie.destroy!(GLMakie.global_gl_screen())
     return gwa, smhi
-end
-
-function getSMHIwind(altitude=100, year=2018)
-    # u = readprojected("u", altitude, year, method)[:,:,:]
-    # v = readprojected("v", altitude, year, method)[:,:,:]
-    # return meandrop(sqrt.(u.^2 + v.^2), dims=3)
-    filename = "D:/SMHI/windSMHI_$(altitude)m$(year).h5"
-    h5open(filename, "r") do file
-        file["meanwind"][:,:]  #, file["wind"][:,:,:]
-    end
 end
 
 function saveSMHIwind(altitude=100, year=2018; compress=4)
@@ -452,6 +404,50 @@ function save_dataset_with_new_data(origdataset, newdata, outfile; compressmetho
             band = ArchGDAL.getband(dataset, b)
             ArchGDAL.setnodatavalue!(band, nodata)
             ArchGDAL.write!(band, newdata[:,:,b])
+        end
+    end
+    nothing
+end
+
+function savewind_uv(u, v, filename, extent)
+    println("Calculating absolute and annual average wind speeds...")
+    @time begin
+        wind = sqrt.(u.^2 + v.^2)
+        meanwind = meandrop(wind, dims=3)
+    end
+    sz = size(wind)
+    println("Saving as $filename...")
+    @time h5open(filename, "w") do file 
+        group = file["/"]
+        dataset_data = create_dataset(group, "wind", datatype(Float32), dataspace(sz), chunk=(16,16,sz[3]), blosc=3)
+        dataset_mean = create_dataset(group, "meanwind", datatype(Float32), dataspace(sz[1:2]), chunk=(16,16), blosc=3)
+        dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(4,1))
+        dataset_data[:,:,:] = wind
+        dataset_mean[:,:] = meanwind
+        dataset_extent[:,:] = extent
+    end
+    nothing
+end
+
+function save_and_recompress(data, filename, extent)
+    ext = splitext(filename)[2]
+    !in(ext, [".tif", ".h5"]) && error("Extension $ext not recognized.")
+    println("Saving as $filename...")
+    if ext == ".h5"
+        @time h5open(filename, "w") do file 
+            group = file["/"]
+            dataset_data = create_dataset(group, "wind", datatype(Float32), dataspace(size(data)), chunk=(16,16,size(data,3)), blosc=3)
+            dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(4,1))
+            dataset_data[:,:,:] = data
+            dataset_extent[:,:] = extent
+        end
+    else
+        @time saveTIFF(data, filename, extent, compressmethod="ZSTD")
+        if filesize(filename) > 2^32
+            println("Recompressing...")
+            temp = tempname(dirname(filename))
+            @time recompress_gtiff(filename, temp)
+            mv(temp, filename, force=true)
         end
     end
     nothing
