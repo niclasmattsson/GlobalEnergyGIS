@@ -1,46 +1,10 @@
-using FileIO, GeoMakie, ColorSchemes, GLMakie
+using FileIO, GeoMakie, ColorSchemes, Downloads, GLMakie, Proj4
 
 export createmaps, plotmap
 
 using GeoMakie.GeoJSON, GeoMakie.GeoInterface
-function geotest()
-    source = Projection("+proj=longlat +datum=WGS84")
-    dest = WinkelTripel()
-    states = download("https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json")
-    states_geo = GeoJSON.read(read(states, String))
-    lons = LinRange(-179.5, 179.5, 360 ÷ 2)
-    lats = LinRange(-89.5, 89.5, 180 ÷ 2)
-    field = [exp(cosd(l)) + 3(y/90) for l in lons, y in lats]
-    points = map(CartesianIndices(size(field))) do xy
-        x, y = Tuple(xy)
-        Point2f0(lons[x], lats[y])
-    end
 
-    proj = GeoMakie.proj(source, dest)
-    limits = FRect2D(Makie.apply_transform(proj, points))
-    fig = Figure()
-
-    ax = Makie.Axis(fig[1,1])
-    limits!(limits)
-    ax.scene.transformation.transform_func[] = proj
-
-    # wireframe!(ax, lons, lats, field, color=(:gray, 0.2), transparency=true)
-    # wireframe!(-180:15.0:180, -90:15.0:90, ones(25,13), color=(:black, 1.0), transparency=true)
-    # wireframe!(repeat(-180:15.0:180, inner=15), repeat(-90:15.0:90, inner=15), ones(25*15,13*15), color=(:black, 1.0), transparency=true)
-    # xgrid, ygrid = xygrid(repeat(-180:15.0:180, inner=15), repeat(-90:15.0:90, inner=15))
-    # Proj4.transform!(source, dest, vec(xgrid), vec(ygrid))
-    # wireframe!(xgrid, ygrid, ones(25*15,13*15), color=(:black, 1.0), transparency=true)
-
-    n = length(GeoInterface.features(states_geo))
-    lines!(ax, GeoMakie.coastlines())
-    poly!(ax, states_geo, color= 1:n, strokecolor = :blue, strokewidth = 1)
-    # display(fig)
-    # nothing
-    Makie.save("geomakie_figtest.png", ax.scene, resolution=(1000,600))
-    GLMakie.destroy!(GLMakie.global_gl_screen())
-end
-
-function createmap(gisregion, regions, regionlist, lons, lats, colors, source, dest, xs, ys,
+function createmap(gisregion, regions, regionlist, lons, lats, colors, source, dest,
                     landcenters, popcenters, connected, connectedoffshore;
                     lines=false, labels=false, resolutionscale=1, textscale=1, dotscale=1.5, legend=false, dots=nothing, project=true)
     nreg = length(regionlist)
@@ -48,23 +12,33 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
 
     regions[regions.==NOREGION] .= nreg + 1
 
-    xmin, xmax = extrema(xs)
-    ymin, ymax = extrema(ys)
+    xmin, xmax = extrema(lons)
+    ymin, ymax = extrema(lats)
     aspect_ratio = (ymax - ymin) / (xmax - xmin)
     pngwidth = round(Int, resolutionscale*1.02*size(regions,1)) # allow for margins (+1% on both sides)
     pngsize = pngwidth, round(Int, pngwidth * aspect_ratio)     # use aspect ratio after projection transformation
 
     println("...constructing map...")
-    proj = GeoMakie.proj(source, dest)
     fig = Figure()
     ax = Makie.Axis(fig[1,1], xtickcolor=RGBA(colorant"black", 0.4), ytickcolor=RGBA(colorant"black", 0.4),
-                        xtickwidth=scale*2, ytickwidth=scale*2)
-    # ax.scene.transformation.transform_func[] = proj
-    # surface!(xs, ys; color=float.(regions), colormap=colors, shading=false, transparency=true)
-    # xgrid, ygrid = xygrid(-180:15.0:180, -90:15.0:90)
-    # display(xgrid)
-    # Proj4.transform!(source, dest, vec(xgrid), vec(ygrid))
-    # wireframe!(xgrid, ygrid, ones(25,13), color=(:black, 1.0), transparency=true)
+                        xtickwidth=scale*2, ytickwidth=scale*2, aspect = DataAspect())
+
+    ptrans = Makie.PointTrans{2}(Proj4.Transformation(source, dest, always_xy=true))
+    ax.scene.transformation.transform_func[] = ptrans
+
+    sz = length(lons), length(lats)
+    points = map(CartesianIndices(sz)) do xy
+        x, y = Tuple(xy)
+        Point2f(lons[x], lats[y])
+    end
+    limits = Rect2f(Makie.apply_transform(ptrans, points))
+    limits!(ax, limits)
+
+    if project
+        surface!(lons, lats, regions; colormap=cgrad(colors, categorical=true), shading=false)
+    else
+        heatmap!(lons, lats, reverse(regions, dims=2); colormap=cgrad(colors, categorical=true), shading=false)
+    end
 
     if lines
         println("...drawing transmission lines...")
@@ -74,24 +48,16 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
                 !conn[reg1, reg2] && continue
                 # line = [lonlatpoint(popcenters[reg1,:]), lonlatpoint(popcenters[reg2,:])]     # straight line on projected map
                 line = greatcircletrack(popcenters[reg1,:], popcenters[reg2,:], 20)             # great circle segments
-                projectedline = Makie.apply_transform(proj, Point2f0.(line))
                 color = (i == 1) ? :black : :white
-                lines!(projectedline, color=color, linewidth=resolutionscale*scale*textscale*5)
+                lines!(Point2f0.(line), color=color, linewidth=resolutionscale*scale*textscale*5, overdraw=true)
             end
         end
     end
     if labels
         for reg = 1:nreg
-            pos = Makie.apply_transform(proj, lonlatpoint(popcenters[reg,:]))
-            text!(string(regionlist[reg]); position=pos, align=(:center,:center), textsize=textscale*scale*resolutionscale*100)
+            text!(string(regionlist[reg]); position=lonlatpoint(popcenters[reg,:]), align=(:center,:center),
+                    textsize=textscale*scale*resolutionscale*100, overdraw=true)
         end
-    end
-    
-    # draw the high resolution surface last, so the above calls to lines! go 20x faster
-    if project
-        surface!(xs, ys; color=regions, colormap=cgrad(colors, categorical=true), shading=false)
-    else
-        heatmap!(xs, ys, reverse(regions, dims=2); colormap=cgrad(colors, categorical=true), shading=false)
     end
     
     if dots != nothing
@@ -141,10 +107,8 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
     res2 = res/2
     lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
     lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
-    source = Projection("+proj=longlat +datum=WGS84")
-    dest = Projection("+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84")
-    xs, ys = xygrid(lons, lats)
-    Proj4.transform!(source, dest, vec(xs), vec(ys))
+    source = "+proj=longlat +datum=WGS84"
+    dest = "+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84"
 
     println("\nFinding interregional transmission lines...")
     geocenters, popcenters = getregioncenters(regions, nreg, lonrange, latrange, res, scenarioyear)   # column order (lat,lon)
@@ -154,10 +118,10 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
     connectedoffshore[connected] .= false
 
     println("\nOnshore map...")
-    createmap(gisregion, regions, regionlist, lons, lats, onshorecolors, source, dest, xs, ys,
+    createmap(gisregion, regions, regionlist, lons, lats, onshorecolors, source, dest,
         landcenters, popcenters, connected, connectedoffshore; lines, labels, resolutionscale, textscale)
     println("\nOffshore map...")
-    createmap("$(gisregion)_offshore", offshoreregions, regionlist, lons, lats, offshorecolors, source, dest, xs, ys,
+    createmap("$(gisregion)_offshore", offshoreregions, regionlist, lons, lats, offshorecolors, source, dest,
         landcenters, popcenters, connected, connectedoffshore, lines=false, labels=false, resolutionscale=resolutionscale, textscale=textscale)
     # exit()
     return nothing
@@ -195,13 +159,11 @@ function maskmap(mapname, regions, regionlist, lonrange, latrange;
     res2 = res/2
     lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
     lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
-    source = Projection("+proj=longlat +datum=WGS84")
-    dest = Projection("+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84")
-    xs, ys = xygrid(lons, lats)
-    Proj4.transform!(source, dest, vec(xs), vec(ys))
+    source = "+proj=longlat +datum=WGS84"
+    dest = "+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84"
 
     println("\nOnshore map...")
-    createmap(mapname, regions, regionlist, lons, lats, onshorecolors, source, dest, xs, ys,
+    createmap(mapname, regions, regionlist, lons, lats, onshorecolors, source, dest,
         [], [], connected, connected, lines=false, labels=false, resolutionscale=resolutionscale, textscale=textscale, legend=legend)
     return nothing
 end
@@ -361,21 +323,73 @@ function plottimeoffsets()
     plotmap(offsetindices[1:5:end, 1:5:end], colormap=cs)
 end
 
-function testmap()
-    lons = LinRange(1, 30, 360)
-    lats = LinRange(51, 74, 180)
+function geotest()
+    source = "+proj=longlat +datum=WGS84"
+    dest = "+proj=natearth2"
+    ptrans = Makie.PointTrans{2}(Proj4.Transformation(source, dest, always_xy=true))
 
+    fig = Figure()
+    ax = GeoMakie.Axis(fig[1,1], aspect = DataAspect())
+
+    # all input data coordinates are projected using this function
+    ax.scene.transformation.transform_func[] = ptrans
+
+    # draw projected grid lines and set limits accordingly
+    lats = -90:10.0:90
+    lons = -180:10.0:180
+    lons = collect(lons)
+    lons[end] = prevfloat(lons[end])  # avoid PROJ wrapping 180 to -180
+    sz = length(lons), length(lats)
+    points = map(CartesianIndices(sz)) do xy
+        x, y = Tuple(xy)
+        Point2f(lons[x], lats[y])
+    end
+    limits = Rect2f(Makie.apply_transform(ptrans, points))
+    limits!(ax, limits)
+    wireframe!(ax, lons, lats, zeros(sz), color=(:gray, 0.2), transparency=true)
+
+    # add black polygons for land area
+    url = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/"
+    land = Downloads.download(url * "ne_110m_land.geojson", IOBuffer())
+    land_geo = GeoJSON.read(seekstart(land))
+    n = length(GeoInterface.features(land_geo))
+    poly!(ax, land_geo, color=1:n)
+
+    # add grey dots for populated places
+    pop = Downloads.download(url * "ne_10m_populated_places_simple.geojson", IOBuffer())
+    pop_geo = GeoJSON.read(seekstart(pop))
+    # scatter!(ax, GeoMakie.geo2basic(pop_geo), color="lightgrey", markersize=1.2)
+
+    hidedecorations!(ax)    # x & y axis numbers
+    hidespines!(ax)         # outer rectangle
+
+    # return fig
+    Makie.save("geomakie_figtest.png", ax.scene, resolution=(1000,600))
+    GLMakie.destroy!(GLMakie.global_gl_screen())
+end
+
+function geotest2()
+    lons = -180:180
+    lats = -90:90
     field = [exp(cosd(l)) + 3(y/90) for l in lons, y in lats]
+    sz = length(lons), length(lats)
+    points = map(CartesianIndices(sz)) do xy
+        x, y = Tuple(xy)
+        Point2f(lons[x], lats[y])
+    end
 
-    source = Projection("+proj=longlat +datum=WGS84")
-    dest = WinkelTripel()
+    source = "+proj=longlat +datum=WGS84"
+    dest = "+proj=natearth2"
+    ptrans = Makie.PointTrans{2}(Proj4.Transformation(source, dest, always_xy=true))
 
-    xs, ys = xygrid(lons, lats)
-    Proj4.transform!(source, dest, vec(xs), vec(ys))
+    # Surface example
+    fig = Figure()
+    ax = GeoMakie.Axis(fig[1,1])
+    ax.scene.transformation.transform_func[] = ptrans
+    limits = Rect2f(Makie.apply_transform(ptrans, points))
+    limits!(ax, limits)
 
-    scene = surface(xs, ys; color = field, shading = false, show_axis = false, scale_plot = false)
-
-    geoaxis!(scene, extrema(lons), extrema(lats); crs = (src = source, dest = dest,))
-
-    # coastlines!(scene; crs = (src = source, dest = dest,))
+    surface!(ax, lons, lats, field)
+    text!("hello"; position=lonlatpoint((0,0)), align=(:center,:center), depth_shift=0f0)#, textsize=textscale*scale*resolutionscale*100)
+    fig
 end
