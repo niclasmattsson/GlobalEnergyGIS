@@ -93,10 +93,10 @@ function savewind(datasource, org, model, rcp, altitude, year)
         group = file["/"]
         dataset_data = create_dataset(group, "wind", datatype(Float32), dataspace(sz), chunk=(16,16,sz[3]), blosc=3)
         dataset_mean = create_dataset(group, "meanwind", datatype(Float32), dataspace(sz[1:2]), chunk=(16,16), blosc=3)
-        dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(4,1))
+        dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(size(extent)))
         dataset_data[:,:,:] = wind
         dataset_mean[:,:] = meanwind
-        dataset_extent[:,:] = extent
+        dataset_extent[:] = extent
     end
     nothing
 end
@@ -121,10 +121,10 @@ function savesolartemp(datavar, datasource, org, model, rcp, altitude, year)
         group = file["/"]
         dataset_data = create_dataset(group, datavar, datatype(Float32), dataspace(sz), chunk=(16,16,sz[3]), blosc=3)
         dataset_mean = create_dataset(group, "mean$datavar", datatype(Float32), dataspace(sz[1:2]), chunk=(16,16), blosc=3)
-        dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(4,1))
+        dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(size(extent)))
         dataset_data[:,:,:] = data
         dataset_mean[:,:] = meandata
-        dataset_extent[:,:] = extent
+        dataset_extent[:] = extent
     end
     nothing
 end
@@ -133,10 +133,10 @@ function save_climate_data()
     for (datasource, org, model, rcp) in ALLSIMS
         @time savewind(datasource, org, model, rcp, 100, 2050)
         model == "EC-EARTH" && @time savewind(datasource, org, model, rcp, 100, 2005)
-        @time savesolartemp("temp", datasource, org, model, rcp, 0, 2050)
-        model == "EC-EARTH" && datasource == "HCLIM" && @time savetemp("temp", datasource, org, model, rcp, 0, 2005)
-        @time savesolartemp("solar", datasource, org, model, rcp, 0, 2050)
-        model == "EC-EARTH" && datasource == "HCLIM" && @time savesolartemp("solar", datasource, org, model, rcp, 0, 2005)
+        for st in ["solar", "temp"]
+            @time savesolartemp(st, datasource, org, model, rcp, 0, 2050)
+            model == "EC-EARTH" && datasource == "HCLIM" && @time savesolartemp(st, datasource, org, model, rcp, 0, 2005)
+        end
     end
 end
 
@@ -484,9 +484,9 @@ function save_and_recompress(data, filename, extent)
         @time h5open(filename, "w") do file 
             group = file["/"]
             dataset_data = create_dataset(group, "wind", datatype(Float32), dataspace(size(data)), chunk=(16,16,size(data,3)), blosc=3)
-            dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(4,1))
+            dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(size(extent)))
             dataset_data[:,:,:] = data
-            dataset_extent[:,:] = extent
+            dataset_extent[:] = extent
         end
     else
         @time saveTIFF(data, filename, extent, compressmethod="ZSTD")

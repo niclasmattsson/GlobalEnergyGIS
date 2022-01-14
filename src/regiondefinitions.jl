@@ -241,6 +241,17 @@ const europe22 = [
     # But note that non-European territories are eliminated when the region bounding box is set to [34 -11; 72 32].
 ]
 
+const neurope8 = [
+    "SE1"   NUTS("SE332")
+    "SE2"   NUTS("SE313", "SE321", "SE322", "SE331")
+    "SE3"   NUTS("SE110", "SE121", "SE122", "SE123", "SE124", "SE125", "SE211", "SE213", "SE214", "SE232", "SE311", "SE312")
+    "SE4"   NUTS("SE212", "SE221", "SE224", "SE231")
+    "NO125" NUTS("NO011", "NO012", "NO021", "NO022", "NO031", "NO033", "NO034", "NO041", "NO042", "NO043", "NO032", "NO051", "NO052")
+    "NO34"  NUTS("NO053", "NO060", "NO071", "NO072", "NO073")
+    "DK"    NUTS("DK")
+    "FI"    NUTS("FI")
+]
+
 const france13 = [
     "Auvergne-Rhône-Alpes"         GADM(["France"], "Auvergne-Rhône-Alpes")
     "Bourgogne-Franche-Comté"      GADM(["France"], "Bourgogne-Franche-Comté")
