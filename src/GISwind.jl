@@ -135,8 +135,8 @@ function GISwind(; savetodisk=true, plotmasks=false, optionlist...)
         end
     end
 
-    nothing
-    # return windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore
+    # nothing
+    return windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore
 end
 
 function read_datasets(options)
@@ -323,7 +323,6 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
     println("Interpolate ERA5 wind speeds later (maybe 4x runtime).")
 
     onshoreclass, offshoreclass = makewindclasses(options, windatlas_class)
-    eralons, eralats, lonmap, latmap, cellarea = eralonlat(options, lonrange, latrange)
 
     _, _, meanwind_allyears, _ = annualwindindex(options)
     @assert size(meanwind_allyears) == size(meanwind)
@@ -350,25 +349,36 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
         # println("This will increase run times by an order of magnitude (since GWA has very high spatial resolution).")
     end
 
+    eralons, eralats, _, _, _ = eralonlat(options, lonrange, latrange)
+    eralonlim = (eralons[1]-erares/2, eralons[end]+erares/2)
+    eralatlim = (eralats[end]-erares/2, eralats[1]+erares/2)
+    meanwindGeo = GeoArray(meanwind, erares, eralonlim, eralatlim)
+
+    lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
+    lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
+    lonlim = (lons[1]-res/2, lons[end]+res/2)
+    latlim = (lats[end]-res/2, lats[1]+res/2)
+    regionsGeo = GeoArray(regions, res, lonlim, latlim)
+
     # Run times vary wildly depending on geographical area (because of far offshore regions with mostly zero wind speeds).
     # To improve the estimated time of completing the progress bar, iterate over latitudes in random order.
     Random.seed!(1)
     updateprogress = Progress(nlats, 1)
     for j in randperm(nlats)
-        eralat = eralats[j]
-        colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2, res)-1]
+        eralat = getlat(meanwindGeo, j)
+        colrange = lat_indices_within(regionsGeo, eralat - erares/2, eralat + erares/2)
         for i = 1:nlons
             meanwind[i,j] == 0 && continue
             wind = rescale_to_wind_atlas ? windspeed[:, i, j] : speed2capacityfactor.(windspeed[:, i, j])
-            eralon = eralons[i]
-            # get all high resolution row and column indexes within this ERA5 cell         
-            rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2, res)-1]
-
+            eralon = getlon(meanwindGeo, i)
+            rowrange = lon_indices_within(regionsGeo, eralon - erares/2, eralon + erares/2)
+            
+            # for all high resolution row and column indexes within this ERA5 cell         
             for c in colrange, r in rowrange
                 (c == 0 || r == 0) && continue
                 reg = regions[r,c]
                 offreg = offshoreregions[r,c]
-                area = cellarea[c]
+                area = rastercellarea(getlat(regionsGeo, c), res)
 
                 # @views is needed to make sure increment_windCF!() works with matrix
                 # slice. It's also faster since it avoids making copies.

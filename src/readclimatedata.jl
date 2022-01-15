@@ -162,7 +162,7 @@ function reproject(datasource, org, model, rcp, variable, altitude, year)
     if datasource == "HCLIM"
         simname = simname_hclim(model, rcp, variable, altitude, year)
         res = 0.03
-        extent = [1, 50.5, 32, 71.5]
+        extent = [2, 50.5, 32, 71.5]
         maxdist = 2.1 * res^2
     else
         simname = simname_cordex(model, org, rcp, variable, altitude, year)
