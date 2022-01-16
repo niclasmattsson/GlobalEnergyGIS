@@ -120,11 +120,11 @@ function GISwind(; savetodisk=true, plotmasks=false, optionlist...)
 
     plotmasks == :onlymasks && return nothing
 
-    windatlas, windatlas_class, meanwind, windspeed = read_wind_datasets(options, lonrange, latrange)
+    windatlas, windatlas_class, meanwind, windspeed, meanwind_allyears = read_wind_datasets(options, lonrange, latrange)
 
     windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore =
-        calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed, regions, offshoreregions,
-                regionlist, mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
+        calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed, meanwind_allyears, regions,
+                offshoreregions, regionlist, mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
 
     if savetodisk
         mkpath(in_datafolder("output"))
@@ -179,19 +179,25 @@ function read_wind_datasets(options, lonrange, latrange)
                     [file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]]
             end
         end
+        # _, _, meanwind_allyears, _ = annualwindindex(options)
+        meanwind_allyears = h5read("E:/clim/meanwind_1996_2005_ERA5.h5", "/meanwind")[eralonranges[1], eralatrange]
     else
         @time meanwind, windspeed = h5open("E:/clim/wind_$(climate_scenario).h5", "r") do file
             file["meanwind"][:,:], permutedims(file["wind"][:,:,:], (3,1,2))
         end
+        climyear = Base.parse(Int, climate_scenario[end-3:end])
+        meanyears = climyear < 2030 ? "1996_2005" : climyear < 2070 ? "2046_2055" : "2091_2100"
+        datasource = contains(climate_scenario, "HCLIM") ? "HCLIM" : "CORDEX"
+        meanwind_allyears = h5read("E:/clim/meanwind_$(meanyears)_$(datasource)_EC-EARTH_100m.h5", "/meanwind")
     end
 
     windatlas = getwindatlas(wind_speed_altitude)[lonrange,latrange]
 
     if wind_speed_altitude == wind_class_altitude
-        return windatlas, windatlas, meanwind, windspeed
+        return windatlas, windatlas, meanwind, windspeed, meanwind_allyears
     else
         windatlas_class = getwindatlas(wind_class_altitude)[lonrange,latrange]
-        return windatlas, windatlas_class, meanwind, windspeed
+        return windatlas, windatlas_class, meanwind, windspeed, meanwind_allyears
     end
 end
 
@@ -314,7 +320,6 @@ function getclasses(windatlas, classes_min, classes_max)
 end
 
 function makewindclasses(options, windatlas)
-    println("Allocating pixels to classes using the Global Wind Atlas...")
     # println("CHANGE TO CAPACITY FACTOR LATER!")
 
     @unpack onshoreclasses_min, onshoreclasses_max, offshoreclasses_min, offshoreclasses_max = options
@@ -325,13 +330,8 @@ function makewindclasses(options, windatlas)
     return onshoreclass, offshoreclass
 end
 
-function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed, regions, offshoreregions,
-                regionlist, mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
-
-    println("Calculating GW potential and hourly capacity factors for each region and wind class...")
-    println("Interpolate ERA5 wind speeds later (maybe 4x runtime).")
-
-    onshoreclass, offshoreclass = makewindclasses(options, windatlas_class)
+function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed, meanwind_allyears, regions,
+                offshoreregions, regionlist, mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
 
     @unpack onshoreclasses_min, offshoreclasses_min, rescale_to_wind_atlas, res, erares,
                 onshore_density, area_onshore, offshore_density, area_offshore, climate_scenario = options
@@ -350,24 +350,37 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
     count_onshoreB = zeros(Int,numreg,nonshoreclasses)
     count_offshore = zeros(Int,numreg,noffshoreclasses)
 
-    if rescale_to_wind_atlas
-        println("\nRescaling ERA5 wind speeds to match annual wind speeds from the Global Wind Atlas.")
-        # println("This will increase run times by an order of magnitude (since GWA has very high spatial resolution).")
-    end
-
     if contains(climate_scenario, "HCLIM")
         erares = 0.03
         extent = [2, 50.5, 32, 71.5]
-        meanwind_allyears = zeros(size(meanwind))
+        # meanwind_allyears = zeros(size(meanwind))
+        GWAclasses = false
+        windatlas_class = meanwind_allyears
     elseif contains(climate_scenario, "CORDEX")
         erares = 0.1
         extent = [-10.5, 34.5, 32, 71.5]
-        meanwind_allyears = zeros(size(meanwind))
+        # meanwind_allyears = zeros(size(meanwind))
+        GWAclasses = false
+        windatlas_class = meanwind_allyears
     else
         erares = 0.28125
         eralons, eralats, _, _, _ = eralonlat(options, lonrange, latrange)
         extent = [eralons[1]-erares/2, eralats[end]-erares/2, eralons[end]+erares/2, eralats[1]+erares/2]
-        _, _, meanwind_allyears, _ = annualwindindex(options)
+        GWAclasses = true
+        if !rescale_to_wind_atlas
+            GWAclasses = false
+            windatlas_class = meanwind_allyears
+        end
+    end
+
+    println("Calculating GW potential and hourly capacity factors for each region and wind class...")
+    println("Interpolate ERA5 wind speeds later (maybe 4x runtime).")
+    println("Allocating pixels to classes using the Global Wind Atlas...")
+    onshoreclass, offshoreclass = makewindclasses(options, windatlas_class)
+
+    if rescale_to_wind_atlas
+        println("\nRescaling ERA5 wind speeds to match annual wind speeds from the Global Wind Atlas.")
+        # println("This will increase run times by an order of magnitude (since GWA has very high spatial resolution).")
     end
 
     @assert size(meanwind_allyears) == size(meanwind)
@@ -405,7 +418,7 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
                 # hourly ERA5 wind speeds to match annual averages from the Global
                 # Wind Atlas.
                 if reg > 0 && reg != NOREGION
-                    class = onshoreclass[r,c]
+                    class = GWAclasses ? onshoreclass[r,c] : onshoreclass[i,j]
                     @views if reg > 0 && class > 0 && mask_onshoreA[r,c] > 0
                         capacity_onshoreA[reg,class] += 1/1000 * onshore_density * area_onshore * area
                         increment_windCF!(windCF_onshoreA[:,reg,class], wind, windatlas[r,c] / meanwind_allyears[i,j], rescale_to_wind_atlas)
@@ -417,7 +430,7 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
                     end
                 end
                 if offreg > 0 && offreg != NOREGION
-                    offclass = offshoreclass[r,c]
+                    offclass = GWAclasses ? offshoreclass[r,c] : offshoreclass[i,j]
                     @views if offreg > 0 && offclass > 0 && mask_offshore[r,c] > 0
                         capacity_offshore[offreg,offclass] += 1/1000 * offshore_density * area_offshore * area
                         increment_windCF!(windCF_offshore[:,offreg,offclass], wind, windatlas[r,c] / meanwind_allyears[i,j], rescale_to_wind_atlas)
