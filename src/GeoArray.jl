@@ -1,4 +1,4 @@
-export GeoArray, lonlat_index, lookup, getlon, getlat, lonindex, latindex
+export GeoArray, lonlat_index, lookup, getlon, getlat, lonindex, latindex, crop
 
 const EPS = 1e-8
 
@@ -51,3 +51,13 @@ lon_indices_within(a::GeoArray, lonlow, lonhigh) =
         max(1, lonindex(a, lonlow)):min(size(a,1), lonindex(a, lonhigh) - 1)
 lat_indices_within(a::GeoArray, latlow, lathigh) =
         max(1, latindex(a, lathigh)):min(size(a,2), latindex(a, latlow) - 1)
+
+function crop(a::GeoArray, targetextent::Vector{<:Real})
+    ilons = lonindex(a, targetextent[1]) : lonindex(a, targetextent[3])
+    ilats = latindex(a, targetextent[4]) : latindex(a, targetextent[2])
+    newextent = [getlon(a, ilons[1]) - a.res/2, getlat(a, ilats[end]) - a.res/2,
+                 getlon(a, ilons[end]) + a.res/2, getlat(a, ilats[1]) + a.res/2]
+    return GeoArray(a[ilons, ilats], a.res, newextent)
+end
+
+# Also write: resize_categorical(), rescale()
