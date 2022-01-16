@@ -72,11 +72,15 @@ end
 extent2range(extent, res) =
     range(extent[1]+res/2, extent[3]-res/2, step=res), range(extent[4]-res/2, extent[2]+res/2, step=-res)
 
-function savewind(datasource, org, model, rcp, altitude, year)
-    datasource, org = uppercase(datasource), lowercase(org)
+function filename_wind(datasource, org, model, rcp, altitude, year)
     rcpname = year > 2005 ? "rcp$(rcp)" : "historical"
     orgname = isempty(org) ? "" : "_$org"
     filename = "E:/clim/wind_$(datasource)$(orgname)_$(model)_$(altitude)m_$(rcpname)_$(year).h5"
+end
+
+function savewind(datasource, org, model, rcp, altitude, year)
+    datasource, org = uppercase(datasource), lowercase(org)
+    filename = filename_wind(datasource, org, model, rcp, altitude, year)
     println("\nProcessing $filename...")
     println("Reprojecting u variable...")
     u, extent = reproject(datasource, org, model, rcp, "u", altitude, year)
@@ -138,6 +142,68 @@ function save_climate_data()
             model == "EC-EARTH" && datasource == "HCLIM" && @time savesolartemp(st, datasource, org, model, rcp, 0, 2005)
         end
     end
+end
+
+function savewind_10year()
+    for year in [1996:2004; 2046:2049; 2051:2055; 2091:2100]
+        savewind("CORDEX", "ictp", "EC-EARTH", 85, 100, year)
+        savewind("HCLIM", "", "EC-EARTH", 85, 100, year)
+    end
+end
+
+# create_10year_meanwind("CORDEX", "ictp", "EC-EARTH", 85, 100, 1996:2005)
+# create_10year_meanwind("CORDEX", "ictp", "EC-EARTH", 85, 100, 2046:2055)
+# create_10year_meanwind("CORDEX", "ictp", "EC-EARTH", 85, 100, 2091:2100)
+# create_10year_meanwind("HCLIM", "", "EC-EARTH", 85, 100, 1996:2005)
+# create_10year_meanwind("HCLIM", "", "EC-EARTH", 85, 100, 2046:2055)
+# create_10year_meanwind("HCLIM", "", "EC-EARTH", 85, 100, 2091:2100)
+function create_10year_meanwind(datasource, org, model, rcp, altitude, years)
+    meanwindall = h5read(filename_wind(datasource, org, model, rcp, altitude, years[1]), "/meanwind")
+    extent = h5read(filename_wind(datasource, org, model, rcp, altitude, years[1]), "/extent")
+    for year in years[2:end]
+        meanwindall += h5read(filename_wind(datasource, org, model, rcp, altitude, year), "/meanwind")
+    end
+    @time h5open("E:/clim/meanwind_$(years[1])_$(years[end])_$(datasource)_$(model)_$(altitude)m.h5", "w") do file 
+        group = file["/"]
+        dataset_mean = create_dataset(group, "meanwind", datatype(Float32), dataspace(size(meanwindall)), chunk=(16,16), blosc=3)
+        dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(size(extent)))
+        dataset_mean[:,:] = meanwindall/length(years)
+        dataset_extent[:] = extent
+    end
+end
+
+function create_10year_meanwind_era5(years)
+    meanwindall = h5read(in_datafolder("era5wind$(years[1]).h5"), "/meanwind")
+    for year in years[2:end]
+        meanwindall += h5read(in_datafolder("era5wind$(year).h5"), "/meanwind")
+    end
+    @time h5open("E:/clim/meanwind_$(years[1])_$(years[end])_ERA5.h5", "w") do file 
+        group = file["/"]
+        dataset_mean = create_dataset(group, "meanwind", datatype(Float32), dataspace(size(meanwindall)), chunk=(16,16), blosc=3)
+        dataset_mean[:,:] = meanwindall/length(years)
+    end
+end
+
+function annual_wind_deviations(datasource, org, model, rcp, altitude)
+    years = [1996:2005; 2046:2055; 2091:2100]
+    nyears = length(years)
+    dev = zeros(nyears, nyears)
+    gisregion = (datasource == "HCLIM") ? "NEurope8" : "CORDEXEurope8"
+    regions, _, regionlist, lonrange, latrange = loadregions(gisregion);
+    erares = (datasource == "ERA5") ? 0.28125 : (datasource == "HCLIM") ? 0.03 : 0.10
+    nlon, nlat = length(lonrange), length(latrange)
+    ilons, ilats = (datasource == "HCLIM") ? (2:nlon-1,2:nlat-1) : (1:nlon,1:nlat)
+    smallregions = resize_categorical(regions[ilons,ilats], regionlist, lonrange[ilons], latrange[ilats], erares; skipNOREGION=true)
+    ok = (datasource == "HCLIM") ? (smallregions .>= 1 .&& smallregions .<= 4) : (smallregions .== 1)
+    for (i, year1) in enumerate(years)
+        meanwind1 = h5read(filename_wind(datasource, org, model, rcp, altitude, year1), "/meanwind")[ok]
+        for (j, year2) in enumerate(years)
+            year1 == year2 && continue
+            meanwind2 = h5read(filename_wind(datasource, org, model, rcp, altitude, year2), "/meanwind")[ok]
+            dev[j,i] = mean(abs.(meanwind1 - meanwind2))
+        end
+    end
+    return dev
 end
 
 function plot_meandata(var)
