@@ -333,10 +333,6 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
 
     onshoreclass, offshoreclass = makewindclasses(options, windatlas_class)
 
-    # _, _, meanwind_allyears, _ = annualwindindex(options)
-    meanwind_allyears = zeros(size(meanwind))
-    @assert size(meanwind_allyears) == size(meanwind)
-
     @unpack onshoreclasses_min, offshoreclasses_min, rescale_to_wind_atlas, res, erares,
                 onshore_density, area_onshore, offshore_density, area_offshore, climate_scenario = options
     
@@ -362,15 +358,19 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
     if contains(climate_scenario, "HCLIM")
         erares = 0.03
         extent = [2, 50.5, 32, 71.5]
+        meanwind_allyears = zeros(size(meanwind))
     elseif contains(climate_scenario, "CORDEX")
         erares = 0.1
         extent = [-10.5, 34.5, 32, 71.5]
+        meanwind_allyears = zeros(size(meanwind))
     else
         erares = 0.28125
         eralons, eralats, _, _, _ = eralonlat(options, lonrange, latrange)
         extent = [eralons[1]-erares/2, eralats[end]-erares/2, eralons[end]+erares/2, eralats[1]+erares/2]
+        _, _, meanwind_allyears, _ = annualwindindex(options)
     end
 
+    @assert size(meanwind_allyears) == size(meanwind)
     meanwindGeo = GeoArray(meanwind, erares, extent)
 
     lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
