@@ -334,9 +334,9 @@ function drawregionmap(regionname)
     display(heatmap(reg .+ (reg.>0).*20, size=(1200, 900)))
 end
 
-function resize_categorical(regions, regionlist, lonrange, latrange; skipNOREGION=false)
+function resize_categorical(regions, regionlist, lonrange, latrange, erares=0.28125; skipNOREGION=false)
     res = 0.01          # resolution of auxiliary datasets [degrees per pixel]
-    erares = 0.28125    # resolution of ERA5 datasets [degrees per pixel]
+    # erares = 0.28125    # resolution of ERA5 datasets [degrees per pixel]
 
     eralons, eralats, lonmap, latmap, cellarea = eralonlat(Dict(:res=>res, :erares=>erares), lonrange, latrange)
     numreg = length(regionlist)

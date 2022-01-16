@@ -32,8 +32,10 @@ windoptions() = Dict(
     :offshoreclasses_max => [6,7,8,9,99],   # upper bound on annual offshore wind speeds for class X
 
     :downsample_masks => 1,     # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions 
-    :classB_threshold => 0.001  # minimum share of pixels within distance_elec_access km that must have grid access
+    :classB_threshold => 0.001, # minimum share of pixels within distance_elec_access km that must have grid access
                                 # for a pixel to be considered for wind class B.
+
+    :climate_scenario => ""     # e.g. "HCLIM_EC-EARTH_100m_rcp85_2050", "CORDEX_ictp_EC-EARTH_100m_rcp85_2050"
 )
     # Land types
     #     0      'Water'                       
@@ -92,9 +94,10 @@ mutable struct WindOptions
     offshoreclasses_max     ::Vector{Float64}
     downsample_masks        ::Int
     classB_threshold        ::Float64
+    climate_scenario        ::String
 end
 
-WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,100,100,0,0,[],[],[],[],0,0.0)
+WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,100,100,0,0,[],[],[],[],0,0.0,"")
 
 function WindOptions(d::Dict{Symbol,Any})
     options = WindOptions()
@@ -106,7 +109,7 @@ end
 
 function GISwind(; savetodisk=true, plotmasks=false, optionlist...)
     options = WindOptions(merge(windoptions(), optionlist))
-    @unpack gisregion, era_year, filenamesuffix, downsample_masks = options
+    @unpack gisregion, era_year, filenamesuffix, downsample_masks, climate_scenario = options
 
     regions, offshoreregions, regionlist, gridaccess, popdens, topo, land, protected, lonrange, latrange =
                 read_datasets(options)
@@ -125,7 +128,8 @@ function GISwind(; savetodisk=true, plotmasks=false, optionlist...)
 
     if savetodisk
         mkpath(in_datafolder("output"))
-        matopen(in_datafolder("output", "GISdata_wind$(era_year)_$gisregion$filenamesuffix.mat"), "w", compress=true) do file
+        suffix = isempty(climate_scenario) ? filenamesuffix : "_$climate_scenario$filenamesuffix"
+        matopen(in_datafolder("output", "GISdata_wind$(era_year)_$gisregion$suffix.mat"), "w", compress=true) do file
             write(file, "CFtime_windonshoreA", windCF_onshoreA)
             write(file, "CFtime_windonshoreB", windCF_onshoreB)
             write(file, "CFtime_windoffshore", windCF_offshore)
@@ -135,8 +139,8 @@ function GISwind(; savetodisk=true, plotmasks=false, optionlist...)
         end
     end
 
-    # nothing
-    return windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore
+    nothing
+    # return windCF_onshoreA, windCF_onshoreB, windCF_offshore, capacity_onshoreA, capacity_onshoreB, capacity_offshore
 end
 
 function read_datasets(options)
@@ -161,18 +165,23 @@ function read_datasets(options)
 end
 
 function read_wind_datasets(options, lonrange, latrange)
-    @unpack res, erares, era_year, wind_speed_altitude, wind_class_altitude = options
+    @unpack res, erares, era_year, wind_speed_altitude, wind_class_altitude, climate_scenario = options
 
     println("Reading ERA5 wind speeds and calculating capacity factors...")
-    eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
-
-    @time meanwind, windspeed = h5open(in_datafolder("era5wind$era_year.h5"), "r") do file
-        if length(eralonranges) == 1
-            file["meanwind"][eralonranges[1], eralatrange],
-                file["wind"][:, eralonranges[1], eralatrange]
-        else
-            [file["meanwind"][eralonranges[1], eralatrange]; file["meanwind"][eralonranges[2], eralatrange]],
-                [file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]]
+    if isempty(climate_scenario)
+        eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
+        @time meanwind, windspeed = h5open(in_datafolder("era5wind$era_year.h5"), "r") do file
+            if length(eralonranges) == 1
+                file["meanwind"][eralonranges[1], eralatrange],
+                    file["wind"][:, eralonranges[1], eralatrange]
+            else
+                [file["meanwind"][eralonranges[1], eralatrange]; file["meanwind"][eralonranges[2], eralatrange]],
+                    [file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]]
+            end
+        end
+    else
+        @time meanwind, windspeed = h5open("E:/clim/wind_$(climate_scenario).h5", "r") do file
+            file["meanwind"][:,:], permutedims(file["wind"][:,:,:], (3,1,2))
         end
     end
 
@@ -324,12 +333,13 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
 
     onshoreclass, offshoreclass = makewindclasses(options, windatlas_class)
 
-    _, _, meanwind_allyears, _ = annualwindindex(options)
+    # _, _, meanwind_allyears, _ = annualwindindex(options)
+    meanwind_allyears = zeros(size(meanwind))
     @assert size(meanwind_allyears) == size(meanwind)
 
     @unpack onshoreclasses_min, offshoreclasses_min, rescale_to_wind_atlas, res, erares,
-                onshore_density, area_onshore, offshore_density, area_offshore = options
-
+                onshore_density, area_onshore, offshore_density, area_offshore, climate_scenario = options
+    
     numreg = length(regionlist)
     nonshoreclasses, noffshoreclasses = length(onshoreclasses_min), length(offshoreclasses_min)
     yearlength, nlons, nlats = size(windspeed)
@@ -349,10 +359,19 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
         # println("This will increase run times by an order of magnitude (since GWA has very high spatial resolution).")
     end
 
-    eralons, eralats, _, _, _ = eralonlat(options, lonrange, latrange)
-    eralonlim = (eralons[1]-erares/2, eralons[end]+erares/2)
-    eralatlim = (eralats[end]-erares/2, eralats[1]+erares/2)
-    meanwindGeo = GeoArray(meanwind, erares, eralonlim, eralatlim)
+    if contains(climate_scenario, "HCLIM")
+        erares = 0.03
+        extent = [2, 50.5, 32, 71.5]
+    elseif contains(climate_scenario, "CORDEX")
+        erares = 0.1
+        extent = [-10.5, 34.5, 32, 71.5]
+    else
+        erares = 0.28125
+        eralons, eralats, _, _, _ = eralonlat(options, lonrange, latrange)
+        extent = [eralons[1]-erares/2, eralats[end]-erares/2, eralons[end]+erares/2, eralats[1]+erares/2]
+    end
+
+    meanwindGeo = GeoArray(meanwind, erares, extent)
 
     lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
     lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
@@ -375,7 +394,6 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
             
             # for all high resolution row and column indexes within this ERA5 cell         
             for c in colrange, r in rowrange
-                (c == 0 || r == 0) && continue
                 reg = regions[r,c]
                 offreg = offshoreregions[r,c]
                 area = rastercellarea(getlat(regionsGeo, c), res)
