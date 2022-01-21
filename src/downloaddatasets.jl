@@ -17,7 +17,8 @@ function get_dataset_info()
         "https://chalmersuniversity.box.com/shared/static/ghexnwa7crukl58nkwric8v9kmlymvj2.tif")
     "GWA200"       ("Global Wind Atlas", "Global Wind Atlas v3 - 200m wind speed.tif",
         "https://chalmersuniversity.box.com/shared/static/7ib2jdni6hu9uwe1hp1mqoeeyqtg5601.tif")
-    "WDPA"         ("WDPA (protected areas):", "WDPA.zip", url_WDPA("Aug2021"))
+    "WDPA"         ("WDPA (protected areas):", "WDPA.zip",
+        "https://d1gam3xoknrgr2.cloudfront.net/current/$(filenameWDPA()).zip")
         # "https://chalmersuniversity.box.com/shared/static/wn1kznvy7qh1issqcxdlsq64kgtkaayi.zip")
     "GADM"         ("GADM (global administrative areas)", "gadm36.zip",
         "https://biogeo.ucdavis.edu/data/gadm3.6/gadm36_shp.zip")
@@ -51,7 +52,7 @@ function get_dataset_info()
 end
 download_datasets(startfrom::Int) = download_datasets(get_dataset_info()[startfrom:end, 1]...)
 
-url_WDPA(monthyear=Dates.format(now(), "uyyyy")) = "https://d1gam3xoknrgr2.cloudfront.net/current/WDPA_WDOECM_$(monthyear)_Public_all_shp.zip"
+filenameWDPA(monthyear=Dates.format(now(), "uyyyy")) = "WDPA_WDOECM_$(monthyear)_Public_all_shp"
 
 function download_datasets(shortnames::String...)
     datafolder = getconfig("datafolder")
@@ -67,26 +68,13 @@ function download_datasets(shortnames::String...)
         fullname, filename, url = datasets[shortname]
 
         println("\nDownloading dataset $i: $fullname")
-        try
-            download_progressbar(url, joinpath(datafolder, filename))
-        catch
-            guess_url = url_WDPA()
-            if shortname == "WDPA" && url != guess_url
-                println("\nHardcoded WDPA url no longer working, probably due to an end-of-month update at www.protectedplanet.net.")
-                println("Retrying using a guessed url for the current month...")
-                download_progressbar(guess_url, joinpath(datafolder, filename))
-            else
-                rethrow()
-            end
-        end
+        download_progressbar(url, joinpath(datafolder, filename))
         unpack_and_cleanup(shortname, filename, datafolder, dataset_info)
     end
     println("\nDownloads complete.")
 end
 
 function unpack_and_cleanup(shortname, filename, datafolder, dataset_info)
-    WDPA_filename = splitext(basename(dataset_info[4, 2][3]))[1]
-
     foldername, extension = splitext(filename)
     fullpath = joinpath(datafolder, filename)
 
@@ -97,7 +85,7 @@ function unpack_and_cleanup(shortname, filename, datafolder, dataset_info)
 
     function renameWDPAfiles(WDPAfolder)
         for filename in readdir(WDPAfolder)
-            newname = replace(filename, WDPA_filename => "WDPA-shapefile")
+            newname = replace(filename, filenameWDPA() => "WDPA-shapefile")
             if newname != filename 
                 mv(joinpath(WDPAfolder, filename), joinpath(WDPAfolder, newname))
             end
