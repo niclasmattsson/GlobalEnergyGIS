@@ -12,7 +12,7 @@ struct GeoArray{T,N} <: AbstractArray{T,N}
     # Check if lon-lat limits are valid before constructing.
     function GeoArray(arr, res, lonlim, latlim)
         calcsize = (lonlim[2] - lonlim[1]) / res, (latlim[2] - latlim[1]) / res
-        if all(size(arr)[1:2] .== calcsize)      # maybe ≈
+        if all(size(arr)[1:2] .≈ calcsize)
             return new{eltype(arr), ndims(arr)}(arr, res, lonlim, latlim)
         else
             error("lon-lat limits incompatible with GeoArray size")

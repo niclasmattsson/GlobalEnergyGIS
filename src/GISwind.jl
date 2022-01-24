@@ -179,8 +179,8 @@ function read_wind_datasets(options, lonrange, latrange)
                     [file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]]
             end
         end
-        # _, _, meanwind_allyears, _ = annualwindindex(options)
-        meanwind_allyears = h5read("E:/clim/meanwind_1996_2005_ERA5.h5", "/meanwind")[eralonranges[1], eralatrange]
+        _, _, meanwind_allyears, _ = annualwindindex(options)
+        # meanwind_allyears = h5read("E:/clim/meanwind_1996_2005_ERA5.h5", "/meanwind")[eralonranges[1], eralatrange]
     else
         @time meanwind, windspeed = h5open("E:/clim/wind_$(climate_scenario).h5", "r") do file
             file["meanwind"][:,:], permutedims(file["wind"][:,:,:], (3,1,2))
