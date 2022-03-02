@@ -34,7 +34,8 @@ function simname_hclim(model, rcp, variable, altitude, year)
     yearrange = year <= 2060 ? "2040_2060" : "2080_2100"
     rcpfolder = year > 2005 ? "RCP$(rcp)_$yearrange" : "historical"
     rcpname = year > 2005 ? "rcp$(rcp)" : "historical"
-    path = "E:/clim/hclim3km/$driven/$rcpfolder/3hr/$varalt"
+    climatefolder = getconfig("climatefolder")
+    path = "$climatefolder/hclim3km/$driven/$rcpfolder/3hr/$varalt"
     time = variable in ["rsns", "rsdsdir"] ? "3hr_$(year)01010130-$(year)12312230" :
                                              "3hr_$(year)01010000-$(year)12312100"
     file = "$(varalt)_NEU-3_$(modelname)_$(rcpname)_r12i1p1_HCLIMcom-HCLIM38-AROME_x2yn2v1_$(time).nc"
@@ -47,7 +48,8 @@ function simname_cordex(model, org, rcp, variable, altitude, year)
     variant = org == "ICTP" ? "RegCM4-6" : "ALADIN63"
     varalt = variable in ["u", "v"] ? "$(variable)a$(altitude)m" : variable
     rcpfolder = year > 2005 ? "rcp$rcp" : "historical"
-    path = "E:/clim/CORDEX/$org/$modelname/$rcpfolder/$rip/$variant/$v1v2/3hr/$varalt/latest"
+    climatefolder = getconfig("climatefolder")
+    path = "$climatefolder/CORDEX/$org/$modelname/$rcpfolder/$rip/$variant/$v1v2/3hr/$varalt/latest"
     time = variable == "rsds" ? "3hr_$(year)01010130-$(year)12312230" :
                                 "3hr_$(year)01010300-$(year+1)01010000"
     file = "$(varalt)_EUR-11_$(modelname)_$(rcpfolder)_$(rip)_$(org)-$(variant)_$(v1v2)_$(time).nc"
@@ -75,7 +77,8 @@ extent2range(extent, res) =
 function filename_wind(datasource, org, model, rcp, altitude, year)
     rcpname = year > 2005 ? "rcp$(rcp)" : "historical"
     orgname = isempty(org) ? "" : "_$org"
-    filename = "E:/clim/wind_$(datasource)$(orgname)_$(model)_$(altitude)m_$(rcpname)_$(year).h5"
+    climatefolder = getconfig("climatefolder")
+    filename = "$climatefolder/wind_$(datasource)$(orgname)_$(model)_$(altitude)m_$(rcpname)_$(year).h5"
 end
 
 function savewind(datasource, org, model, rcp, altitude, year)
@@ -109,7 +112,8 @@ function savesolartemp(datavar, datasource, org, model, rcp, altitude, year)
     datasource, org = uppercase(datasource), lowercase(org)
     rcpname = year > 2005 ? "rcp$(rcp)" : "historical"
     orgname = isempty(org) ? "" : "_$org"
-    filename = "E:/clim/$(datavar)_$(datasource)$(orgname)_$(model)_$(altitude)m_$(rcpname)_$(year).h5"
+    climatefolder = getconfig("climatefolder")
+    filename = "$climatefolder/$(datavar)_$(datasource)$(orgname)_$(model)_$(altitude)m_$(rcpname)_$(year).h5"
     println("\nProcessing $filename...")
     println("Reprojecting...")
     if datavar == "temp"
@@ -163,7 +167,8 @@ function create_10year_meanwind(datasource, org, model, rcp, altitude, years)
     for year in years[2:end]
         meanwindall += h5read(filename_wind(datasource, org, model, rcp, altitude, year), "/meanwind")
     end
-    @time h5open("E:/clim/meanwind_$(years[1])_$(years[end])_$(datasource)_$(model)_$(altitude)m.h5", "w") do file 
+    climatefolder = getconfig("climatefolder")
+    @time h5open("$climatefolder/meanwind_$(years[1])_$(years[end])_$(datasource)_$(model)_$(altitude)m.h5", "w") do file 
         group = file["/"]
         dataset_mean = create_dataset(group, "meanwind", datatype(Float32), dataspace(size(meanwindall)), chunk=(16,16), blosc=3)
         dataset_extent = create_dataset(group, "extent", datatype(Float64), dataspace(size(extent)))
@@ -177,7 +182,8 @@ function create_10year_meanwind_era5(years)
     for year in years[2:end]
         meanwindall += h5read(in_datafolder("era5wind$(year).h5"), "/meanwind")
     end
-    @time h5open("E:/clim/meanwind_$(years[1])_$(years[end])_ERA5.h5", "w") do file 
+    climatefolder = getconfig("climatefolder")
+    @time h5open("$climatefolder/meanwind_$(years[1])_$(years[end])_ERA5.h5", "w") do file 
         group = file["/"]
         dataset_mean = create_dataset(group, "meanwind", datatype(Float32), dataspace(size(meanwindall)), chunk=(16,16), blosc=3)
         dataset_mean[:,:] = meanwindall/length(years)

@@ -180,15 +180,15 @@ function read_wind_datasets(options, lonrange, latrange)
             end
         end
         _, _, meanwind_allyears, _ = annualwindindex(options)
-        # meanwind_allyears = h5read("E:/clim/meanwind_1996_2005_ERA5.h5", "/meanwind")[eralonranges[1], eralatrange]
     else
-        @time meanwind, windspeed = h5open("E:/clim/wind_$(climate_scenario).h5", "r") do file
+        climatefolder = getconfig("climatefolder")
+        @time meanwind, windspeed = h5open("$climatefolder/wind_$(climate_scenario).h5", "r") do file
             file["meanwind"][:,:], permutedims(file["wind"][:,:,:], (3,1,2))
         end
         climyear = Base.parse(Int, climate_scenario[end-3:end])
         meanyears = climyear < 2030 ? "1996_2005" : climyear < 2070 ? "2046_2055" : "2091_2100"
         datasource = contains(climate_scenario, "HCLIM") ? "HCLIM" : "CORDEX"
-        meanwind_allyears = h5read("E:/clim/meanwind_$(meanyears)_$(datasource)_EC-EARTH_100m.h5", "/meanwind")
+        meanwind_allyears = h5read("$climatefolder/meanwind_$(meanyears)_$(datasource)_EC-EARTH_100m.h5", "/meanwind")
     end
 
     windatlas = getwindatlas(wind_speed_altitude)[lonrange,latrange]
