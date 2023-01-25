@@ -167,20 +167,26 @@ function read_solar_datasets(options, lonrange, latrange)
     println("Reading ERA5 solar datasets...")
     eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
 
-    @time meanGTI, solarGTI, meanDNI, solarDNI = h5open(in_datafolder("era5solar$era_year.h5"), "r") do file
+    @time solarGTI, solarDNI = h5open(in_datafolder("era5solar$era_year.h5"), "r") do file
         if length(eralonranges) == 1
-            file["meanGTI"][eralonranges[1], eralatrange],
-                file["GTI"][:,eralonranges[1], eralatrange],
-                file["meanDNI"][eralonranges[1], eralatrange],
+            file["GTI"][:,eralonranges[1], eralatrange],
                 file["DNI"][:,eralonranges[1], eralatrange]
         else
-            [file["meanGTI"][eralonranges[1], eralatrange]; file["meanGTI"][eralonranges[2], eralatrange]],
-                [file["GTI"][:, eralonranges[1], eralatrange] file["GTI"][:, eralonranges[2], eralatrange]],
-                [file["meanDNI"][eralonranges[1], eralatrange]; file["meanDNI"][eralonranges[2], eralatrange]],
+            [file["GTI"][:, eralonranges[1], eralatrange] file["GTI"][:, eralonranges[2], eralatrange]],
                 [file["DNI"][:, eralonranges[1], eralatrange] file["DNI"][:, eralonranges[2], eralatrange]]
         end
     end
-    return meanGTI, solarGTI, meanDNI, solarDNI
+    longtermGTI, longtermDNI = h5open(in_datafolder("era5solaratlas.h5"), "r") do file
+        if length(eralonranges) == 1
+            file["longtermGTI"][eralonranges[1], eralatrange],
+                file["longtermDNI"][eralonranges[1], eralatrange]
+        else
+            [file["longtermGTI"][eralonranges[1], eralatrange] file["longtermGTI"][eralonranges[2], eralatrange]],
+                [file["longtermDNI"][eralonranges[1], eralatrange] file["longtermDNI"][eralonranges[2], eralatrange]]
+        end
+    end
+
+    return longtermGTI, solarGTI, longtermDNI, solarDNI
 end
 
 function create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange; plotmasks=false, downsample=1)

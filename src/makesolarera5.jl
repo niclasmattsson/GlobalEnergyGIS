@@ -67,6 +67,36 @@ function makesolarera5(; year=2018, land_cells_only=true)
     nothing
 end
 
+function makeera5solaratlas()
+    allyears = 1979:2019
+    nyears = length(allyears)
+    gridsize = (1280, 640)
+    longtermGTI, longtermDNI = zeros(gridsize), zeros(gridsize)
+
+    for year in allyears
+        println("Reading ERA5 solar data for $year...")
+        meanGTI, meanDNI = h5open(in_datafolder("era5solar$year.h5"), "r") do file
+            file["meanGTI"][:, :], file["meanDNI"][:, :]
+        end
+        longtermGTI .+= meanGTI
+        longtermDNI .+= meanDNI
+    end
+    longtermGTI ./= nyears
+    longtermDNI ./= nyears
+
+    filename = in_datafolder("era5solaratlas.h5")
+    println("Creating HDF5 file:  $filename")
+    h5open(filename, "w") do file 
+        group = file["/"]
+        # create GTI and DNI variables (Global Tilted Irradiance and Direct Normal Irradiance)
+        dataset_meanGTI = create_dataset(group, "longtermGTI", datatype(Float32), dataspace(gridsize...), chunk=gridsize, blosc=3)
+        dataset_meanDNI = create_dataset(group, "longtermDNI", datatype(Float32), dataspace(gridsize...), chunk=gridsize, blosc=3)
+        dataset_meanGTI[:,:] = longtermGTI
+        dataset_meanDNI[:,:] = longtermDNI
+    end
+    nothing
+end
+
 function makemonthlysolarera5(; land_cells_only=true)
     years = 1979:2019
     nyears = length(years)
