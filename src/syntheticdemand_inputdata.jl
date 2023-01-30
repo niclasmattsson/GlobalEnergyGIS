@@ -152,7 +152,7 @@ function buildtrainingdata(; gisregion="Europe8", sspscenario="ssp2-34", sspyear
 
     numreg, numhours = length(regionlist), length(hours)
     firsttime = ZonedDateTime.(hours[1], zone_maxpop)
-    zonedtime = hcat(collect.([firsttime[i]:Hour(1):firsttime[i]+Hour(8759) for i = 1:numreg])...)[:]
+    zonedtime = hcat(collect.([firsttime[i]:Hour(1):firsttime[i]+Hour(numhours-1) for i = 1:numreg])...)[:]
 
     println("\nShifting hourly temperatures from UTC to local time...")
     temperature_top3_mean = dropdims(mean(temp_popcenters, dims=3), dims=3)
@@ -235,7 +235,7 @@ function regional_timezone_offsets_Jan1(; gisregion="Europe8", scenarioyear="ssp
         pops = Float64[]
         for idx in zoneindices
             tzname = tznames[idx]
-            zone = tzname[1:3] == "Etc" ? TimeZone(tzname, TimeZones.Class(:LEGACY)) : TimeZone(tzname)
+            zone = istimezone(tzname, TimeZones.Class(:LEGACY)) ? TimeZone(tzname, TimeZones.Class(:LEGACY)) : TimeZone(tzname)
             push!(zones, zone)
             firsthour = ZonedDateTime(DateTime(era_year,1,1,0), zone)
             hours = firsthour : Hour(1) : firsthour + Hour(numhours-1)
