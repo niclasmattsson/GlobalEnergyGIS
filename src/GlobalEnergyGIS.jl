@@ -28,6 +28,7 @@ include("sspregiondefinitions.jl")
 include("mapping.jl")
 include("syntheticdemand_inputdata.jl")
 include("syntheticdemand_training.jl")
+include("syntheticdemand_heattraining.jl")
 include("readclimatedata.jl")
 
 function GISsequence(regionname, regionmat)
