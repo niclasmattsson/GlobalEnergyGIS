@@ -67,6 +67,16 @@ end
 
 # crossvalidateheat("FR", variables=[:localhour, :weekend01, :temp_monthly, :temp_top3, :temp_topN, :ranked_month, :month, :temp2, :temp1, :temp3, :temp1_mean, :temp1_qlow, :temp1_qhigh], nrounds=150, max_depth=8, eta=0.05, subsample=0.75, metrics=["mae"])
 function crossvalidateheat(country; variables=defaultvariables, demandtype="demand", nrounds=100, max_depth=7, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
+    traindata, demand, numyears = prepare_cv_heat_data(country, variables, demandtype)
+    params = Any["max_depth"=>round(Int, max_depth), "eta"=>eta, "subsample"=>subsample, "metrics"=>metrics, more_xgoptions...]
+    models = nfold_cv_return(traindata, nrounds, numyears; label=demand, metrics=metrics, param=params)   # "rmse" or "mae"
+    display(importance(models[1], string.(variables)))
+    println("\n\nOnly prints feature importance for 2008, collect all years for all countries.\n\n")
+
+    return models, variables
+end
+
+function prepare_cv_heat_data(country, variables, demandtype="demand")
     df_train, offsets = loadheattrainingdata()
     sort!(df_train, [:country, :localtime])
     hours = df_train.timeUTC
@@ -92,13 +102,18 @@ function crossvalidateheat(country; variables=defaultvariables, demandtype="dema
     #     demand[rows] .= circshift(demand[rows], round(Int, offsets[r]))    # shift from UTC to local time
     # end
 
-    params = Any["max_depth"=>round(Int, max_depth), "eta"=>eta, "subsample"=>subsample, "metrics"=>metrics, more_xgoptions...]
+    return traindata, demand, numyears
+end
 
-    models = nfold_cv_return(traindata, nrounds, numyears; label=demand, metrics=metrics, param=params)   # "rmse" or "mae"
-    display(importance(models[1], string.(variables)))
-    println("\n\nOnly prints feature importance for 2008, collect all years for all countries.\n\n")
-
-    return models
+function predict_heat_from_cv(models, country, variables, demandtype="demand")
+    traindata, demand, numyears = prepare_cv_heat_data(country, variables, demandtype)
+    demand_predicted = similar(demand)
+    numhours = 8760
+    for y = 1:numyears
+        rows = numhours*(y-1) + 1 : numhours*y
+        demand_predicted[rows] = XGBoost.predict(models[y], traindata[rows,:])          # mean(normdemand) == 1
+    end
+    return reshape(demand, (numhours,numyears)), reshape(demand_predicted, (numhours,numyears))
 end
 
 function loadheattrainingdata()
