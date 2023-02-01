@@ -13,7 +13,9 @@ function plotlines(models, startday; variables=defaultvariables, era_year=2018)
     plot!(normdemand_predicted[startday*24 .+ (1:24*7), :], linecolor = "#FF00007F", label="")
 end
 
-function plotheat(models, country, startday; variables=defaultvariables)
+function plotheat(country, allmodels, gain, startday)
+    models = allmodels(:, country)
+    variables = axiskeys(gain, 1)
     demand, predicteddemand = GE.predict_heat_from_cv(models, country, variables)
     years = 2008:2014
     Plots.plot(demand, linecolor = "#0000FFFF", size=(1600,950), lw=4, layout = (2,4), label="", xticks=[0,2000,4000,6000,8000],
@@ -32,5 +34,6 @@ plotly()
 # models = crossvalidate(variables=defaultvariables, nrounds=1000, max_depth=7, eta=0.005, subsample=0.05, metrics=["mae"])
 # plotlines(models, 123)
 
-# models, vars = crossvalidateheat("DE", variables=[:country, :localhour, :temp_monthly, :temp_topN, :temp1], nrounds=120, max_depth=6, eta=0.05, subsample=0.75, metrics=["mae"])
-# plotheat(models, "DE", 23, variables=vars)
+# allmodels, gain, err, iter = crossvalidateheat("DE", variables=[:localhour, :temp_monthly, :temp_topN, :temp1, :month], max_depth=6, eta=0.05);
+# allmodels, gain, err, iter = crossvalidateheat("all", variables=[:localhour, :temp_monthly, :temp_topN, :temp1, :month], max_depth=6, eta=0.05);
+# plotheat("DE", allmodels, gain, 23)

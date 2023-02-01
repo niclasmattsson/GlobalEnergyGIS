@@ -4,7 +4,7 @@ export GISwind, GISsolar, GIShydro, GIStemp, GISturbines, makedistances, annualw
 
 using MAT, HDF5, ProgressMeter, Random, Interpolations, BenchmarkTools, Images,
     Statistics, DelimitedFiles, Dates, NCDatasets, JLD, Parameters, ImageSegmentation,
-    StatsBase, CSV, Distances, Printf, TimeZones, DataFrames
+    StatsBase, CSV, Distances, Printf, TimeZones, DataFrames, AxisKeys
 
 include("GeoArray.jl")
 include("rasterize_shapefiles.jl")
