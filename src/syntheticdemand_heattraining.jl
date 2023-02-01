@@ -235,13 +235,14 @@ function buildheattrainingdata(; gisregion="Europe8", sspscenario="ssp2-34", ssp
                     makeregionaldemanddata(gisregion, sspscenario, sspyear)
     scenarioyear = "$(sspscenario[1:4])_$sspyear"
     hours, temp_popcenters = GIStemp(gisregion, scenarioyear, era_year, numcenters, mindist)
+    _, wind_popcenters = GISwind_popcenters(gisregion, scenarioyear, era_year, numcenters, mindist)
     offsets, zone_maxpop, population = regional_timezone_offsets_Jan1(gisregion=gisregion, scenarioyear=scenarioyear, era_year=era_year)
 
     numreg, numhours = length(regionlist), length(hours)
     firsttime = ZonedDateTime.(hours[1], zone_maxpop)
     zonedtime = hcat(collect.([firsttime[i]:Hour(1):firsttime[i]+Hour(numhours-1) for i = 1:numreg])...)[:]
 
-    println("\nShifting hourly temperatures from UTC to local time...")
+    println("\nShifting hourly temperatures and wind speeds from UTC to local time...")
     temperature_topN_mean = dropdims(mean(temp_popcenters, dims=3), dims=3)
     temperature_top3_mean = dropdims(mean(temp_popcenters[:,:,1:3], dims=3), dims=3)
     quantiles = hcat([quantile(temp_popcenters[:,c,1], [0.05, 0.5, 0.95]) for c = 1:numreg]...)
@@ -250,12 +251,26 @@ function buildheattrainingdata(; gisregion="Europe8", sspscenario="ssp2-34", ssp
     shifted_temp1 = similar(temperature_top3_mean)
     shifted_temp2 = similar(temperature_top3_mean)
     shifted_temp3 = similar(temperature_top3_mean)
+
+    wind_topN_mean = dropdims(mean(wind_popcenters, dims=3), dims=3)
+    wind_top3_mean = dropdims(mean(wind_popcenters[:,:,1:3], dims=3), dims=3)
+    shifted_wind_topN_mean = similar(wind_top3_mean)
+    shifted_wind_top3_mean = similar(wind_top3_mean)
+    shifted_wind1 = similar(wind_top3_mean)
+    shifted_wind2 = similar(wind_top3_mean)
+    shifted_wind3 = similar(wind_top3_mean)
     for r = 1:numreg
         shifted_temperature_topN_mean[:,r] = circshift(temperature_topN_mean[:,r], round(Int, offsets[r]))
         shifted_temperature_top3_mean[:,r] = circshift(temperature_top3_mean[:,r], round(Int, offsets[r]))
         shifted_temp1[:,r] = circshift(temp_popcenters[:,r,1], round(Int, offsets[r]))
         shifted_temp2[:,r] = circshift(temp_popcenters[:,r,2], round(Int, offsets[r]))
         shifted_temp3[:,r] = circshift(temp_popcenters[:,r,3], round(Int, offsets[r]))
+
+        shifted_wind_topN_mean[:,r] = circshift(wind_topN_mean[:,r], round(Int, offsets[r]))
+        shifted_wind_top3_mean[:,r] = circshift(wind_top3_mean[:,r], round(Int, offsets[r]))
+        shifted_wind1[:,r] = circshift(wind_popcenters[:,r,1], round(Int, offsets[r]))
+        shifted_wind2[:,r] = circshift(wind_popcenters[:,r,2], round(Int, offsets[r]))
+        shifted_wind3[:,r] = circshift(wind_popcenters[:,r,3], round(Int, offsets[r]))
     end
 
     # dataframe with hourly data
@@ -268,6 +283,11 @@ function buildheattrainingdata(; gisregion="Europe8", sspscenario="ssp2-34", ssp
         temp1 = shifted_temp1[:],
         temp2 = shifted_temp2[:],
         temp3 = shifted_temp3[:],
+        wind_topN = shifted_wind_topN_mean[:],
+        wind_top3 = shifted_wind_top3_mean[:],
+        wind1 = shifted_wind1[:],
+        wind2 = shifted_wind2[:],
+        wind3 = shifted_wind3[:],
         localhour = hour.(zonedtime),
         month = month.(zonedtime),
         weekend01 = Int.(dayofweek.(zonedtime) .>= 6)
@@ -277,13 +297,58 @@ function buildheattrainingdata(; gisregion="Europe8", sspscenario="ssp2-34", ssp
     df_monthlytemp = combine(groupby(df_time, [:country, :month]), :temp1 => mean => :temp_monthly) |>
             d -> sort!(d, [:country, :temp_monthly]) |>
             d -> insertcols!(d, 4, :ranked_month => repeat(1:12, outer=numreg))
+    df_monthlywind = combine(groupby(df_time, [:country, :month]), :wind1 => mean => :wind_monthly) |>
+            d -> sort!(d, [:country, :wind_monthly]) |>
+            d -> insertcols!(d, 4, :ranked_month_wind => repeat(1:12, outer=numreg))
 
     # dataframe with regional data
     df_reg = DataFrame(country=string.(regionlist), demandpercapita=demandpercapita, gdppercapita=gdppercapita,
                         temp1_qlow=quantiles[1,:], temp1_mean=quantiles[2,:], temp1_qhigh=quantiles[3,:])
 
     # join everything together
-    df = innerjoin(df_time, df_monthlytemp, on=[:country, :month]) |>
+    df = innerjoin(df_time, df_monthlytemp, df_monthlywind, on=[:country, :month]) |>
                     d -> innerjoin(d, df_reg, on=:country)
     return df, offsets, population
+end
+
+# Need mean hourly wind speeds in N largest population centers per region for synthetic heat demand.
+# Basically just a copy/paste of GIStemp but using wind instead of temperature.
+function GISwind_popcenters(gisregion::String, scenarioyear::String, era_year::Int, numcenters::Int, mindist::Float64)
+    println("\nReading wind data for $gisregion...")
+
+    res = 0.01          # resolution of auxiliary datasets [degrees per pixel]
+    erares = 0.28125    # resolution of ERA5 datasets [degrees per pixel]
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
+    pop = JLD.load(in_datafolder("population_$scenarioyear.jld"), "population")[lonrange,latrange]
+    eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
+    @time meanwind, wind = h5open(in_datafolder("era5wind$era_year.h5"), "r") do file
+        if length(eralonranges) == 1
+            file["meanwind"][eralonranges[1], eralatrange],
+                file["wind"][:, eralonranges[1], eralatrange]
+        else
+            [file["meanwind"][eralonranges[1], eralatrange]; file["meanwind"][eralonranges[2], eralatrange]],
+                [file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]]
+        end
+    end
+
+    erapop = rescale_population_to_ERA5_res(era_year, regions, offshoreregions, regionlist, lonrange, latrange, pop, wind)
+    windmask = dropdims(sum(abs.(wind[1000:1100,:,:]), dims=1), dims=1) .> 0    # detect cells with any wind data (coasts?)
+
+    numreg = length(regionlist)
+    popcenters = [findpopcenters(erapop[i,:,:].*windmask, numcenters, mindist) for i = 1:numreg]
+    # if any region lacks enough population centers, just repeat the ones found (only happens for tiny regions, e.g. Malta)
+    for (i,p) in enumerate(popcenters)
+        length(p) == 0 && error("No population centers found for region $(regionlist[i]).")
+        if length(p) < numcenters
+            popcenters[i] = repeat(p, outer=numcenters)[1:numcenters]
+        end
+    end
+
+    hours = DateTime(era_year, 1, 1, 0) : Hour(1) : DateTime(era_year, 12, 31, 23)
+    numhours = length(hours)
+    numhours != size(wind,1) && error("Inconsistent number of hours.")
+
+    wind_popcenters = [wind[h, popcenters[r][i]...] for h = 1:numhours, r = 1:numreg, i = 1:numcenters]
+
+    return hours, wind_popcenters
 end
