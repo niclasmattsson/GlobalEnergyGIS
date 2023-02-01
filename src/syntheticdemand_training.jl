@@ -37,7 +37,8 @@ function trainmodel(; variables=defaultvariables, nrounds=100, xgoptions...)
     traindata = Matrix(df_train)
     normdemand = loaddemanddata()[:, :normdemand]
 
-    model = xgboost(traindata, nrounds; label=normdemand, xgoptions...)
+    @time model = xgboost(traindata, nrounds; label=normdemand, xgoptions...)
+    return model
 end
 
 function crossvalidate(; variables=defaultvariables, nrounds=100, max_depth=7, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
@@ -50,7 +51,7 @@ function crossvalidate(; variables=defaultvariables, nrounds=100, max_depth=7, e
     numreg = length(regionlist)
     params = Any["max_depth"=>round(Int, max_depth), "eta"=>eta, "subsample"=>subsample, "metrics"=>metrics, more_xgoptions...]
 
-    models = nfold_cv_return(traindata, nrounds, numreg; label=normdemand, metrics=metrics, param=params)   # "rmse" or "mae"
+    @time models, minloss = nfold_cv_return(traindata, nrounds, numreg; label=normdemand, metrics=metrics, param=params)   # "rmse" or "mae"
     display(importance(models[1], string.(variables)))
 
     return models
@@ -75,15 +76,19 @@ end
 
 
 
+trainingloss(s::String) = Base.parse(Float64, match(r"\:(\d+\.\d+)", s)[1]) 
+
 # Same as XGBoost.nfold_cv() but deterministic: split the training data into nfold equal parts using sequential indices.
 # Also returns the models used in the last iteration.
 function nfold_cv_return(data, num_boost_round::Integer = 10, nfold::Integer = 3; label = Union{},
                   param=[], metrics=[], obj = Union{}, feval = Union{}, fpreproc = Union{},
-                  show_stdv = true, seed::Integer = 0, kwargs...)
+                  show_stdv = true, seed::Integer = 0, exit_on_loss_increase = true, kwargs...)
     dtrain = XGBoost.makeDMatrix(data, label)
     results = String[]
     cvfolds = mknfold_deterministic(dtrain, nfold, param, metrics, fpreproc=fpreproc, kwargs = kwargs)
-    for i in 1:num_boost_round
+    minloss = Inf
+    i = 0
+    for outer i in 1:num_boost_round
         for f in cvfolds
             XGBoost.update(f.bst, 1, f.dtrain, obj = obj)
         end
@@ -91,9 +96,12 @@ function nfold_cv_return(data, num_boost_round::Integer = 10, nfold::Integer = 3
                     show_stdv = show_stdv)
         push!(results, res)
         @printf(stderr, "%s\n", res)
+        loss = trainingloss(res)
+        exit_on_loss_increase && loss > minloss && break
+        minloss = loss
     end
     models = [f.bst for f in cvfolds]
-    return models
+    return models, minloss, i
 end
 
 # Same as XGBoost.mknfold() but deterministic: split the training data into nfold equal parts using sequential indices
