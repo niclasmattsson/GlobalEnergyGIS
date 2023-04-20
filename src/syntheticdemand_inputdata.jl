@@ -235,6 +235,7 @@ function regional_timezone_offsets_Jan1(; gisregion="Europe8", scenarioyear="ssp
         pops = Float64[]
         for idx in zoneindices
             tzname = tznames[idx]
+            tzname = tzname == "Europe/Gibraltar" ? "Europe/Madrid" : tzname # Gibraltar throws an error for 1982-1-1-0
             zone = istimezone(tzname, TimeZones.Class(:LEGACY)) ? TimeZone(tzname, TimeZones.Class(:LEGACY)) : TimeZone(tzname)
             push!(zones, zone)
             firsthour = ZonedDateTime(DateTime(era_year,1,1,0), zone)
