@@ -1,6 +1,6 @@
-export predictheatdemand, crossvalidateheat, axiskeys, mean, meandrop
+export predictheatdemand, crossvalidateheat, saveheattrainingdata, axiskeys, mean, meandrop
 
-const defaultheatvariables = [:localhour, :temp_monthly, :temp_topN, :temp1, :month, :ranked_month]
+const defaultheatvariables = [:localhour, :temp_monthly, :temp_topN, :temp1, :month, :wind_topN]
 
 function getheatdemand()
     df = CSV.read(in_datafolder("when2heat.csv"), DataFrame, delim=';', decimal=',')
@@ -31,26 +31,30 @@ function load_heatdemanddata(column="demand")    # or "profile"
     return stack(ndf, allcountries, variable_name="country", value_name="demand")
 end
 
-function predictheatdemand(; variables=defaultheatvariables, demandtype="demand", iter=Int[], numcenters=5,
+function predictheatdemand(;years=2015:2019, decimals=3, shift_to_universaltime=true, variables=defaultheatvariables, demandtype="demand", iter=Int[], numcenters=5,
             nrounds=300, max_depth=7, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
     df_countrydata = CSV.read(in_datafolder("syntheticdemand_timezoneoffsets_heatregions.csv"), DataFrame)
     countries = string.(df_countrydata.country)
+    offsets = df_countrydata.offsets
     ncountries = length(countries)
-    println("\nPredicting heat demand for $ncountries countries...\n")
+    println("\nPredicting heat demand for $ncountries countries for years $years...\n")
     iter = round.(Int, iter .* 1.1)     # perform 10% more iterations than in CV training to account for extra (non-CV) year
     models = trainheatmodel(countries; demandtype, numcenters, iter,
                              nrounds, max_depth, eta, subsample, metrics, more_xgoptions...)
-    traindata, localtime = prepare_heatfuturedata(countries, variables, demandtype; numcenters)
+    traindata, localtime = prepare_heatfuturedata(years, countries, variables, demandtype; numcenters)
     demand_predicted = zeros(length(localtime), ncountries)
     for c = 1:ncountries
         # No circshift needed because when2heat is trained and predicted in localtime
         demand_predicted[:,c] .= XGBoost.predict(models[c], traindata[:,:,c])
+        shift_to_universaltime && (demand_predicted[:,c] = circshift(demand_predicted[:,c], round(Int, -offsets[c])))
     end
-
     df_results = DataFrame(demand_predicted, countries)
+    # convert MWs to GWs and round to reduce file space
+    for col in names(df_results)
+        df_results[:, col] = round.(df_results[:, col] ./ 1000, digits=decimals)
+    end
     insertcols!(df_results, 1, :localtime => localtime)
-
-    filename = in_datafolder("output", "SyntheticHeatDemand_2015-2019.csv")
+    filename = in_datafolder("output", "SyntheticHeatDemand_$(years[1])-$(years[end]).csv")
     println("\nSaving to $filename...")
     CSV.write(filename, df_results)
     nothing
@@ -123,10 +127,9 @@ function crossvalidateheat(countries::Vector{<:AbstractString}; variables=defaul
     return ka_models, ka_gain, ka_loss, iterations
 end
 
-function prepare_heatfuturedata(countries, variables, demandtype="demand"; numcenters=5, skipleapdays=false)
+function prepare_heatfuturedata(trainingyears, countries, variables, demandtype="demand"; numcenters=5, skipleapdays=false)
     df_train, df_countrydata = load_heattrainingdata(; numcenters)
     sort!(df_train, [:country, :localtime])
-    trainingyears = 2015:2019
     trainingrows = in.(year.(df_train.localtime), Ref(trainingyears))
     df_train = df_train[trainingrows, :]
 
@@ -197,11 +200,10 @@ function load_heattrainingdata(; numcenters=5)
     return df_train, df_countrydata
 end
 
-function saveheattrainingdata(; numcenters=5, mindist=3.3)
+function saveheattrainingdata(; allyears=2008:2019,numcenters=5, mindist=3.3)
     # create_scenario_datasets("SSP2", 2020)
     println("\nCreating training dataset for synthetic demand...")
     println("(This requires ERA5 temperature data for years 2008-2014 and scenario datasets for SSP2 2020.)")
-    allyears = 2008:2019
     println("\nYear $(allyears[1]):")
     df_train, offsets, _ = buildheattrainingdata(gisregion="HeatDemandRegions",
                 sspscenario="SSP2-34", sspyear=2020, era_year=allyears[1],
