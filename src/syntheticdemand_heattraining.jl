@@ -41,6 +41,9 @@ function predictheatdemand(;years=2015:2019, decimals=3, shift_to_universaltime=
     iter = round.(Int, iter .* 1.1)     # perform 10% more iterations than in CV training to account for extra (non-CV) year
     models = trainheatmodel(countries; demandtype, numcenters, iter,
                              nrounds, max_depth, eta, subsample, metrics, more_xgoptions...)
+    #copy the model for sweden and use it for norway, add norway to countries from now on (also increase ncountries)
+    # prepare_heatfuturedata is prepped to return data for norway if included in countries
+    # but the csv files must be created with saveheattrainingdata(allyears=my_years, gisregion="Norway") after making a Norway region
     traindata, localtime = prepare_heatfuturedata(years, countries, variables, demandtype; numcenters)
     demand_predicted = zeros(length(localtime), ncountries)
     for c = 1:ncountries
@@ -128,7 +131,8 @@ function crossvalidateheat(countries::Vector{<:AbstractString}; variables=defaul
 end
 
 function prepare_heatfuturedata(trainingyears, countries, variables, demandtype="demand"; numcenters=5, skipleapdays=false)
-    df_train, df_countrydata = load_heattrainingdata(; numcenters)
+    norway_in_countries = "NO" in countries
+    df_train, df_countrydata = load_heattrainingdata(; numcenters, include_norway=norway_in_countries)
     sort!(df_train, [:country, :localtime])
     trainingrows = in.(year.(df_train.localtime), Ref(trainingyears))
     df_train = df_train[trainingrows, :]
@@ -190,27 +194,33 @@ function predict_heat_from_cv(models, country, variables, demandtype="demand", n
     return reshape(demand, (numhours,numyears)), reshape(demand_predicted, (numhours,numyears))
 end
 
-function load_heattrainingdata(; numcenters=5)
+function load_heattrainingdata(; numcenters=5, include_norway=false)
     filename = in_datafolder("syntheticdemand_heattrainingdata_$(numcenters)centers.csv")
     if !isfile(filename)
         saveheattrainingdata(; numcenters)
     end
     df_train = CSV.read(filename, DataFrame)
     df_countrydata = CSV.read(in_datafolder("syntheticdemand_timezoneoffsets_heatregions.csv"), DataFrame)
+    if include_norway
+        df_train_norway = CSV.read(in_datafolder("syntheticdemand_heattrainingdata_Norway.csv"), DataFrame)
+        df_train = vcat(df_train, df_train_norway)
+        df_countrydata_norway = CSV.read(in_datafolder("syntheticdemand_timezoneoffsets_Norway.csv"), DataFrame)
+        df_countrydata = vcat(df_countrydata, df_countrydata_norway)
+    end
     return df_train, df_countrydata
 end
 
-function saveheattrainingdata(; allyears=2008:2019,numcenters=5, mindist=3.3)
+function saveheattrainingdata(; allyears=2008:2019, gisregion="HeatDemandRegions", numcenters=5, mindist=3.3)
     # create_scenario_datasets("SSP2", 2020)
     println("\nCreating training dataset for synthetic demand...")
     println("(This requires ERA5 temperature data for years 2008-2014 and scenario datasets for SSP2 2020.)")
     println("\nYear $(allyears[1]):")
-    df_train, offsets, _ = buildheattrainingdata(gisregion="HeatDemandRegions",
+    df_train, offsets, _ = buildheattrainingdata(gisregion=gisregion,
                 sspscenario="SSP2-34", sspyear=2020, era_year=allyears[1],
                 numcenters=numcenters, mindist=mindist)
     for year in allyears[2:end]
         println("\nYear $year:")
-        df, offset, _ = buildheattrainingdata(gisregion="HeatDemandRegions",
+        df, offset, _ = buildheattrainingdata(gisregion=gisregion,
                 sspscenario="SSP2-34", sspyear=2020, era_year=year,
                 numcenters=numcenters, mindist=mindist)
         df_train = vcat(df_train, df)
@@ -218,8 +228,9 @@ function saveheattrainingdata(; allyears=2008:2019,numcenters=5, mindist=3.3)
     end
     offsets ./= length(allyears)
     df_countrydata = DataFrame(country=unique(df_train.country), offsets=offsets)
-    CSV.write(in_datafolder("syntheticdemand_timezoneoffsets_heatregions.csv"), df_countrydata)
-    CSV.write(in_datafolder("syntheticdemand_heattrainingdata_$(numcenters)centers.csv"), df_train)
+    filename_suffix = gisregion == "HeatDemandRegions" ? "" : "_$(gisregion)"
+    CSV.write(in_datafolder("syntheticdemand_timezoneoffsets_heatregions$filename_suffix.csv"), df_countrydata)
+    CSV.write(in_datafolder("syntheticdemand_heattrainingdata_$(numcenters)centers$filename_suffix.csv"), df_train)
 end
 
 function createheatregions()
