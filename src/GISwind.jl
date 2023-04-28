@@ -515,6 +515,48 @@ function getmonthlywind(time, resource, eralonranges, eralatrange, filenamesuffi
     end
 end
 
+# Calculate annual mean wind speeds and capacity factors for a list of locations,
+# given vectors of lons and lats.
+function calcCF(lons, lats; optionlist...)
+    len = length(lons)
+    @assert len == length(lats)
+    options = WindOptions(merge(windoptions(), optionlist))
+    windatlas, _, meanwind, windspeed, _ = read_wind_datasets(options, 1:36000, 1:18000)
+    annualwind = getmonthlywind(:annual, :wind, [1:1280], 1:640, "")
+    meanwind_allyears = meandrop(annualwind, dims=1)
+
+    res, erares = 0.01, 0.28125
+    windatlasGeo = GeoArray(windatlas, res)
+    meanwindGeo = GeoArray(meanwind, erares)
+
+    speeds, cf = zeros(len), zeros(len)
+    for i = 1:len
+        lon, lat = lons[i], lats[i]
+        index = lonlat_index(windatlasGeo, lon, lat)
+        eraindex = lonlat_index(meanwindGeo, lon, lat)
+        factor = windatlas[index] / meanwind_allyears[eraindex]
+        speed = windspeed[:, eraindex] * factor
+        speeds[i] = mean(speed)
+        cf[i] = mean(speed2capacityfactor.(speed))
+    end
+    return speeds, cf
+end
+
+function calcCF_all(lons, lats; optionlist...)
+    len = length(lons)
+    speeds, cf = zeros(len), zeros(len)
+    years = 2008:2020
+    for y in years
+        println("\nYear $y:")
+        _speeds, _cf = calcCF(lons, lats; optionlist..., era_year=y)
+        speeds += _speeds
+        cf += _cf
+    end
+    speeds /= length(years)
+    cf /= length(years)
+    return speeds, cf
+end
+
 # Quick and ugly copy/paste hack to create resource maps for wind classes combined with masks.
 function GISwindmap(; optionlist...)
     options = WindOptions(merge(windoptions(), optionlist))

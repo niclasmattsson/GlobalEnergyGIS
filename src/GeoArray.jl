@@ -3,6 +3,8 @@ export GeoArray, lonlat_index, lookup, getlon, getlat, lonindex, latindex, crop
 const EPS = 1e-8
 
 # Assumes the latitudes of the internal array are in reverse order.
+# Works for 3D arrays if lons and lats are in the dimensions 1 & 2 (see lonlat_index).
+# Maybe add GeoArray(...; lonlatdims=(1,2)) keyword argument to make this more general.
 struct GeoArray{T,N} <: AbstractArray{T,N}
     arr::AbstractArray{T,N}
     res::Float64
@@ -21,6 +23,7 @@ struct GeoArray{T,N} <: AbstractArray{T,N}
 end
 
 GeoArray(arr, res, extent::Vector{<:Real}) = GeoArray(arr, res, (extent[1],extent[3]), (extent[2],extent[4]))
+GeoArray(arr, res) = GeoArray(arr, res, (-180, 180), (-90, 90))
 
 function Base.show(io::IO, ::MIME"text/plain", a::GeoArray)
     summary(io, a)
