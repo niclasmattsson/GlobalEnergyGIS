@@ -179,7 +179,8 @@ function read_wind_datasets(options, lonrange, latrange)
                     [file["wind"][:, eralonranges[1], eralatrange] file["wind"][:, eralonranges[2], eralatrange]]
             end
         end
-        _, _, meanwind_allyears, _ = annualwindindex(options)
+        annualwind = getmonthlywind(:annual, :wind, eralonranges, eralatrange, "")
+        meanwind_allyears = meandrop(annualwind, dims=1)
     else
         climatefolder = getconfig("climatefolder")
         @time meanwind, windspeed = h5open("$climatefolder/wind_$(climate_scenario).h5", "r") do file
@@ -542,10 +543,9 @@ function calcCF(lons, lats; optionlist...)
     return speeds, cf
 end
 
-function calcCF_all(lons, lats; optionlist...)
+function calcCF_all(lons, lats, years=2008:2020; optionlist...)
     len = length(lons)
     speeds, cf = zeros(len), zeros(len)
-    years = 2008:2020
     for y in years
         println("\nYear $y:")
         _speeds, _cf = calcCF(lons, lats; optionlist..., era_year=y)
