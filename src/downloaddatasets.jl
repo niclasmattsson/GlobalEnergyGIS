@@ -1,4 +1,4 @@
-using BinDeps, UrlDownload
+using DataDeps, UrlDownload
 
 export download_datasets
 
@@ -50,9 +50,11 @@ function get_dataset_info()
         "https://chalmersuniversity.box.com/shared/static/w3pmx4xhgorgd6jejv23gn4ycsnza8s6.zip")
 ]
 end
-download_datasets(startfrom::Int) = download_datasets(get_dataset_info()[startfrom:end, 1]...)
 
 filenameWDPA(monthyear=Dates.format(now(), "uyyyy")) = "WDPA_WDOECM_$(monthyear)_Public_all_shp"
+
+download_datasets(startfrom::Int) = download_datasets(get_dataset_info()[startfrom:end, 1]...)
+download_datasets(datasetindices::AbstractVector) = download_datasets(get_dataset_info()[datasetindices, 1]...)
 
 function download_datasets(shortnames::String...)
     datafolder = getconfig("datafolder")
@@ -120,13 +122,13 @@ function unpack_and_cleanup(shortname, filename, datafolder, dataset_info)
             rm(joinpath(datafolder, "temp_ssp$ssp"), force=true, recursive=true)
         end
     elseif shortname == "gdppop"
-        mv(joinpath(datafolder, "temp_popgdp", "data"), joinpath(datafolder, "global_population_and_gdp"))
+        mv(joinpath(datafolder, "temp_popgdp", "data"), joinpath(datafolder, "global_population_and_gdp"), force=true)
         rm(joinpath(datafolder, "temp_popgdp"))
     elseif shortname == "powerplants"
-        mv(joinpath(datafolder, "WRI - Global Power Plant Database v1.10"), joinpath(datafolder, "tempWRI"))
+        mv(joinpath(datafolder, "WRI - Global Power Plant Database v1.10"), joinpath(datafolder, "tempWRI"), force=true)
         mv(joinpath(datafolder, "tempWRI", "WRI - Global Power Plant Database v1.10"),
             joinpath(datafolder, "WRI - Global Power Plant Database v1.10"))
-        rm(joinpath(datafolder, "tempWRI"))
+        rm(joinpath(datafolder, "tempWRI"), force=true, recursive=true)
     elseif shortname == "various"
         mixeddir = joinpath(datafolder, "Various_smaller_datasets")
         for file in readdir(mixeddir)
@@ -148,5 +150,5 @@ end
 
 function unpack(inputfilename, outputpath, extension)
     !isdir(outputpath) && mkdir(outputpath)
-    run(BinDeps.unpack_cmd(inputfilename, outputpath, extension, ""))
+    run(DataDeps.unpack_cmd(inputfilename, outputpath, extension, ""))
 end

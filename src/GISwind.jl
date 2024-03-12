@@ -188,7 +188,7 @@ function read_wind_datasets(options, lonrange, latrange)
         end
         climyear = Base.parse(Int, climate_scenario[end-3:end])
         meanyears = climyear < 2030 ? "1996_2005" : climyear < 2070 ? "2046_2055" : "2091_2100"
-        datasource = contains(climate_scenario, "HCLIM") ? "HCLIM" : "CORDEX"
+        datasource = Base.contains(climate_scenario, "HCLIM") ? "HCLIM" : "CORDEX"
         meanwind_allyears = h5read("$climatefolder/meanwind_$(meanyears)_$(datasource)_EC-EARTH_100m.h5", "/meanwind")
     end
 
@@ -254,7 +254,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         masks[regions .== 0] .= 0
         masks[regions .== NOREGION] .= NOREGION
         legendtext = ["bad land type", "high population", "protected area", "no grid", "", "", "wind plant A", "wind plant B"]
-        maskmap("$(gisregion)_masks_wind$filenamesuffix", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample, resolutionscale=10)
+        maskmap("$(gisregion)_masks_wind$filenamesuffix", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
 
         isregion = (offshoreregions .> 0) .& (offshoreregions .!= NOREGION)
         masks = zeros(Int16, size(offshoreregions))
@@ -266,7 +266,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         masks[offshoreregions .== 0] .= NOREGION
         masks[offshoreregions .== NOREGION] .= 0
         legendtext = ["near shore", "", "protected area", "no grid", "", "", "wind offshore", "too deep water"]
-        maskmap("$(gisregion)_masks_windoffshore$filenamesuffix", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample, resolutionscale=10)
+        maskmap("$(gisregion)_masks_windoffshore$filenamesuffix", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
     end
 
     return mask_onshoreA, mask_onshoreB, mask_offshore
@@ -358,13 +358,13 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
     count_onshoreB = zeros(Int,numreg,nonshoreclasses)
     count_offshore = zeros(Int,numreg,noffshoreclasses)
 
-    if contains(climate_scenario, "HCLIM")
+    if Base.contains(climate_scenario, "HCLIM")
         erares = 0.03
         extent = [2, 50.5, 32, 71.5]
         # meanwind_allyears = zeros(size(meanwind))
         GWAclasses = false
         windatlas_class = meanwind_allyears
-    elseif contains(climate_scenario, "CORDEX")
+    elseif Base.contains(climate_scenario, "CORDEX")
         erares = 0.1
         extent = [-10.5, 34.5, 32, 71.5]
         # meanwind_allyears = zeros(size(meanwind))

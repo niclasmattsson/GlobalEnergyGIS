@@ -17,16 +17,21 @@ NUTS(regionnames::T...) where T = NUTS(regionnames)
 
 const NOREGION = typemax(Int16)
 
+function saveregions(regionname, subregionnames, regions::Matrix{Int32})
+    land = JLD.load(in_datafolder("landcover.jld"), "landcover")
+    saveregions(regionname, subregionnames, regions, :GADM, land, true, Int[;;])
+end
+
 function saveregions(regionname, regiondefinitionarray; autocrop=true, bbox=[-90 -180; 90 180])
     land = JLD.load(in_datafolder("landcover.jld"), "landcover")
     if !all(bbox .== [-90 -180; 90 180])
         autocrop = false         # ignore supplied autocrop option if user changed bbox
     end
-    saveregions(regionname, regiondefinitionarray, land, autocrop, bbox)
+    regions, regiontype = makeregions(regiondefinitionarray; allowmixed=(regionname=="Europe_background"))
+    saveregions(regionname, regiondefinitionarray, regions, regiontype, land, autocrop, bbox)
 end
 
-function saveregions(regionname, regiondefinitionarray, landcover, autocrop, bbox)
-    regions, regiontype = makeregions(regiondefinitionarray; allowmixed=(regionname=="Europe_background"))
+function saveregions(regionname, regiondefinitionarray, regions, regiontype, landcover, autocrop, bbox)
     if autocrop
         # get indexes of the bounding box containing onshore region data with 6% of padding
         lonrange, latrange = getbboxranges(regions)

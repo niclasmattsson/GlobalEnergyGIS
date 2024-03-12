@@ -2,7 +2,7 @@ using CategoricalArrays, XLSX
 
 export shadedmap, myhist, GISturbines_density, aggregate, exportGISturbinedata, landtypes,
         makePixelDataframe, savePixelData, grouppopulationdensity, groupwindspeeds,
-        scatter, plot, plot!, Point2f0, RGBA, FRect, plotfix!, heatmap, colorlegend, vbox
+        scatter, plot, plot!, Point2f, RGBA, FRect, plotfix!, heatmap, colorlegend, vbox
 
 const landtypes = ["Evergreen Needleleaf", "Evergreen Broadleaf",
                 "Deciduous Needleleaf", "Deciduous Broadleaf", "Mixed Forests",
@@ -73,7 +73,7 @@ function map_protected(; downsample=1, resolutionscale=1, textscale=1, project=t
     source = Projection("+proj=longlat +datum=WGS84")
     dest = Projection("+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84")
     xs, ys = xygrid(lons, lats)
-    project && Proj4.transform!(source, dest, vec(xs), vec(ys))
+    project && Proj.transform!(source, dest, vec(xs), vec(ys))
 
     cols = [:lon, :lat, :capac, :year, :onshore, :elec2018]
     df_DK = DataFrame(CSV.File(in_datafolder("turbines_DK.csv")))[:, cols]
@@ -86,7 +86,7 @@ function map_protected(; downsample=1, resolutionscale=1, textscale=1, project=t
     df = vcat(df_DE)
     ok = findall((df.lon .>= lonmin) .& (df.lon .<= lonmax) .& (df.lat .>= latmin) .& (df.lat .<= latmax))
     tx, ty = vec(df.lon[ok]), vec(df.lat[ok])
-    project && Proj4.transform!(source, dest, tx, ty)
+    project && Proj.transform!(source, dest, tx, ty)
 
     println("\nOnshore map...")
     zoom = 8
@@ -266,8 +266,8 @@ p = heatmap(reverse(ww.*(mm.>0),dims=2), resolution=(950,950), colorrange=(3,10)
 p = heatmap(reverse(mm,dims=2), resolution=(950,950), colorrange=(3,10), highclip=:red, lowclip=:black)
         # cl = colorlegend(p[end], resolution=(950,950)); vbox(p,vl)
 opt = (color=RGBA(0,0,0,0.2), markersize=0.01, limits=FRect(0,0,14,14), textsize=10)
-p = scatter(Point2f0.(ww[on], mm[on]+randn(sum(on))*.05); opt..., color=RGBA(0,0,0,1)); plotfix!(p)
-p = scatter(Point2f0.(ww[off], mm[off]+randn(sum(off))*.05); opt..., color=RGBA(0,0,0,1)); plotfix!(p)
+p = scatter(Point2f.(ww[on], mm[on]+randn(sum(on))*.05); opt..., color=RGBA(0,0,0,1)); plotfix!(p)
+p = scatter(Point2f.(ww[off], mm[off]+randn(sum(off))*.05); opt..., color=RGBA(0,0,0,1)); plotfix!(p)
 
 pp,nn = GE.protected_vs_natura2000(gisregion="SwedenGADM3");
 p = heatmap(reverse(nn,dims=2), resolution=(950,950), highclip=:red, lowclip=:black)
@@ -822,7 +822,7 @@ function shadedmap(gisregion, plotdata; resolutionscale=1, downsample=1, colorsc
     source = Projection("+proj=longlat +datum=WGS84")
     dest = Projection("+proj=moll +lon_0=$(mean(lons))")
     xs, ys = xygrid(lons, lats)
-    Proj4.transform!(source, dest, vec(xs), vec(ys))
+    Proj.transform!(source, dest, vec(xs), vec(ys))
 
     println("\nOnshore map...")
     shadedmap(gisregion, plotdata, regionlist, lons, lats, colors, source, dest, xs, ys,
