@@ -346,7 +346,6 @@ function plotSMHImaps(altitude=100, year=2018; method="")
     gwa = gwa_full[2:3:end, 2:3:end]
     drawmap(gwa; scalefactor=(1.0,1.8), colorrange=(0,12), save="gwa_$suffix.png")
     drawmap(gwa_full; scalefactor=(1.0,1.8), colorrange=(0,12), save="gwa_full_$suffix.png")
-    GLMakie.destroy!(GLMakie.global_gl_screen())
     return gwa, smhi
 end
 
