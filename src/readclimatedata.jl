@@ -200,7 +200,7 @@ function annual_wind_deviations(datasource, org, model, rcp, altitude)
     nlon, nlat = length(lonrange), length(latrange)
     ilons, ilats = (datasource == "HCLIM") ? (2:nlon-1,2:nlat-1) : (1:nlon,1:nlat)
     smallregions = resize_categorical(regions[ilons,ilats], regionlist, lonrange[ilons], latrange[ilats], erares; skipNOREGION=true)
-    ok = (datasource == "HCLIM") ? (smallregions .>= 1 .&& smallregions .<= 4) : (smallregions .== 1)
+    ok = (datasource == "HCLIM") ? (1 .<= smallregions .<= 4) : (smallregions .== 1)
     for (i, year1) in enumerate(years)
         meanwind1 = h5read(filename_wind(datasource, org, model, rcp, altitude, year1), "/meanwind")[ok]
         for (j, year2) in enumerate(years)
