@@ -12,6 +12,11 @@ const scand4 = [
     "DEN"   GADM("Denmark")
 ]
 
+const scand4_ehub500 = [
+    scand3;
+    "DEN"   GADM(["Denmark"], "Hovedstaden", "Sjælland")
+]
+
 # const spainsubregions = subregions(GADM, "Spain")[[1:13; 15:18]]  # all subregions except Canary Islands
 # const portugalsubregions = subregions(GADM, "Portugal")[[1; 3:11; 13:20]]  # all subregions except Azores and Madeira
 # const europe8 = [

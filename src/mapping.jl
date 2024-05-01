@@ -335,7 +335,7 @@ function ehub500()
     xy = Matrix(buses[:, ["x-coordinate", "y-coordinate"]])
     # @show extrema(xy[:,1])
     # @show extrema(xy[:,2])
-    bbox = (4.5, 28.9, 55.1, 70.7)
+    bbox = (4.5, 31.6, 54.8, 71.2) .+ (-1, 1, -1, 1)   # <-- tight,  [52.90 2.24; 72.84 33.24] with 6% padding
 
     tri = triangulate(xy')
     vorn = voronoi(tri)
@@ -353,11 +353,25 @@ function ehub500()
     GDF.write(in_datafolder("ehub500.geojson"), df)
 
     rasterize_ehub500()
+    # saveregions("Scand4_ehub500", G.scand4_ehub500; autocrop=false, bbox=[53.8 3.5; 72.2 32.6])
 
     ehub500 = readraster(in_datafolder("ehub500.tif"))
-    saveregions("ehub500", buses.bus_id, ehub500)
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions("Scand4_ehub500")
 
-    return df
+    eh = @view ehub500[lonrange, latrange]
+    noreg = (regions .== NOREGION .|| offshoreregions .== NOREGION)
+    eh[noreg] .= NOREGION
+
+    saveregions("ehub500", buses.bus_id, ehub500; autocrop=false, bbox=[53.8 3.5; 72.2 32.6])
+
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions("ehub500")
+    pixels_onshore = countmap(regions)
+    pixels_offshore = countmap(offshoreregions)
+    buses.pixels_onshore = get.(Ref(pixels_onshore), 1:n, 0)
+    buses.pixels_offshore = get.(Ref(pixels_offshore), 1:n, 0)
+    CSV.write(in_datafolder("plotbuses.csv"), buses, delim=';', decimal=',')
+
+    return buses
 end
 
 function ginfo(infile)
@@ -420,8 +434,6 @@ function readhydro()
     allbuses = CSV.read(in_datafolder("Bus_data_EHUB500 - buses_original.csv"), DataFrame)[!, :bus_id] |> sort
     extrabuses = setdiff(allbuses, hydro.bus_id)
 
-    return extrabuses
-
     hydro_gdf = groupby(hydro, :bus_id)
     hydro_sums = DataFrames.combine(hydro_gdf, :installed_capacity_MW => sum, :storage_capacity_MWh => sum, :avg_annual_generation_GWh => sum)
     sort!(hydro_sums, :bus_id)
@@ -471,5 +483,141 @@ function matlab2ehub()
     CSV.write(in_datafolder("ehub_profile_wof.csv"), df_wof, delim=';', decimal=',')
     CSV.write(in_datafolder("ehub_capacities.csv"), df_caps, delim=';', decimal=',')
 
+    nothing
+end
+
+# function get_district_heating_areas()
+#     # https://www.euroheat.org/resource/paneuropean-thermal-atlas-5.html
+#     # https://s-eenergies-open-data-euf.hub.arcgis.com/search?categories=d5.1
+#     # https://s-eenergies-open-data-euf.hub.arcgis.com/maps/b62b8ad79f0e4ae38f032ad6aadb91a0
+#     # https://www.seenergies.eu/wp-content/uploads/sites/25/2020/04/sEEnergies-WP5_D5.1-Excess_heat_potentials_of_industrial_sites_in_Europe.pdf
+#     shapefile = "C:/Griddata/D5_1_District_Heating_Areas/D5_1_District_Heating_Areas.shp"
+#     # df = Shapefile.Table(shapefile) |> DataFrame
+#     gdf = GDF.read(shapefile)
+#     gdf_swe = gdf[gdf.CNTR_CODE .== "SE", :]
+#     gdf_swe.geometry .= GDF.reproject(gdf_swe.geometry, EPSG(4326), EPSG(3006), order=:trad)
+#     dh_swe = rasterizeSWEREF99(gdf_swe, :geometry)
+#     return gdf_swe, dh_swe
+# end
+
+function ehub_gridGIS()
+    df = GDF.read(in_datafolder("ehub500.geojson"))
+    dfgeo = CSV.read("C:/Griddata/dfgeo_for_ehub500.csv", DataFrame)
+
+    dfgeo.bus_id .= 0
+    dfgeo.bus_row .= 0
+    dfgeo.popDH .= 0
+
+    for row in eachrow(dfgeo)
+        coords = ArchGDAL.createpoint(row.lon, row.lat)
+        ndx = inpolys(coords, df.geometry)
+        ndx == 0 && continue
+        row.bus_id = df.bus_id[ndx]
+        row.bus_row = ndx
+        row.popDH = row.pop * (row.index_DHarea > 0)
+    end
+
+    df.centroid .= ArchGDAL.centroid.(df.geometry)
+    df.vor_area .= ArchGDAL.geomarea.(df.geometry) .* rastercellarea.(GeoInterface.getcoord.(df.centroid, 2), 1.0)
+
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions("ehub500")
+    res = 0.01
+    res2 = res/2
+    lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
+    area_lats = rastercellarea.(lats, res)
+    df.land_area = [sum((regions .== i) .* area_lats') for i = 1:size(df, 1)]
+
+    gdf = groupby(dfgeo, :bus_id)
+    sums = DataFrames.combine(gdf, :pop => sum, :cars => sum, :popDH => sum, :energibrunnar => sum,
+                                    :gridarea => mode, :munic => mode, :region => mode, nrow => :ncells)
+    sums.cars_sum .= round.(Int, sums.cars_sum)
+    rename!(sums, [:bus_id, :pop, :cars, :popDH, :energibrunnar, :gridarea, :munic, :region, :ncells])
+
+    df_ehub = outerjoin(df, sums, on=:bus_id)
+    df_ehub.popdens .= df_ehub.pop ./ df_ehub.land_area
+    sort!(df_ehub, :FID)
+    select!(df_ehub, [:FID, :bus_id, :vor_area, :land_area, :pop, :popdens, :cars, :popDH, :energibrunnar, :gridarea, :munic, :region, :ncells])
+
+    # allbuses = CSV.read(in_datafolder("Bus_data_EHUB500 - buses_original.csv"), DataFrame)[!, :bus_id] |> sort
+    # df_all = outerjoin(df_ehub, DataFrame(bus_id = allbuses), on=:bus_id)
+
+    CSV.write(in_datafolder("ehub_gridGIS.csv"), df_ehub, delim=';', decimal=',')
+
+    return nothing
+    # return df_ehub, df, dfgeo, gdf, sums
+end
+
+
+
+
+function ehub_gridGIS_2()
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions("ehub500")
+    nreg = length(regionlist)
+
+    pop20 = JLD.load(in_datafolder("population_ssp2_2020.jld"), "population")[lonrange,latrange]
+    pop50 = JLD.load(in_datafolder("population_ssp2_2050.jld"), "population")[lonrange,latrange]
+
+    dhi = CSV.read(in_datafolder("district_heating_fields.csv"), DataFrame)
+    countries = ["SE", "NO", "FI", "DK"]    # Norway not in dataset unfortunately
+    dhi = dhi[in.(dhi.CNTR_CODE, Ref(countries)) .&& .!ismissing.(dhi.Type) .&& dhi.Type .== "DH", :]
+    dh = readraster(in_datafolder("district_heating.tif"))[lonrange,latrange]
+    dh[dh .> 0 .&& .!in.(dh, Ref(dhi.OBJECTID))] .= 0
+
+    ehub = CSV.read(in_datafolder("ehub_gridGIS.csv"), DataFrame, delim=';', decimal=',')
+    ehub.ncells2 .= 0
+    ehub.pop2020 .= 0
+    ehub.popDH2020 .= 0
+    ehub.pop2050 .= 0
+    ehub.popDH2050 .= 0
+
+    for r = 1:nreg
+        reg = (regions .== r)
+        regDH = (reg .&& dh .> 0)
+        ehub.ncells2[r] = sum(reg .* pop20 .> 0)
+        ehub.pop2020[r] = round(Int, sum(reg .* pop20))
+        ehub.popDH2020[r] = round(Int, sum(regDH .* pop20))
+        ehub.pop2050[r] = round(Int, sum(reg .* pop50))
+        ehub.popDH2050[r] = round(Int, sum(regDH .* pop50))
+    end
+
+    ehub.popdens2020 .= ehub.pop2020 ./ ehub.land_area
+    ehub.popdens2050 .= ehub.pop2050 ./ ehub.land_area
+
+    CSV.write(in_datafolder("ehub_gridGIS_v2.csv"), ehub, delim=';', decimal=',')
+    return ehub
+end
+
+function ehub_gridGIS_3()
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions("ehub500")
+    countries = ["SE", "NO", "FI", "DK"]    # Norway not in dataset unfortunately
+
+    dhi = CSV.read(in_datafolder("district_heating_fields.csv"), DataFrame)
+    dhi = dhi[in.(dhi.CNTR_CODE, Ref(countries)) .&& .!ismissing.(dhi.Type) .&& dhi.Type .== "DH", :]
+
+    dh = readraster(in_datafolder("district_heating.tif"))[lonrange,latrange]
+    dh[dh .> 0 .&& .!in.(dh, Ref(dhi.OBJECTID))] .= 0
+    return dh, dhi
+end
+
+function rasterize_district_heating_areas()
+    shapefile = "C:/Griddata/D5_1_District_Heating_Areas/D5_1_District_Heating_Areas.shp"
+    # ogrinfo(shapefile)
+    # gdf_all = GDF.read(shapefile)
+    # countries = ["SE", "NO", "FI", "DK"]    # Norway not in dataset unfortunately
+    # gdf = gdf_all[in.(gdf_all.CNTR_CODE, Ref(countries)), :]
+    # return gdf
+
+    println("\nRasterizing GADM shapefile for global administrative areas (1-10 minute run time)...")
+    # shapefile = in_datafolder("gadm36", "gadm36.shp")
+    outfile = in_datafolder("district_heating.tif")
+    options = "-a OBJECTID -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
+    sql = "select * from D5_1_District_Heating_Areas where Type = 'DH'"
+    @time rasterize(shapefile, outfile, split(options, ' '), sql=sql)
+ 
+    println("Creating .csv file for regional index and name lookup...")
+    outfile = in_datafolder("district_heating_fields.csv")
+    ogr2ogr_path() do ogr2ogr
+        @time run(`$ogr2ogr -f CSV $outfile $shapefile`)
+    end
     nothing
 end
