@@ -17,9 +17,9 @@ NUTS(regionnames::T...) where T = NUTS(regionnames)
 
 const NOREGION = typemax(Int16)
 
-function saveregions(regionname, subregionnames, regions::Matrix{Int32})
+function saveregions(regionname, subregionnames, regions::Matrix{Int32}; autocrop=true, bbox=[-90 -180; 90 180])
     land = JLD.load(in_datafolder("landcover.jld"), "landcover")
-    saveregions(regionname, subregionnames, regions, :GADM, land, true, Int[;;])
+    saveregions(regionname, subregionnames, regions, :GADM, land, autocrop, bbox)
 end
 
 function saveregions(regionname, regiondefinitionarray; autocrop=true, bbox=[-90 -180; 90 180])
