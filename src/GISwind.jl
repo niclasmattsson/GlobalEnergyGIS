@@ -31,6 +31,7 @@ windoptions() = Dict(
     :offshoreclasses_min => [3,6,7,8,9],    # lower bound on annual offshore wind speeds for class X
     :offshoreclasses_max => [6,7,8,9,99],   # upper bound on annual offshore wind speeds for class X
 
+    :grid_everywhere => false,  # set to true to assume all pixels have grid access
     :downsample_masks => 1,     # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions 
     :classB_threshold => 0.001, # minimum share of pixels within distance_elec_access km that must have grid access
                                 # for a pixel to be considered for wind class B.
@@ -92,12 +93,13 @@ mutable struct WindOptions
     onshoreclasses_max      ::Vector{Float64}
     offshoreclasses_min     ::Vector{Float64}
     offshoreclasses_max     ::Vector{Float64}
+    grid_everywhere         ::Bool
     downsample_masks        ::Int
     classB_threshold        ::Float64
     climate_scenario        ::String
 end
 
-WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,100,100,0,0,[],[],[],[],0,0.0,"")
+WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,100,100,0,0,[],[],[],[],false,0,0.0,"")
 
 function WindOptions(d::Dict{Symbol,Any})
     options = WindOptions()
@@ -204,7 +206,7 @@ end
 
 function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange; plotmasks=false, downsample=1)
     @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2,
-                min_shore_distance, max_depth, classB_threshold, filenamesuffix = options
+                min_shore_distance, max_depth, classB_threshold, filenamesuffix, grid_everywhere = options
 
     println("Creating masks...")
 
@@ -218,7 +220,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     end
 
     # Pixels with electricity access for onshore wind A 
-    gridA = (gridaccess .> 0)
+    gridA = grid_everywhere ? fill(true, size(gridaccess)) : (gridaccess .> 0)
 
     # Pixels with electricity access for onshore wind B and offshore wind
     km_per_degree = π*2*6371/360

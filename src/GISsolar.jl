@@ -27,6 +27,7 @@ solaroptions() = Dict(
     :cspclasses_min => [0.10,0.18,0.24,0.28,0.32],  # lower bound on annual CSP capacity factor for class X
     :cspclasses_max => [0.18,0.24,0.28,0.32,1.00],  # upper bound on annual CSP capacity factor for class X
 
+    :grid_everywhere => false,  # set to true to assume all pixels have grid access
     :downsample_masks => 1,     # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions 
     :classB_threshold => 0.001  # minimum share of pixels within distance_elec_access km that must have grid access
                                 # for a pixel to be considered for solar class B. 
@@ -83,11 +84,12 @@ mutable struct SolarOptions
     pvclasses_max           ::Vector{Float64}
     cspclasses_min          ::Vector{Float64}
     cspclasses_max          ::Vector{Float64}
+    grid_everywhere         ::Bool
     downsample_masks        ::Int
     classB_threshold        ::Float64
 end
 
-SolarOptions() = SolarOptions("","",0,0,0,0,0,0,0,[],[],"",0,0,0,[],[],[],[],0,0.0)
+SolarOptions() = SolarOptions("","",0,0,0,0,0,0,0,[],[],"",0,0,0,[],[],[],[],false,0,0.0)
 
 function SolarOptions(d::Dict{Symbol,Any})
     options = SolarOptions()
@@ -185,7 +187,7 @@ end
 
 function create_solar_masks(options, regions, gridaccess, popdens, land, protected, lonrange, latrange; plotmasks=false, downsample=1)
     @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, plant_persons_per_km2,
-            pvroof_persons_per_km2, classB_threshold, filenamesuffix = options
+            pvroof_persons_per_km2, classB_threshold, filenamesuffix, grid_everywhere = options
 
     println("Creating masks...")
 
@@ -199,7 +201,7 @@ function create_solar_masks(options, regions, gridaccess, popdens, land, protect
     end
 
     # Pixels with electricity access for onshore wind A 
-    gridA = (gridaccess .> 0)
+    gridA = grid_everywhere ? fill(true, size(gridaccess)) : (gridaccess .> 0)
 
     # Pixels with electricity access for onshore wind B and offshore wind
     km_per_degree = π*2*6371/360
