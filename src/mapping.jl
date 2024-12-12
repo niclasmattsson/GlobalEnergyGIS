@@ -408,6 +408,21 @@ function inpolys(point, polygons)
     return 0
 end
 
+function plothydro()
+    hydro, hydro_sums = readhydro()
+    ehub = GeoJSON.read(in_datafolder("ehub500.geojson")) |> DataFrame
+    plants = [(r.lon, r.lat) for r in eachrow(hydro)]
+
+    fig = Figure(size = (1000, 1000))
+    ga1 = GeoAxis(fig[1, 1]; dest = "+proj=moll", limits=((3.5, 40), (53.8, 72.2)))
+    hh = innerjoin(hydro_sums, ehub, on="bus_id")
+    pp = poly!(ga1, hh.geometry; color = hh.installed_capacity_MW_sum, colormap = (:plasma, 0.5))
+    cc = GeoJSON.read(in_datafolder("ne_10m_coastline.geojson")) |> DataFrame
+    lines!(ga1, cc.geometry)
+    scatter!(ga1, plants, color=:red)
+    return fig
+end
+
 function readhydro()
     infile = in_datafolder("hydro-power-database", "data", "jrc-hydro-power-plant-database.csv")
     hydro = CSV.read(infile, DataFrame)
