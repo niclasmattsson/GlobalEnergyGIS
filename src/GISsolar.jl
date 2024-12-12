@@ -323,7 +323,7 @@ function calc_solar_vars(options, meanGTI, solarGTI, meanDNI, solarDNI, regions,
                         increment_solarCF!(CF_pvplantA[:,reg,class], GTI)
                         count_pvplantA[reg,class] += 1
                     elseif mask_plantB[r,c] > 0
-                        capacity_pvplantB[reg,class] += 1/1000 * pv_density * 2 * plant_area * area
+                        capacity_pvplantB[reg,class] += 1/1000 * pv_density * plant_area * area
                         increment_solarCF!(CF_pvplantB[:,reg,class], GTI)
                         count_pvplantB[reg,class] += 1
                     end

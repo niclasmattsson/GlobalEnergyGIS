@@ -434,7 +434,7 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
                         increment_windCF!(windCF_onshoreA[:,reg,class], wind, windatlas[r,c] / meanwind_allyears[i,j], rescale_to_wind_atlas)
                         count_onshoreA[reg,class] += 1
                     elseif reg > 0 && class > 0 && mask_onshoreB[r,c] > 0
-                        capacity_onshoreB[reg,class] += 1/1000 * onshore_density * 2 * area_onshore * area
+                        capacity_onshoreB[reg,class] += 1/1000 * onshore_density * area_onshore * area
                         increment_windCF!(windCF_onshoreB[:,reg,class], wind, windatlas[r,c] / meanwind_allyears[i,j], rescale_to_wind_atlas)
                         count_onshoreB[reg,class] += 1
                     end
