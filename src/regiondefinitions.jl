@@ -460,3 +460,36 @@ const eurasia92 = [
     "JKR_NK"    GADM("North Korea")
     "JKR_SK"    GADM("South Korea")
 ]
+
+johanna_virkesområden = [
+    "Blekinge"             GADM(["Sweden"], "Blekinge")
+    "Dalarna"              GADM(["Sweden"], "Dalarna")      # inkl. hela Älvdalen
+    "Gotland"              GADM(["Sweden"], "Gotland")
+    "Gävleborg"            GADM(["Sweden"], "Gävleborg")
+    "Halland"              GADM(["Sweden"], "Halland")
+    "Jämtland"             GADM(["Sweden", "Jämtland"], "Berg", "Bräcke", "Krokom", "Ragunda", "Strömsund", "Åre", "Östersund")
+    "Härjedalen"           GADM(["Sweden", "Jämtland"], "Härjedalen")
+    "Jönköping"            GADM(["Sweden"], "Jönköping")
+    "Kalmar"               GADM(["Sweden"], "Kalmar")
+    "Kronoberg"            GADM(["Sweden"], "Kronoberg")
+    "Norrbotten_inland"    GADM(["Sweden", "Norrbotten"], "Kiruna", "Gällivare", "Jokkmokk", "Arjeplog", "Arvidsjaur")
+    "Norrbotten_kust"      GADM(["Sweden", "Norrbotten"], "Pajala", "Övertorneå", "Överkalix", "Luleå", "Boden", "Älvsbyn", "Piteå")
+    "Skåne"                GADM(["Sweden"], "Skåne")
+    "Stockholm"            GADM(["Sweden"], "Stockholm")
+    "Södermanland"         GADM(["Sweden"], "Södermanland")
+    "Uppsala"              GADM(["Sweden"], "Uppsala")
+    "Värmland"             GADM(["Sweden"], "Värmland")
+    "Västerbotten_inland"  GADM(["Sweden", "Västerbotten"], "Sorsele", "Storuman", "Vilhelmina", "Dorotea", "Malå", "Lycksele", "Åsele")
+    "Västerbotten_kust"    GADM(["Sweden", "Västerbotten"], "Skellefteå", "Norsjö", "Vindeln", "Robertsfors", "Umeå", "Vännäs", "Bjurholm", "Nordmaling")
+    "Västernorrland"       GADM(["Sweden"], "Västernorrland")
+    "Västmanland"          GADM(["Sweden"], "Västmanland")
+    "Bohuslän/Dalsland"    GADM(["Sweden", "Västra Götaland"], "Bengtsfors", "Åmål", "Dals-Ed", "Strömstad", "Tanum", "Sotenäs", "Munkedal",
+                                "Färgelanda", "Mellerud", "Uddevalla", "Orust", "Tjörn", "Stenungsund", "Kungälv", "Göteborg", "Öckerö",
+                                "Lysekil", "Mölndal", "Härryda", "Partille", "Vänersborg")      # inkl. hela Vänersborg
+    "Skaraborg"            GADM(["Sweden", "Västra Götaland"], "Gullspång", "Mariestad", "Töreboda", "Karlsborg", "Tibro", "Hjo", "Habo",
+                                "Tidaholm", "Skövde", "Götene", "Skara", "Lidköping", "Grästorp", "Essunga", "Vara", "Falköping", "Mullsjö")
+    "Älvsborg"             GADM(["Sweden", "Västra Götaland"], "Trollhättan", "Alingsås", "Lilla Edet", "Ale", "Lerum", "Bollebygd", "Vårgårda",
+                                "Herrljunga", "Ulricehamn", "Borås", "Tranemo", "Svenljunga", "Mark")
+    "Örebro"               GADM(["Sweden"], "Orebro")
+    "Östergötland"         GADM(["Sweden"], "Östergötland")
+]
