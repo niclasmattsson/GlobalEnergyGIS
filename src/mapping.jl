@@ -639,3 +639,33 @@ function rasterize_district_heating_areas()
     end
     nothing
 end
+
+function convert_Hyunkyo_regions()
+    # filenames = ["El node 1 HY", "El node 2 HY", "El node 3 HY", "El node 4 Molndal HY"]
+    # shapefiles = [in_datafolder("Hyunkyo nodes GBG", "$file.shp") for file in filenames]
+    # df = GDF.read(shapefiles[1])
+    # for shapefile in shapefiles[2:end]
+    #     df2 = GDF.read(shapefile)
+    #     df = vcat(df, df2)
+    # end
+    # df.id .= 1:4
+    # GDF.write(in_datafolder("hyunkyo_gbg.geojson"), df)
+
+    geojson = in_datafolder("hyunkyo_gbg.geojson")
+    # hyunkyo_gbg = GDF.read(geojson)
+    hyunkyo_gbg = GeoJSON.read(geojson) |> DataFrame
+
+    println("\nRasterizing GADM shapefile for global administrative areas (1-10 minute run time)...")
+    # shapefile = in_datafolder("gadm36", "gadm36.shp")
+    outfile = in_datafolder("hyunkyo_gbg.tif")
+    options = "-a id -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
+    @time rasterize(geojson, outfile, split(options, ' '))
+end
+
+function read_Hyunkyo_pop()
+    gbg = readraster(in_datafolder("hyunkyo_gbg.tif"))
+    scenarioyear = "ssp2_2020"
+    pop = JLD.load(in_datafolder("population_$scenarioyear.jld"), "population")
+    gbgpop = [round(Int, sum(pop[gbg .== reg])) for reg = 1:4]
+    return gbgpop'      # [323874, 238998, 155215, 77242]
+end
