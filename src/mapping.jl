@@ -328,16 +328,41 @@ function plottimeoffsets()
     plotmap(offsetindices[1:5:end, 1:5:end], colormap=cs)
 end
 
+function create_ehub_data(; plotmasks=true, exclude_croplands_PV=false)
+    # saveregions("Scand4_ehub500", scand4_ehub500; autocrop=false, bbox=[53.8 3.5; 72.2 32.6])
+    # makedistances("Scand4_ehub500")
+    # createmaps("Scand4_ehub500")
+    # rasterize_district_heating_areas()
+    # create_scenario_datasets("SSP2", 2020)
+
+    ehub500()
+    readhydro()
+    plotmasks && createmaps("ehub500", lines=false, labels=false)
+    landclasses = exclude_croplands_PV ? [0,1,2,3,4,5,8,12] : [0,1,2,3,4,5,8]
+    # landclasses = exclude_croplands_PV ? [0,1,2,3,4,5,8,12,14] : [0,1,2,3,4,5,8]
+    GISsolar(gisregion="ehub500"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true, exclude_landtypes=landclasses,
+                pvclasses_min=[0.08], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0])
+    GISwind(gisregion="ehub500"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true,
+                onshoreclasses_min=[6], onshoreclasses_max=[99], offshoreclasses_min=[7], offshoreclasses_max=[99])
+    matlab2ehub()
+    ehub_gridGIS()
+    ehub_gridGIS_2()
+end
+
 function ehub500()
-    buses = CSV.read(in_datafolder("Bus_data_EHUB500 - buses_original.csv"), DataFrame)
-    buses = buses[.!(buses.type .== "TRAFO" .&& buses[!, "Voltage [kV]"] .> 220), :]
-    unique!(buses, ["x-coordinate", "y-coordinate"])
+    buses = CSV.read(in_datafolder("Bus_and_line_data_EHUB400_future_data_v1_6 - buses.csv"), DataFrame)
+    # buses = buses[.!(buses.type .== "TRAFO" .&& buses[!, "Voltage [kV]"] .> 220), :]
+    unique!(buses, ["x-coordinate", "y-coordinate"])    # assumes voltages are in ascending order for each location
     xy = Matrix(buses[:, ["x-coordinate", "y-coordinate"]])
     # @show extrema(xy[:,1])
     # @show extrema(xy[:,2])
     bbox = (4.5, 31.6, 54.8, 71.2) .+ (-1, 1, -1, 1)   # <-- tight,  [52.90 2.24; 72.84 33.24] with 6% padding
 
-    tri = triangulate(xy')
+    cc = first.(buses.bidding_zone, 2)  # country code
+
+    country = "SE"  # for in ["SE", "NO", "DK", "FI"]
+
+    tri = triangulate(xy[cc .== country, :]')
     vorn = voronoi(tri)
 
     # fig = Figure()
@@ -346,9 +371,11 @@ function ehub500()
     # display(fig)
 
     n = num_polygons(vorn)
-    poly = [Point.(DelaunayTriangulation.get_polygon_coordinates(vorn, i, bbox)) |> GeoMakie.Polygon for i = 1:n] |> GeoMakie.MultiPolygon
+    poly = [Point.(DelaunayTriangulation.get_polygon_coordinates(vorn, i, bbox)) |> GeoMakie.Polygon for i = 1:n]
+    # poly = [Point.(DelaunayTriangulation.get_polygon_coordinates(vorn, i, bbox)) |> GeoMakie.Polygon for i = 1:n] |> GeoMakie.MultiPolygon
 
     df = DataFrame(geometry=poly, FID=1:n, bus_id=buses.bus_id)
+    # return poly, df
     GDF.write(in_datafolder("ehub500.shp"), df)
     GDF.write(in_datafolder("ehub500.geojson"), df)
 
@@ -449,11 +476,14 @@ function readhydro()
     hydro.storage_capacity_MWh .= replace(hydro.storage_capacity_MWh, missing => 0.0)
     hydro.avg_annual_generation_GWh .= replace(hydro.avg_annual_generation_GWh, missing => 0.0)
 
-    allbuses = CSV.read(in_datafolder("Bus_data_EHUB500 - buses_original.csv"), DataFrame)[!, :bus_id] |> sort
+    allbuses = CSV.read(in_datafolder("Bus_and_line_data_EHUB400_future_data_v1_6 - buses.csv"), DataFrame)[!, :bus_id] |> sort
     extrabuses = setdiff(allbuses, hydro.bus_id)
 
     hydro_gdf = groupby(hydro, :bus_id)
     hydro_sums = DataFrames.combine(hydro_gdf, :installed_capacity_MW => sum, :storage_capacity_MWh => sum, :avg_annual_generation_GWh => sum)
+    zz = zeros(length(extrabuses))
+    df_extra = DataFrame(:bus_id => extrabuses, :installed_capacity_MW_sum => zz, :storage_capacity_MWh_sum => zz, :avg_annual_generation_GWh_sum => zz)
+    hydro_sums = vcat(hydro_sums, df_extra)
     sort!(hydro_sums, :bus_id)
 
     CSV.write(in_datafolder("hydro_nordic.csv"), hydro)
@@ -467,7 +497,7 @@ function matlab2ehub()
     soldata = matread(in_datafolder("output", "GISdata_solar2019_ehub500.mat"))
     winddata = matread(in_datafolder("output", "GISdata_wind2019_ehub500.mat"))
 
-    allbuses = CSV.read(in_datafolder("Bus_data_EHUB500 - buses_original.csv"), DataFrame)[!, :bus_id] |> sort
+    allbuses = CSV.read(in_datafolder("Bus_and_line_data_EHUB400_future_data_v1_6 - buses.csv"), DataFrame)[!, :bus_id] |> sort
     extrabuses = setdiff(allbuses, df_ehub.bus_id)
     df_extra = DataFrame(zeros(8760, length(extrabuses)), string.(extrabuses))
 
@@ -556,10 +586,11 @@ function ehub_gridGIS()
     sort!(df_ehub, :FID)
     select!(df_ehub, [:FID, :bus_id, :vor_area, :land_area, :pop, :popdens, :cars, :popDH, :energibrunnar, :gridarea, :munic, :region, :ncells])
 
-    # allbuses = CSV.read(in_datafolder("Bus_data_EHUB500 - buses_original.csv"), DataFrame)[!, :bus_id] |> sort
-    # df_all = outerjoin(df_ehub, DataFrame(bus_id = allbuses), on=:bus_id)
+    allbuses = CSV.read(in_datafolder("Bus_and_line_data_EHUB400_future_data_v1_6 - buses.csv"), DataFrame)[!, :bus_id]
+    df_all = outerjoin(df_ehub, DataFrame(bus_id = allbuses), on=:bus_id)
+    sort!(df_all, :bus_id)
 
-    CSV.write(in_datafolder("ehub_gridGIS.csv"), df_ehub, delim=';', decimal=',')
+    CSV.write(in_datafolder("ehub_gridGIS.csv"), df_all, delim=';', decimal=',')
 
     return nothing
     # return df_ehub, df, dfgeo, gdf, sums
@@ -588,6 +619,10 @@ function ehub_gridGIS_2()
     ehub.pop2050 .= 0
     ehub.popDH2050 .= 0
 
+    duplicates = ismissing.(ehub.FID)
+    duplicate_nodes = ehub[duplicates, :]
+    ehub = ehub[.!duplicates, :]
+
     for r = 1:nreg
         reg = (regions .== r)
         regDH = (reg .&& dh .> 0)
@@ -600,6 +635,11 @@ function ehub_gridGIS_2()
 
     ehub.popdens2020 .= ehub.pop2020 ./ ehub.land_area
     ehub.popdens2050 .= ehub.pop2050 ./ ehub.land_area
+
+    duplicate_nodes.popdens2020 .= 0.0
+    duplicate_nodes.popdens2050 .= 0.0
+    ehub = vcat(ehub, duplicate_nodes)
+    sort!(ehub, :bus_id)
 
     CSV.write(in_datafolder("ehub_gridGIS_v2.csv"), ehub, delim=';', decimal=',')
     return ehub
