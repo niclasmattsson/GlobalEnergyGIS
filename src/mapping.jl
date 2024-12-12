@@ -15,14 +15,14 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
 
     xmin, xmax = extrema(lons)
     ymin, ymax = extrema(lats)
-    lims = ((floor(xmin)-0.1, ceil(xmax)+0.1), (floor(ymin)-0.1, ceil(ymax)+0.1))
+    lims = ((floor(xmin)-0.1, ceil(xmax)+8.0), (floor(ymin)-0.1, ceil(ymax)+0.1))
     aspect_ratio = (ymax - ymin) / (xmax - xmin)
     pngwidth = max(1200, round(Int, resolutionscale*1.02*size(regions,1))) # allow for margins (+1% on both sides)
     pngsize = pngwidth, round(Int, pngwidth * aspect_ratio)     # use aspect ratio after projection transformation
 
     println("...constructing map...")
     fig = Figure(size=pngsize)
-    ga = GeoAxis(fig[1, 1]; dest = "+proj=moll +lon_0=$(mean(lons))", limits=lims)  # or tmerc for Sweden
+    ga = GeoAxis(fig[1, 1]; dest = "+proj=tmerc +lon_0=$(mean(lons))", limits=lims)  # moll or tmerc for Sweden
 
     if project  # no longer disables projection. heatmap! disables color interpolation but doesn't work in GLMakie, only CairoMakie
         surface!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), shading=NoShading)
