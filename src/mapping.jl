@@ -430,9 +430,12 @@ function readhydro()
 
     hydro.bus_id = copy(hydro.GEO)
     select!(hydro, 1:2, [:bus_id, :installed_capacity_MW, :storage_capacity_MWh, :avg_annual_generation_GWh], :)
+    ii = findfirst(hydro.name .== "Kuurna")
+    hydro.lat[ii], hydro.lon[ii] = 62.7051121, 29.8731839
+    # https://www.google.com/maps/place/Kuurna+power+plant/@62.7051121,29.8731839,179m/data=!3m1!1e3!4m6!3m5!1s0x469c78facf5288c9:0xa4effbddb2baf4e6!8m2!3d62.7051375!4d29.8743294!16s%2Fg%2F11dx9gh5kk?entry=ttu
 
     for hplant in eachrow(hydro)
-        if hplant.lat < 54
+        if hplant.lat < 54 || (hplant.lat < 58 && hplant.lon > 15) #|| (hplant.lat < 60.5 && hplant.lon > 21)
             hplant.bus_id = missing
             continue
         end
