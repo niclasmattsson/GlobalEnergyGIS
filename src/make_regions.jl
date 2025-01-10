@@ -228,9 +228,9 @@ function getsubregions(regtype::Type{NUTS}, regionname)
 end
 
 function subregions(regtype::Type{T} where T <: RegionType, regionnames::String...)
-    reglist = join(regionnames, ", ")
+    # reglist = join(regionnames, ", ")
     selected = string.(getsubregions(regtype, regionnames))
-    selectedlist = join(selected, ", ")
+    # selectedlist = join(selected, ", ")
     # isempty(regionnames) && println("Showing top level $regtype regions:")
     # println("$regtype($reglist): $selectedlist")
     return selected

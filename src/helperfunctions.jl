@@ -368,48 +368,59 @@ function resize_categorical(regions, regionlist, lonrange, latrange, erares=0.28
     return smallregions
 end
 
-function matlab2elin(; gisregion="Europe8", year=2018)
+# investments = invest_onoffshore_per_region_class_yearcode
+function matlab2multinode(investments; gisregion="Europe54", year=1991)
     filenamesuffix = ""
     _, _, regionlist, _, _ = loadregions(gisregion)
     
-    # CF_pvrooftop, capacity_pvrooftop
     region = string.(regionlist)
-    tech = ["PVplantA", "PVplantB", "PVroof", "CSPA", "CSPB", "WindonshoreA", "WindonshoreB", "Windoffshore"]
-    classname = ["PVPA", "PVPB", "PVR", "CSPA", "CSPB", "WONA", "WONB", "WOFF"]
-    capvar = ["capacity_pvplantA", "capacity_pvplantB", "capacity_pvrooftop", "capacity_cspplantA", "capacity_cspplantB",
-                "capacity_onshoreA", "capacity_onshoreB", "capacity_offshore"]
-    cfvar = ["CFtime_pvplantA", "CFtime_pvplantB", "CFtime_pvrooftop", "CFtime_cspplantA", "CFtime_cspplantB",
-                "CFtime_windonshoreA", "CFtime_windonshoreB", "CFtime_windoffshore"]
+    # tech = ["WindonshoreA", "Windoffshore", "PVplantA", "PVroof"]
+    technames = ["WON", "WOFF", "PVP", "PVR"]
+    capvar = ["capacity_onshoreA", "capacity_offshore", "capacity_pvplantA", "capacity_pvrooftop"]
+    cfvar = ["CFtime_windonshoreA", "CFtime_windoffshore", "CFtime_pvplantA", "CFtime_pvrooftop"]
 
     winddata = matread(in_datafolder("output", "GISdata_wind$(year)_$gisregion$filenamesuffix.mat"))
     solardata = matread(in_datafolder("output", "GISdata_solar$(year)_$gisregion$filenamesuffix.mat"))
     data = merge(winddata, solardata)
 
     # read number of classes from wind & solar GIS output 
-    nwindclasses = [size(winddata[varname], 2) for varname in capvar[6:8]] 
-    nsolarclasses = [size(solardata[varname], 2) for varname in capvar[1:5]] 
-    nclasses = [nsolarclasses; nwindclasses]
+    nwindclasses = [size(winddata[varname], 2) for varname in capvar[1:2]] 
+    nsolarclasses = [size(solardata[varname], 2) for varname in capvar[3:4]] 
+    nclasses = [nwindclasses; nsolarclasses]
 
-    for t = 1:length(tech)
-        open(in_datafolder("output", "capacity_$(tech[t]).inc"), "w") do f
-            for (r,reg) in enumerate(region)
-                for c = 1:nclasses[t]
+    open(in_datafolder("output", "capacity_GIS.inc"), "w") do f
+        for (t, tech) in enumerate(technames)
+            for c = 1:nclasses[t]
+                for (r,reg) in enumerate(region)
                     val = data[capvar[t]][r,c]
-                    !isnan(val) && val > 0 && @printf(f, "%-3s . %s%-2d %12.6f\n", reg, classname[t], c, val)
+                    !isnan(val) && val > 0 && @printf(f, "%s%-2d . %-3s %9.3f\n", tech, c, reg, val)
                 end
             end
         end
-        open(in_datafolder("output", "cf_$(tech[t]).inc"), "w") do f
-            for (r,reg) in enumerate(region)
-                for c = 1:nclasses[t]
-                    for h = 1:8760
-                        val = data[cfvar[t]][h,r,c]
-                        !isnan(val) && val > 0 && @printf(f, "%-3s . %s%-2d . h%04d %10.6f\n", reg, classname[t], c, h, val)
+    end
+    open(in_datafolder("output", "investment_history.inc"), "w") do f
+        for (t, tech) in enumerate(technames[1:2])
+            for c = 1:nclasses[t]
+                for (r,reg) in enumerate(region)
+                    for y = 1:11
+                        val = investments[t,c,r,y]
+                        yr = decodeyear(y)
+                        val > 0 && @printf(f, "%s%-2d . %-3s . %4d %9.3f\n", tech, c, reg, yr, val)
                     end
                 end
             end
         end
     end
+    # open(in_datafolder("output", "cf_$(tech[t]).inc"), "w") do f
+    #     for (r,reg) in enumerate(region)
+    #         for c = 1:nclasses[t]
+    #             for h = 1:8760
+    #                 val = data[cfvar[t]][h,r,c]
+    #                 !isnan(val) && val > 0 && @printf(f, "%-3s . %s%-2d . h%04d %10.6f\n", reg, classname[t], c, h, val)
+    #             end
+    #         end
+    #     end
+    # end
 end
 
 function dms2deg(dms)

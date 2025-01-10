@@ -1,5 +1,5 @@
 export rasterize_datasets, create_scenario_datasets, cleanup_datasets, makeprotected, savelandcover,
-        createGDP, creategridaccess, getpopulation, getwindatlas
+        createGDP, creategridaccess, getpopulation, getwindatlas, similarity, closeststring
 
 # cleanup options: :none, :limited, :all
 function rasterize_datasets(; cleanup=:all)
@@ -429,4 +429,264 @@ function rasterize_MIUU()
                 -co COMPRESS=LZW $shapefile_proj $outfile`)
     end
     readraster(in_datafolder("miuu_windatlas.tif"))
+end
+
+function readfarms()
+    df = DataFrame(CSV.File(in_datafolder("Windfarms_World_20240407.csv"); quotechar='\'', missingstring=["#ND", ""]))
+    # ["ID (#ND = no data)", "Continent", "ISO code (Code ISO 3166.1)", "Country", "State code", "Area", "City", "Name", "2nd name",
+    #     "Latitude (WGS84)", "Longitude (WGS84)", "Altitude/Depth (m)", "Location accuracy (Yes = accurate location)", "Offshore - Shore distance (km)",
+    #     "Manufacturer", "Turbine", "Hub height (m)", "Number of turbines", "Total power (kW)", "Developer", "Operator", "Owner",
+    #     "Commissioning date (Format: yyyy or yyyymm)", "Status", "Decommissioning date (Format: yyyy or yyyymm)", "Link", "Update"]
+    newnames = [:id, :continent, :iso, :country, :state, :area, :city, :name, :name2, :lat, :lon, :altitude, :accurate_location, :offshore,
+        :manufacturer, :turbine, :hubheight, :num_turbines, :capac, :developer, :operator, :owner, :startdate, :status, :enddate, :link, :updated]
+    rename!(df, newnames)
+    df[!, [:lat, :lon]] = [ismissing(x) ? missing : parse(Float64, replace(x, "," => ".")) for x in Array(df[!, [:lat, :lon]])]
+    df.year = [ismissing(x) ? missing : parse(Int, x[1:4]) for x in df.startdate]
+    df.endyear = [ismissing(x) ? missing : parse(Int, x[1:4]) for x in df.enddate]
+    df.month = [ismissing(x) ? missing : (m = match(r".*/(\d+)", x)) === nothing ? missing : parse(Int, m[1]) for x in df.startdate]
+    df.endmonth = [ismissing(x) ? missing : (m = match(r".*/(\d+)", x)) === nothing ? missing : parse(Int, m[1]) for x in df.enddate]
+    df.capac .= round.(df.capac / 1e6, digits=3)
+    df.accurate_location = (df.accurate_location .== "Yes")     # Yes or No, no missing data
+    df.onshore = .!startswith.(df.offshore, "Yes")              # all these also have df.area=="Offshore", no missing data
+    df.altitude = [ismissing(x) ? missing : (m = match(r"(\d+)/(\d+)", x)) === nothing ? round(Int, parse(Float64, x)) :
+                            round(Int, mean(parse.(Int, [m[1], m[2]]))) for x in df.altitude]
+
+    regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
+    replacecountries = ["United-Kingdom" => "United Kingdom", "New-Zealand" => "New Zealand", "North Macedonia" => "Macedonia"]
+    replace!(df.country, replacecountries...)
+    fill_missing_european_locations!(df, lonrange, latrange)    # run time ~60 seconds
+    filter!(row -> row.status == "Production", df)
+    select!(df, [newnames[1:13]; :onshore; newnames[15:22]; :year; :month; :status])
+    return df
+end
+
+function add_gisdata_to_farms(df0; optionlist...)
+    df = copy(df0)
+    filter!(row -> row.continent .== "Europe" && !ismissing(row.lat), df)   # skip the last 37 farms with most data missing, mostly in Lithuania 
+
+    println("EUROPE 56!!!!!")
+    regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
+    res = 0.01
+    res2 = res/2
+    lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
+    lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
+    lonlim = (lons[1]-res2, lons[end]+res2)
+    latlim = (lats[end]-res2, lats[1]+res2)
+    gadm, subregionnames = read_gadm()
+    gadm = gadm[lonrange, latrange]
+    # @show lonlim, latlim
+    regions = regions[feature_transform(regions.>0)]        # ensure regions go offshore (maybe unnecessary?)
+    regionsEU = GeoArray(regions, res, lonlim, latlim)
+    reg54country = Dict(i => NUTScountries[string(reg)[1:2]] for (i, reg) in enumerate(regionlist))
+
+    # assume wind_speed_altitude = wind_class_altitude = 1001!
+    windatlas = getwindatlas(100)[lonrange,latrange]
+    options = WindOptions(merge(windoptions(), optionlist))                 
+    onshoreclass, offshoreclass = makewindclasses(options, windatlas)
+
+    invest_onoffshore_per_region_class_yearcode = zeros(2, 5, length(regionlist), 11) 
+
+    df.reg54 .= 232323
+    df.oldreg54 .= 0
+    df.windclass .= 0
+    df.yearcode .= 232323
+    df.lon_guess .= 0.0
+    df.lat_guess .= 0.0
+    df.reg54_guess .= 232323
+
+    updateprogress = Progress(nrow(df), 1)
+    for row in eachrow(df)
+        lon, lat = row.lon, row.lat
+        (lon < lonlim[1] || lon > lonlim[2] || lat < latlim[1] || lat > latlim[2]) && continue
+        rasterindex = lonlat_index(regionsEU, lon, lat)
+        row.reg54 = regionsEU[rasterindex]
+        if get(reg54country, row.reg54, "") != row.country
+            regindexes = [i for (i, reg) in reg54country if reg == row.country] |> sort
+            if !isempty(regindexes)
+                ii = regions.>=regindexes[1] .&& regions.<=regindexes[end]
+                if sum(ii) > 0
+                    rr = GeoArray(regions[feature_transform(ii)], res, lonlim, latlim)
+                    rasterindex = lonlat_index(rr, lon, lat)
+                    row.oldreg54 = row.reg54
+                    row.reg54 = rr[rasterindex]
+                    get(reg54country, row.reg54, "") != row.country && error("Country mismatch")
+                end
+            end
+        end
+        row.windclass = (row.onshore ? onshoreclass[rasterindex] : offshoreclass[rasterindex])
+        row.yearcode = round_yearcode(row.year)             # 1=missing, 2=1980, 3=1985, 4=1990, ..., 10=2020, 11=2025
+        if row.reg54 < 30000 && !ismissing(row.capac)
+            onoff = 2 - row.onshore                         # 1=onshore, 2=offshore
+            invest_onoffshore_per_region_class_yearcode[onoff, row.windclass, row.reg54, row.yearcode] += row.capac
+        end
+        next!(updateprogress)
+    end
+    println()
+    filter!(row -> row.reg54 > 0 && !ismissing(row.capac) && row.capac > 0, df) # remove farms with missing or zero capacity 
+
+    df.year5 .= round_year5.(df.year)
+    sort!(df, [:reg54, :year5])
+
+    # gdf = groupby(df, [:reg54, :year5])
+    # gdf_tot = combine(gdf, :capac => sum)
+    
+    return df, invest_onoffshore_per_region_class_yearcode
+end
+
+function guess_locations(df0)
+    df = copy(df0)
+    regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
+    res = 0.01
+    res2 = res/2
+    lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
+    lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
+    lonlim = (lons[1]-res2, lons[end]+res2)
+    latlim = (lats[end]-res2, lats[1]+res2)
+    gadm, subregionnames = read_gadm()
+    gadm = gadm[lonrange, latrange]
+    # @show lonlim, latlim
+    regions = regions[feature_transform(regions.>0)]        # ensure regions go offshore (maybe unnecessary?)
+    regionsEU = GeoArray(regions, res, lonlim, latlim)
+
+    df.lon_guess .= 232323.0
+    df.lat_guess .= 232323.0
+    df.reg54_guess .= 232323
+
+    updateprogress = Progress(nrow(df), 1)
+    for row in eachrow(df)
+        lon, lat = guess_lonlat_from_windfarm_regions(row, gadm, subregionnames, lons, lats)
+        isnan(lon) && continue
+        # @show lon, lat
+        rasterindex = lonlat_index(regionsEU, lon, lat)
+        row.lon_guess, row.lat_guess = lon, lat
+        row.reg54_guess = regionsEU[rasterindex]
+        next!(updateprogress)
+    end
+    return df
+end
+
+# Distributes investments with missing years over the other years in proportion to the sum of investments in those years
+# invest: 2×5×54×11, onshore/offshore x wind class x region x yearcode
+function fix_investments(invest)
+    # [vec(invest[:,:,1,:]) vec(sum(invest[:,:,2:end,:], dims=3))]
+    inv_yearmissing = invest[:,:,:,1:1]
+    inv_sum = sum(invest, dims=4)
+    invmult = 1.0 .+ inv_yearmissing ./ inv_sum
+    invmult[isnan.(invmult)] .= 1.0
+    invest[:,:,:,2:end] .*= invmult
+    invest[:,:,:,1] .= 0.0
+    # inv_sum2 = sum(invest, dims=4)
+    invest = round.(invest, digits=3)
+    return invest
+end
+
+round_year5(x) = ismissing(x) ? missing : round(Int, x / 5) * 5
+round_yearcode(x) = ismissing(x) ? 1 : round(Int, (x - 1970)/5)
+decodeyear(y) = (y == 1) ? 1111 : 1970 + 5*y
+
+function fill_missing_european_locations!(df, lonrange, latrange)
+    df.accurate_location[ismissing.(df.lat) .&& df.accurate_location] .= false      # one weird record in Poland
+
+    gadm, subregionnames = read_gadm()
+    gadm = gadm[lonrange, latrange]
+    # gadm = gadm[G.feature_transform(gadm.>0)]
+    res = 0.01
+    res2 = res/2
+    lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
+    lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
+
+    europeindexes = findall(df.continent .== "Europe" .&& ismissing.(df.lat))
+    updateprogress = Progress(length(europeindexes), 1)
+    for ei in europeindexes
+        row = df[ei, :]
+        ismissing(row.area) && continue
+        df.lon[ei], df.lat[ei] = guess_lonlat_from_windfarm_regions(row, gadm, subregionnames, lons, lats)
+        next!(updateprogress)
+    end
+    println()
+end
+
+function guess_lonlat_from_windfarm_regions(farmrow, gadm, subregionnames, lons, lats)
+    regnames = subregionnames[subregionnames[:, 1] .== farmrow.country, :]
+    gadmlevel2, gadmlevel3 = unique(regnames[:,2]), regnames[:,3]
+    m = ismissing(farmrow.area) ? nothing : match(r"(.*)\s*\((.+)\)", farmrow.area)
+    if m !== nothing
+        level2 = closeststring(m.captures[2], gadmlevel2)
+        level3 = closeststring(m.captures[1], gadmlevel3)
+    else
+        level2 = closeststring(farmrow.area, gadmlevel2)
+        level3 = closeststring(farmrow.city, gadmlevel3)
+    end
+
+    if !isempty(level3)
+        gadmindexes = findall(subregionnames[:,3] .== level3)
+    elseif !isempty(level2)
+        gadmindexes = findall(subregionnames[:,2] .== level2)
+    else
+        gadmindexes = findall(subregionnames[:,1] .== farmrow.country)
+    end
+
+    lon, lat = loop_gadm(gadm, gadmindexes, lons, lats)
+    return lon, lat
+end
+
+function winddata_for_ELLI_model()
+    df0 = readfarms()
+    df, invest = add_gisdata_to_farms(df0)
+    fix_investments(invest)
+    matlab2multinode(invest)
+end
+
+function swedish_capacity_diagnostic(df, df0)
+    # df0 = readfarms()
+    # df, invest = add_gisdata_to_farms(df0)
+    # fix_investments(invest)
+    regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
+    df.regname = [r < 30000 ? regionlist[r] : Symbol() for r in df.reg54]
+    df[.!ismissing.(df.reg54 .+ df.capac) .&& df.reg54 .>= 48 .&& df.reg54 .<= 51 .&& df.iso .!= "SE", [4; 6:8; 10; 11; 13:19; 22:25; 30; 27; 29]] |> display
+    df[.!ismissing.(df.reg54 .+ df.capac) .&& (df.reg54 .< 48 .|| df.reg54 .> 51) .&& df.iso .== "SE", [4; 6:8; 10; 11; 13:19; 22:25; 30; 27; 29]] |> display
+    nothing
+end
+
+function loop_gadm(gadm, gadmindexes, lons, lats)
+    sumlons, sumlats, n = 0.0, 0.0, 0
+    low, hi = extrema(gadmindexes)
+    Threads.@threads for i in eachindex(IndexCartesian(), gadm)
+        g = gadm[i]
+        if g >= low && g <= hi && g in gadmindexes
+            sumlons += lons[i[1]]
+            sumlats += lats[i[2]]
+            n += 1
+        end
+    end
+    meanlon, meanlat = sumlons/n, sumlats/n
+    return meanlon, meanlat
+end
+
+similarity(x,y) = Levenshtein()(x, y)
+
+function closeststring(s, targetstrings)
+    (ismissing(s) || isempty(s)) && return ""
+    dist, ndx = findmin(similarity.(targetstrings, s))
+    return (dist <= 3 ? targetstrings[ndx] : "")
+end
+
+function savefarms(winddir = "C:/Users/niclas/Downloads/wind data")
+    wf = readfarms(winddir)
+    CSV.write("$winddir/windfarms.csv", wf)
+end
+
+function read_irena(winddir = "C:/Users/niclas/Downloads/wind data")
+    df = DataFrame(CSV.File("$winddir/IRENA ELECCAP_20220411-085642.csv", header=3, missingstring=".."))
+    # "Country/area", "Technology", "Grid connection", "Year", "Installed electricity capacity by country/area (MW)"
+    newnames = [:country, :onshore, :gridconnected, :year, :capac]
+    rename!(df, newnames)
+    df.onshore = (df.onshore .== "Onshore wind energy")
+    df.gridconnected = (df.gridconnected .== "On-grid")
+    replacecountries = ["United Kingdom of Great Britain and Northern Ireland" => "United Kingdom", "United States of America" => "USA"]
+    replace!(df.country, replacecountries...)
+    # rows = df.gridconnected .&& df.year .== 2020
+    # onshore2020 = Dict(row.country => row.capac for row in eachrow(df[rows .&& df.onshore, :]) if !ismissing(row.capac))
+    # offshore2020 = Dict(row.country => row.capac for row in eachrow(df[rows .&& .!df.onshore, :]) if !ismissing(row.capac))
+    return df
 end

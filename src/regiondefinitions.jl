@@ -159,9 +159,9 @@ const europe54 = [
     "SK"    NUTS("SK")
     "CH"    NUTS("CH","LI")                   # includes Liechtenstein
     "IS"    NUTS("IS")
- #   "BO"    GADM("Bosnia and Herzegovina")    # Bosnia and Herzegovina completely missing in NUTS
+    # "BO"    GADM("Bosnia and Herzegovina")    # Bosnia and Herzegovina completely missing in NUTS [remove for old Europe54]
     "CR"    NUTS("HR")                        # Hrvatska (Croatia in Croatian)
- #   "MC"    NUTS("MK")                        # Macedonia
+    # "MC"    NUTS("MK")                        # Macedonia [remove for old Europe54]
     "ES1"   NUTS("ES11","ES12","ES13")  
     "ES2"   NUTS("ES21","ES22","ES23","ES24","ES51","ES52","ES53","ES62")
     "ES3"   NUTS("ES30","ES41","ES42")
@@ -190,6 +190,43 @@ const europe54 = [
     "UK2"   NUTS("UKM5","UKM6","UKM7","UKM8","UKM9")
     "UK3"   NUTS("UKN0", "UKN1")
 ]
+
+const NUTScountries = Dict(
+    "AT" => "Austria",
+    "BE" => "Belgium",
+    "BG" => "Bulgaria",
+    "CY" => "Cyprus",
+    "CZ" => "Czech Republic",
+    "DE" => "Germany",
+    "DK" => "Denmark",
+    "EE" => "Estonia",
+    "FI" => "Finland",
+    "GR" => "Greece",
+    "HU" => "Hungary",
+    "IE" => "Ireland",
+    "LV" => "Latvia",
+    "LT" => "Lithuania",
+    "LU" => "Luxembourg",
+    "MT" => "Malta",
+    "NL" => "Netherlands",
+    "PT" => "Portugal",
+    "RO" => "Romania",
+    "SI" => "Slovenia",
+    "SK" => "Slovakia",
+    "CH" => "Switzerland",
+    "IS" => "Iceland",
+    # "BO" => "Bosnia and Herzegovina",
+    "CR" => "Croatia",
+    # "MC" => "Monaco",
+    # "MK" => "North Macedonia",
+    "ES" => "Spain",
+    "FR" => "France",
+    "IT" => "Italy",
+    "NO" => "Norway",
+    "PO" => "Poland",
+    "SE" => "Sweden",
+    "UK" => "United Kingdom"
+)
 
 # https://ec.europa.eu/eurostat/statistics-explained/index.php/Glossary:EU_enlargements
 # https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Glossary:Candidate_countries
