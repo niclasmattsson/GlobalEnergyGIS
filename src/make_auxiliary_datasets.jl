@@ -460,23 +460,8 @@ function readfarms()
     return df
 end
 
-function add_gisdata_to_farms(df0; optionlist...)
-    df = copy(df0)
-    filter!(row -> row.continent .== "Europe" && !ismissing(row.lat), df)   # skip the last 37 farms with most data missing, mostly in Lithuania 
-
-    println("EUROPE 56!!!!!")
-    regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
-    res = 0.01
-    res2 = res/2
-    lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
-    lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
-    lonlim = (lons[1]-res2, lons[end]+res2)
-    latlim = (lats[end]-res2, lats[1]+res2)
-    gadm, subregionnames = read_gadm()
-    gadm = gadm[lonrange, latrange]
-    # @show lonlim, latlim
-    regions = regions[feature_transform(regions.>0)]        # ensure regions go offshore (maybe unnecessary?)
-    regionsEU = GeoArray(regions, res, lonlim, latlim)
+function add_gisdata_to_farms(df; optionlist...)
+    regions, regionsEU, regionlist, gadm, subregionnames, lons, lats, res, lonlim, latlim, lonrange, latrange = get_europe_datasets()
     reg54country = Dict(i => NUTScountries[string(reg)[1:2]] for (i, reg) in enumerate(regionlist))
 
     # assume wind_speed_altitude = wind_class_altitude = 1001!
@@ -486,20 +471,16 @@ function add_gisdata_to_farms(df0; optionlist...)
 
     invest_onoffshore_per_region_class_yearcode = zeros(2, 5, length(regionlist), 11) 
 
-    df.reg54 .= 232323
     df.oldreg54 .= 0
     df.windclass .= 0
     df.yearcode .= 232323
-    df.lon_guess .= 0.0
-    df.lat_guess .= 0.0
-    df.reg54_guess .= 232323
 
     updateprogress = Progress(nrow(df), 1)
     for row in eachrow(df)
         lon, lat = row.lon, row.lat
+        next!(updateprogress)
         (lon < lonlim[1] || lon > lonlim[2] || lat < latlim[1] || lat > latlim[2]) && continue
         rasterindex = lonlat_index(regionsEU, lon, lat)
-        row.reg54 = regionsEU[rasterindex]
         if get(reg54country, row.reg54, "") != row.country
             regindexes = [i for (i, reg) in reg54country if reg == row.country] |> sort
             if !isempty(regindexes)
@@ -519,22 +500,14 @@ function add_gisdata_to_farms(df0; optionlist...)
             onoff = 2 - row.onshore                         # 1=onshore, 2=offshore
             invest_onoffshore_per_region_class_yearcode[onoff, row.windclass, row.reg54, row.yearcode] += row.capac
         end
-        next!(updateprogress)
     end
     println()
-    filter!(row -> row.reg54 > 0 && !ismissing(row.capac) && row.capac > 0, df) # remove farms with missing or zero capacity 
-
-    df.year5 .= round_year5.(df.year)
-    sort!(df, [:reg54, :year5])
-
-    # gdf = groupby(df, [:reg54, :year5])
-    # gdf_tot = combine(gdf, :capac => sum)
     
     return df, invest_onoffshore_per_region_class_yearcode
 end
 
-# run time 1.5-2 minutes
-function guess_locations(df)
+function get_europe_datasets()
+    println("\nEUROPE 56!!!!!")
     regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
     res = 0.01
     res2 = res/2
@@ -547,6 +520,12 @@ function guess_locations(df)
     # @show lonlim, latlim
     regions = regions[feature_transform(regions.>0)]        # ensure regions go offshore (maybe unnecessary?)
     regionsEU = GeoArray(regions, res, lonlim, latlim)
+    return regions, regionsEU, regionlist, gadm, subregionnames, lons, lats, res, lonlim, latlim, lonrange, latrange
+end
+
+# run time 1.5-2 minutes
+function guess_locations(df)
+    regions, regionsEU, regionlist, gadm, subregionnames, lons, lats, res, lonlim, latlim, lonrange, latrange = get_europe_datasets()
 
     df.lon_guess .= 232323.0
     df.lat_guess .= 232323.0
@@ -574,7 +553,7 @@ end
 
 # Distributes investments with missing years over the other years in proportion to the sum of investments in those years
 # invest: 2×5×54×11, onshore/offshore x wind class x region x yearcode
-function fix_investments(invest)
+function fix_investments!(invest)
     # [vec(invest[:,:,1,:]) vec(sum(invest[:,:,2:end,:], dims=3))]
     inv_yearmissing = invest[:,:,:,1:1]
     inv_sum = sum(invest, dims=4)
@@ -669,33 +648,50 @@ function guess_lonlat_from_windfarm_regions(farmrow, gadm, subregionnames, lons,
     return lon, lat
 end
 
-function winddata_for_ELLI_model(df1)
-    # println("Reading raw global wind farm database...")
-    # df0 = readfarms()
-    # println("Guessing coordinates for all European wind farms from region & area names (ETA 2 minutes)...")
-    # df1 = guess_locations(df0[df0.continent .== "Europe", :])
+function clean_windfarm_database()
+    println("Reading raw global wind farm database...")
+    df0 = readfarms()
+    println("Guessing coordinates for all European wind farms from region & area names (ETA 2 minutes)...")
+    df1 = guess_locations(df0[df0.continent .== "Europe", :])
+
+    println("Filling missing coordinates with guessed ones...")
     mm = ismissing.(df1.lon)
     df1.lon[mm] .= df1.lon_guess[mm]
     df1.lat[mm] .= df1.lat_guess[mm]
     df1.reg54[mm] .= df1.reg54_guess[mm]
     df1.lon, df1.lat = coalesce.(df1.lon), coalesce.(df1.lat)
-    dist = sqrt.((df1.lon - df1.lon_guess).^2 .+ (df1.lat - df1.lat_guess).^2)
-    dist[df1.lon_guess .> 1000] .= 232323
-    # regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
-    # df1.reg54 .= [rr < 999 ? string(regionlist[rr]) : "" for rr in df1.reg54]
-    # df1.reg54_guess .= [rr < 999 ? string(regionlist[rr]) : "" for rr in df1.reg54_guess]
-    return dist
+    df1.dist = sqrt.((df1.lon - df1.lon_guess).^2 .+ (df1.lat - df1.lat_guess).^2)
+    df1.dist[df1.lon_guess .> 1000] .= 232323
 
-    # df2, invest = add_gisdata_to_farms(df1)
-    # fix_investments(invest)
-    # matlab2multinode(invest)
+    regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
+    df1.reg .= [rr < 999 ? string(regionlist[rr]) : "" for rr in df1.reg54]
+    df1.reg_guess .= [rr < 999 ? string(regionlist[rr]) : "" for rr in df1.reg54_guess]
 
-    # @time df2 = guess_locations(df1)
+    CSV.write(in_datafolder("Windfarms_Europe_20240407_CLEANED.csv"), df1)
+    return nothing
 end
 
-function swedish_capacity_diagnostic(df)
-    # df0 = readfarms()
-    # df, invest = add_gisdata_to_farms(df0)
+function winddata_for_ELLI_model()
+    # df, invest = clean_windfarm_database()
+    df0 = CSV.File(in_datafolder("Windfarms_Europe_20240407_CLEANED.csv")) |> DataFrame
+
+    println("Add wind classes from GIS, correct offshore countries and aggregate capacity by class and investment year...")
+    df, invest = add_gisdata_to_farms(df0)     # Can add GIS options here
+
+    filter!(row -> row.reg54 > 0 && !ismissing(row.capac) && row.capac > 0, df)     # remove farms with missing or zero capacity 
+
+    df.year5 .= round_year5.(df.year)
+    sort!(df, [:reg54, :year5])
+
+    # gdf = groupby(df, [:reg54, :year5])
+    # gdf_tot = combine(gdf, :capac => sum)
+
+    fix_investments(invest)
+    matlab2multinode(invest)
+end
+
+function swedish_capacity_diagnostic()
+    df = CSV.File(in_datafolder("Windfarms_Europe_20240407_CLEANED.csv")) |> DataFrame
     # fix_investments(invest)
     regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
     df.regname = [r < 30000 ? regionlist[r] : Symbol() for r in df.reg54]
