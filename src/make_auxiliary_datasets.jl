@@ -454,7 +454,7 @@ function readfarms()
     regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
     replacecountries = ["United-Kingdom" => "United Kingdom", "New-Zealand" => "New Zealand", "North Macedonia" => "Macedonia"]
     replace!(df.country, replacecountries...)
-    fill_missing_european_locations!(df, lonrange, latrange)    # run time ~60 seconds
+    df.accurate_location[ismissing.(df.lat) .&& df.accurate_location] .= false      # one weird record in Poland
     filter!(row -> row.status == "Production", df)
     select!(df, [newnames[1:13]; :onshore; newnames[15:22]; :year; :month; :status])
     return df
@@ -533,8 +533,8 @@ function add_gisdata_to_farms(df0; optionlist...)
     return df, invest_onoffshore_per_region_class_yearcode
 end
 
-function guess_locations(df0)
-    df = copy(df0)
+# run time 1.5-2 minutes
+function guess_locations(df)
     regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
     res = 0.01
     res2 = res/2
@@ -550,17 +550,24 @@ function guess_locations(df0)
 
     df.lon_guess .= 232323.0
     df.lat_guess .= 232323.0
+    df.reg54 .= 232323
     df.reg54_guess .= 232323
+    df.guesslevel .= 232323
+    regioncache = Dict{String, Tuple{Float64, Float64}}()
 
     updateprogress = Progress(nrow(df), 1)
     for row in eachrow(df)
-        lon, lat = guess_lonlat_from_windfarm_regions(row, gadm, subregionnames, lons, lats)
-        isnan(lon) && continue
-        # @show lon, lat
-        rasterindex = lonlat_index(regionsEU, lon, lat)
-        row.lon_guess, row.lat_guess = lon, lat
-        row.reg54_guess = regionsEU[rasterindex]
+        lon, lat = row.lon, row.lat
+        if !ismissing(lon) && lon >= lonlim[1] && lon <= lonlim[2] && lat >= latlim[1] && lat <= latlim[2]
+            rasterindex = lonlat_index(regionsEU, lon, lat)
+            row.reg54 = regionsEU[rasterindex]
+        end
+        lon, lat = guess_lonlat_from_windfarm_regions(row, gadm, subregionnames, lons, lats, regioncache)
         next!(updateprogress)
+        isnan(lon) && continue
+        rasterindex_guess = lonlat_index(regionsEU, lon, lat)
+        row.lon_guess, row.lat_guess = lon, lat
+        row.reg54_guess = regionsEU[rasterindex_guess]
     end
     return df
 end
@@ -585,8 +592,6 @@ round_yearcode(x) = ismissing(x) ? 1 : round(Int, (x - 1970)/5)
 decodeyear(y) = (y == 1) ? 1111 : 1970 + 5*y
 
 function fill_missing_european_locations!(df, lonrange, latrange)
-    df.accurate_location[ismissing.(df.lat) .&& df.accurate_location] .= false      # one weird record in Poland
-
     gadm, subregionnames = read_gadm()
     gadm = gadm[lonrange, latrange]
     # gadm = gadm[G.feature_transform(gadm.>0)]
@@ -606,38 +611,89 @@ function fill_missing_european_locations!(df, lonrange, latrange)
     println()
 end
 
-function guess_lonlat_from_windfarm_regions(farmrow, gadm, subregionnames, lons, lats)
+function guess_lonlat_from_windfarm_regions(farmrow, gadm, subregionnames, lons, lats, regioncache)
     regnames = subregionnames[subregionnames[:, 1] .== farmrow.country, :]
-    gadmlevel2, gadmlevel3 = unique(regnames[:,2]), regnames[:,3]
+    gadmlevel2, gadmlevel3 = unique(regnames[:,2]), unique(regnames[:,3])
+    level2, level3 = "", ""
     m = ismissing(farmrow.area) ? nothing : match(r"(.*)\s*\((.+)\)", farmrow.area)
     if m !== nothing
         level2 = closeststring(m.captures[2], gadmlevel2)
         level3 = closeststring(m.captures[1], gadmlevel3)
-    else
+        if isempty(level2) && isempty(level3)
+            level2 = closeststring(m.captures[1], gadmlevel2)
+            level3 = closeststring(farmrow.city, gadmlevel3)
+        end
+    end
+    if m === nothing || isempty(level2) && isempty(level3)
         level2 = closeststring(farmrow.area, gadmlevel2)
         level3 = closeststring(farmrow.city, gadmlevel3)
     end
 
+    # println("$level3, $level2")
+    if !isempty(level3) && !isempty(level2)
+        key = "level3_$(level2)_$level3"
+        lon, lat = get(regioncache, key, (Inf,Inf))
+        farmrow.guesslevel = 23
+        isfinite(lon) && return lon, lat
+        gadmindexes = findall(subregionnames[:,3] .== level3 .&& subregionnames[:,2] .== level2 .&& subregionnames[:,1] .== farmrow.country)
+        if !isempty(gadmindexes)
+            lon, lat = loop_gadm(gadm, gadmindexes, lons, lats)
+            regioncache[key] = lon, lat
+            return lon, lat
+        end
+    end
+    
     if !isempty(level3)
-        gadmindexes = findall(subregionnames[:,3] .== level3)
+        key = "level3_$level3"
+        farmrow.guesslevel = 3
+        lon, lat = get(regioncache, key, (Inf,Inf))
+        isfinite(lon) && return lon, lat
+        gadmindexes = findall(subregionnames[:,3] .== level3 .&& subregionnames[:,1] .== farmrow.country)
     elseif !isempty(level2)
-        gadmindexes = findall(subregionnames[:,2] .== level2)
+        key = "level2_$level2"
+        farmrow.guesslevel = 2
+        lon, lat = get(regioncache, key, (Inf,Inf))
+        isfinite(lon) && return lon, lat
+        gadmindexes = findall(subregionnames[:,2] .== level2 .&& subregionnames[:,1] .== farmrow.country)
     else
+        key = "country_$(farmrow.country)"
+        farmrow.guesslevel = 1
+        lon, lat = get(regioncache, key, (Inf,Inf))
+        isfinite(lon) && return lon, lat
         gadmindexes = findall(subregionnames[:,1] .== farmrow.country)
     end
 
-    lon, lat = loop_gadm(gadm, gadmindexes, lons, lats)
+    # isempty(gadmindexes) && println("\n\n$level3, $level2")
+    lon, lat = loop_gadm2(gadm, gadmindexes, lons, lats)
+    regioncache[key] = lon, lat
     return lon, lat
 end
 
-function winddata_for_ELLI_model()
-    df0 = readfarms()
-    df, invest = add_gisdata_to_farms(df0)
-    fix_investments(invest)
-    matlab2multinode(invest)
+function winddata_for_ELLI_model(df1)
+    # println("Reading raw global wind farm database...")
+    # df0 = readfarms()
+    # println("Guessing coordinates for all European wind farms from region & area names (ETA 2 minutes)...")
+    # df1 = guess_locations(df0[df0.continent .== "Europe", :])
+    mm = ismissing.(df1.lon)
+    df1.lon[mm] .= df1.lon_guess[mm]
+    df1.lat[mm] .= df1.lat_guess[mm]
+    df1.reg54[mm] .= df1.reg54_guess[mm]
+    df1.lon, df1.lat = coalesce.(df1.lon), coalesce.(df1.lat)
+    dist = sqrt.((df1.lon - df1.lon_guess).^2 .+ (df1.lat - df1.lat_guess).^2)
+    dist[df1.lon_guess .> 1000] .= 232323
+    # regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
+    # df1.reg54 .= [rr < 999 ? string(regionlist[rr]) : "" for rr in df1.reg54]
+    # df1.reg54_guess .= [rr < 999 ? string(regionlist[rr]) : "" for rr in df1.reg54_guess]
+    return dist
+
+    # df2, invest = add_gisdata_to_farms(df1)
+    # fix_investments(invest)
+    # matlab2multinode(invest)
+
+    # @time df2 = guess_locations(df1)
 end
 
-function swedish_capacity_diagnostic(df, df0)
+function swedish_capacity_diagnostic(df)
     # df0 = readfarms()
     # df, invest = add_gisdata_to_farms(df0)
     # fix_investments(invest)
@@ -663,12 +719,28 @@ function loop_gadm(gadm, gadmindexes, lons, lats)
     return meanlon, meanlat
 end
 
+function loop_gadm2(gadm, gadmindexes, lons, lats)
+    gg = similar(gadm, Bool)
+    low, hi = extrema(gadmindexes)
+    Threads.@threads for i in eachindex(IndexCartesian(), gadm)
+        g = gadm[i]
+        if g >= low && g <= hi && g in gadmindexes
+            gg[i] = true
+        end
+    end
+    ggf = findall(gg)
+    isempty(ggf) && return NaN, NaN
+    lon = [lons[cc[1]] for cc in ggf]
+    lat = [lats[cc[2]] for cc in ggf]
+    return median(lon), median(lat)
+end
+
 similarity(x,y) = Levenshtein()(x, y)
 
 function closeststring(s, targetstrings)
     (ismissing(s) || isempty(s)) && return ""
     dist, ndx = findmin(similarity.(targetstrings, s))
-    return (dist <= 3 ? targetstrings[ndx] : "")
+    return (dist/length(s) <= 0.3 ? targetstrings[ndx] : "")
 end
 
 function savefarms(winddir = "C:/Users/niclas/Downloads/wind data")
@@ -689,4 +761,48 @@ function read_irena(winddir = "C:/Users/niclas/Downloads/wind data")
     # onshore2020 = Dict(row.country => row.capac for row in eachrow(df[rows .&& df.onshore, :]) if !ismissing(row.capac))
     # offshore2020 = Dict(row.country => row.capac for row in eachrow(df[rows .&& .!df.onshore, :]) if !ismissing(row.capac))
     return df
+end
+
+function openmap(df::DataFrame, turbinenumber::Int)
+    openmap(df, turbinenumber, :google)
+    openmap(df, turbinenumber, :bing)
+end
+    
+function openmap(df::DataFrame, turbinenumber::Int, source::Symbol, use_guess=false)
+    if use_guess
+        openmap(df.lon_guess[turbinenumber], df.lat_guess[turbinenumber], source)
+    else
+        openmap(df.lon[turbinenumber], df.lat[turbinenumber], source)
+    end
+    return df[turbinenumber, :]
+end
+
+function openmap(lon::Real, lat::Real, source=:google)
+    # Extra quotes to avoid errors with special chars ? and &:
+    # https://superuser.com/questions/36728/can-i-launch-urls-from-command-line-in-windows
+    # https://discourse.julialang.org/t/quoting-special-characters-of-a-url-in-cmd-objects-on-windows/44324
+
+    if source == :google
+        # url = "https://www.google.com/maps/@?api=1\"&\"map_action=map\"&\"basemap=satellite\"&\"center=$lat%2C$lon\"&\"zoom=18"   # satellite map but no pin
+        # url = "http://maps.google.com/maps?t=k\"&\"q=loc:$lat+$lon"   # used to do both but no longer places pin
+        # https://stackoverflow.com/questions/47038116/google-maps-url-with-pushpin-and-satellite-basemap
+        # https://stackoverflow.com/questions/60219254/show-location-marker-in-new-browser-window
+
+        url = "https://www.google.com/maps/search/?api=1\"&\"query=$lat%2C$lon\"&\"basemap=satellite\"&\"zoom=18"   # map with pin
+        # url = "https://www.google.com/maps/@?api=1\"&\"map_action=map\"&\"basemap=satellite\"&\"center=$lat%2C$lon\"&\"zoom=18" # no pin
+    else
+        url = "https://bing.com/maps/default.aspx?cp=$lat~$lon\"&\"lvl=18\"&\"style=a\"&\"sp=point.$(lat)_$(lon)_"
+    end
+    c = Cmd(`cmd /c start \"\" $url`, windows_verbatim=true)
+    run(c)
+end
+
+function openmapdir(lon1, lat1, lon2, lat2)
+    url = "https://www.google.com/maps/dir/$lat1,$lon1/$lat2,$lon2/"
+    c = Cmd(`cmd /c start \"\" $url`, windows_verbatim=true)
+    run(c)
+end
+
+function openmapdir(df::DataFrame, turbinenumber::Int)
+    openmapdir(df.lon[turbinenumber], df.lat[turbinenumber], df.lon_guess[turbinenumber], df.lat_guess[turbinenumber])
 end
