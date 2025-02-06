@@ -83,7 +83,7 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
     offshoreregions = offshoreregions[1:downsample:end, 1:downsample:end]
     lonrange = lonrange[1:downsample:end]
     latrange = latrange[1:downsample:end]
-    textscale *= downsample
+    # textscale *= downsample
     nreg = length(regionlist)
 
     println("Mapping colors to regions (avoid same color in adjacent regions)...")
