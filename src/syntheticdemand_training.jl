@@ -34,10 +34,9 @@ function trainmodel(; variables=defaultvariables, nrounds=100, xgoptions...)
     df_train, offsets = loadtrainingdata()
     println("\nTraining model...")
     select!(df_train, variables)
-    traindata = Matrix(df_train)
     normdemand = loaddemanddata()[:, :normdemand]
 
-    model = xgboost(traindata, nrounds; label=normdemand, xgoptions...)
+    model = xgboost((df_train, normdemand); num_round=nrounds, xgoptions...)
 end
 
 function crossvalidate(; variables=defaultvariables, nrounds=100, max_depth=7, eta=0.05, subsample=0.75, metrics=["mae"], more_xgoptions...)
