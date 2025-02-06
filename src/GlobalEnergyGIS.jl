@@ -6,6 +6,8 @@ using MAT, HDF5, ProgressMeter, Random, Interpolations, BenchmarkTools, Images,
     Statistics, DelimitedFiles, Dates, NCDatasets, JLD, Parameters, ImageSegmentation,
     StatsBase, CSV, Distances, Printf, TimeZones, DataFrames, StringDistances
 
+import Rasters
+
 include("GeoArray.jl")
 include("rasterize_shapefiles.jl")
 include("make_auxiliary_datasets.jl")

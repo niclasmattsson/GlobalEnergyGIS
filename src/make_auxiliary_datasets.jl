@@ -451,7 +451,6 @@ function readfarms()
     df.altitude = [ismissing(x) ? missing : (m = match(r"(\d+)/(\d+)", x)) === nothing ? round(Int, parse(Float64, x)) :
                             round(Int, mean(parse.(Int, [m[1], m[2]]))) for x in df.altitude]
 
-    regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
     replacecountries = ["United-Kingdom" => "United Kingdom", "New-Zealand" => "New Zealand", "North Macedonia" => "Macedonia"]
     replace!(df.country, replacecountries...)
     df.accurate_location[ismissing.(df.lat) .&& df.accurate_location] .= false      # one weird record in Poland
@@ -502,13 +501,15 @@ function add_gisdata_to_farms(df; optionlist...)
         end
     end
     println()
+    df.reg .= [rr < 999 ? string(regionlist[rr]) : "" for rr in df.reg54]
+    df.reg_guess .= [rr < 999 ? string(regionlist[rr]) : "" for rr in df.reg54_guess]
     
     return df, invest_onoffshore_per_region_class_yearcode
 end
 
 function get_europe_datasets()
     println("\nEUROPE 56!!!!!")
-    regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
+    regions, _, regionlist, lonrange, latrange = loadregions("Europe54_SEfix")
     res = 0.01
     res2 = res/2
     lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
@@ -524,14 +525,16 @@ function get_europe_datasets()
 end
 
 # run time 1.5-2 minutes
-function guess_locations(df)
+function guess_locations(df; skipguess=false)
     regions, regionsEU, regionlist, gadm, subregionnames, lons, lats, res, lonlim, latlim, lonrange, latrange = get_europe_datasets()
 
-    df.lon_guess .= 232323.0
-    df.lat_guess .= 232323.0
     df.reg54 .= 232323
     df.reg54_guess .= 232323
-    df.guesslevel .= 232323
+    if !skipguess
+        df.lon_guess .= 232323.0
+        df.lat_guess .= 232323.0
+        df.guesslevel .= 232323
+    end
     regioncache = Dict{String, Tuple{Float64, Float64}}()
 
     updateprogress = Progress(nrow(df), 1)
@@ -541,6 +544,7 @@ function guess_locations(df)
             rasterindex = lonlat_index(regionsEU, lon, lat)
             row.reg54 = regionsEU[rasterindex]
         end
+        skipguess && continue
         lon, lat = guess_lonlat_from_windfarm_regions(row, gadm, subregionnames, lons, lats, regioncache)
         next!(updateprogress)
         isnan(lon) && continue
@@ -553,7 +557,7 @@ end
 
 # Distributes investments with missing years over the other years in proportion to the sum of investments in those years
 # invest: 2×5×54×11, onshore/offshore x wind class x region x yearcode
-function fix_investments!(invest)
+function distribute_investments_with_missing_years!(invest)
     # [vec(invest[:,:,1,:]) vec(sum(invest[:,:,2:end,:], dims=3))]
     inv_yearmissing = invest[:,:,:,1:1]
     inv_sum = sum(invest, dims=4)
@@ -569,26 +573,6 @@ end
 round_year5(x) = ismissing(x) ? missing : round(Int, x / 5) * 5
 round_yearcode(x) = ismissing(x) ? 1 : round(Int, (x - 1970)/5)
 decodeyear(y) = (y == 1) ? 1111 : 1970 + 5*y
-
-function fill_missing_european_locations!(df, lonrange, latrange)
-    gadm, subregionnames = read_gadm()
-    gadm = gadm[lonrange, latrange]
-    # gadm = gadm[G.feature_transform(gadm.>0)]
-    res = 0.01
-    res2 = res/2
-    lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
-    lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
-
-    europeindexes = findall(df.continent .== "Europe" .&& ismissing.(df.lat))
-    updateprogress = Progress(length(europeindexes), 1)
-    for ei in europeindexes
-        row = df[ei, :]
-        ismissing(row.area) && continue
-        df.lon[ei], df.lat[ei] = guess_lonlat_from_windfarm_regions(row, gadm, subregionnames, lons, lats)
-        next!(updateprogress)
-    end
-    println()
-end
 
 function guess_lonlat_from_windfarm_regions(farmrow, gadm, subregionnames, lons, lats, regioncache)
     regnames = subregionnames[subregionnames[:, 1] .== farmrow.country, :]
@@ -663,41 +647,75 @@ function clean_windfarm_database()
     df1.dist = sqrt.((df1.lon - df1.lon_guess).^2 .+ (df1.lat - df1.lat_guess).^2)
     df1.dist[df1.lon_guess .> 1000] .= 232323
 
-    regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
-    df1.reg .= [rr < 999 ? string(regionlist[rr]) : "" for rr in df1.reg54]
-    df1.reg_guess .= [rr < 999 ? string(regionlist[rr]) : "" for rr in df1.reg54_guess]
-
     CSV.write(in_datafolder("Windfarms_Europe_20240407_CLEANED.csv"), df1)
     return nothing
 end
 
-function winddata_for_ELLI_model()
-    # df, invest = clean_windfarm_database()
+function GISdata_for_ELLI_model(; plotmasks=true)
+    # fixSEinEurope54()
+    # makedistances("Europe54_SEfix")
+    # createmaps("Europe54_SEfix")
+    # clean_windfarm_database()
+
     df0 = CSV.File(in_datafolder("Windfarms_Europe_20240407_CLEANED.csv")) |> DataFrame
+    select!(df0, [:country, :lat, :lon, :onshore, :capac, :year, :reg54, :reg54_guess])
+    dfvb = read_vindbrukskollen()
+    guess_locations(dfvb, skipguess=true)   # adds reg54 to dataframe
+    select!(dfvb, [:country, :lat, :lon, :onshore, :capac, :year, :reg54, :reg54_guess])
+    delete!(df0, df0.country .== "Sweden" .&& df0.onshore)
 
     println("Add wind classes from GIS, correct offshore countries and aggregate capacity by class and investment year...")
-    df, invest = add_gisdata_to_farms(df0)     # Can add GIS options here
+    df, invest = add_gisdata_to_farms(vcat(df0, dfvb))     # Can add GIS options here
 
     filter!(row -> row.reg54 > 0 && !ismissing(row.capac) && row.capac > 0, df)     # remove farms with missing or zero capacity 
-
     df.year5 .= round_year5.(df.year)
-    sort!(df, [:reg54, :year5])
 
-    # gdf = groupby(df, [:reg54, :year5])
+    sort!(df, [:reg54, :year5])
+    gdf = groupby(df, [:reg54, :year5])
     # gdf_tot = combine(gdf, :capac => sum)
 
-    fix_investments(invest)
-    matlab2multinode(invest)
+    GISsolar(; gisregion="Europe54_SEfix", era_year=1991, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks)
+    GISwind(; gisregion="Europe54_SEfix", era_year=1991, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks)
+    predictdemand(gisregion="Europe54_SEfix", sspscenario="ssp2-26", sspyear=2020, era_year=1991)
+
+    GISsolar(; gisregion="Europe54_SEfix", era_year=1992, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks=false)
+    GISwind(; gisregion="Europe54_SEfix", era_year=1992, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks=false)
+    predictdemand(gisregion="Europe54_SEfix", sspscenario="ssp2-26", sspyear=2020, era_year=1992)
+
+    distribute_investments_with_missing_years!(invest)
+    matlab2multinode(invest; gisregion="Europe54_SEfix", year=1991)
+    matlab2multinode(invest; gisregion="Europe54_SEfix", year=1992)
+
+    open(in_datafolder("output", "README_GISparameters_$(gisregion).txt"), "w") do f
+        commands = """
+            GISsolar(; gisregion="Europe54_SEfix", era_year=1991, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks)
+            GISwind(; gisregion="Europe54_SEfix", era_year=1991, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks)
+            predictdemand(gisregion="Europe54_SEfix", sspscenario="ssp2-26", sspyear=2020, era_year=1991)
+
+            GISsolar(; gisregion="Europe54_SEfix", era_year=1992, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks=false)
+            GISwind(; gisregion="Europe54_SEfix", era_year=1992, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks=false)
+            predictdemand(gisregion="Europe54_SEfix", sspscenario="ssp2-26", sspyear=2020, era_year=1992)
+
+            distribute_investments_with_missing_years!(invest)
+            matlab2multinode(invest; gisregion="Europe54_SEfix", year=1991)
+            matlab2multinode(invest; gisregion="Europe54_SEfix", year=1992)
+        """
+        println(f, commands)
+    end
+
+    nothing
 end
 
 function swedish_capacity_diagnostic()
-    df = CSV.File(in_datafolder("Windfarms_Europe_20240407_CLEANED.csv")) |> DataFrame
+    df0 = CSV.File(in_datafolder("Windfarms_Europe_20240407_CLEANED.csv")) |> DataFrame
+    df, invest = add_gisdata_to_farms(df0) 
     # fix_investments(invest)
-    regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
-    df.regname = [r < 30000 ? regionlist[r] : Symbol() for r in df.reg54]
-    df[.!ismissing.(df.reg54 .+ df.capac) .&& df.reg54 .>= 48 .&& df.reg54 .<= 51 .&& df.iso .!= "SE", [4; 6:8; 10; 11; 13:19; 22:25; 30; 27; 29]] |> display
-    df[.!ismissing.(df.reg54 .+ df.capac) .&& (df.reg54 .< 48 .|| df.reg54 .> 51) .&& df.iso .== "SE", [4; 6:8; 10; 11; 13:19; 22:25; 30; 27; 29]] |> display
-    nothing
+    # regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
+    # df.regname = [r < 30000 ? regionlist[r] : Symbol() for r in df.reg54]
+    df[.!ismissing.(df.reg54 .+ df.capac) .&& df.reg54 .>= 48 .&& df.reg54 .<= 51 .&& df.iso .!= "SE", [4; 6:8; 10; 11; 13:19; 22:25; 32; 33]] |> display
+    df[.!ismissing.(df.reg54 .+ df.capac) .&& (df.reg54 .< 48 .|| df.reg54 .> 51) .&& df.iso .== "SE", [4; 6:8; 10; 11; 13:19; 22:25; 32; 33]] |> display
+    df[df.name .== "Kriegers Flak" .|| df.name .== "Lillgrund", [4; 6:8; 10; 11; 13:19; 22:25; 32; 33]] |> display
+    df
 end
 
 function loop_gadm(gadm, gadmindexes, lons, lats)
@@ -759,6 +777,85 @@ function read_irena(winddir = "C:/Users/niclas/Downloads/wind data")
     return df
 end
 
+# Use bidding zone shapefiles to adjust borders of SE1-4
+function fixSEinEurope54()
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions("Europe54")
+    landcover = JLD.load(in_datafolder("landcover.jld"), "landcover")
+    company, dfcompany = getcompanyraster()
+    landcover = landcover[lonrange, latrange]
+    company = company[lonrange, latrange]
+    company = company[feature_transform(company.>0)]    # expand company map to fill in holes and artifacts in the shapefile
+    iii = regions.>=48 .&& regions.<=51 .&& company.>0
+    regions[iii] .= 51 .- company[iii] .+ 1
+    territory = regions[feature_transform(regions.>0)]
+    offshoreregions = territory .* (landcover .== 0)
+    regionname = "Europe54_SEfix"    
+    JLD.save(in_datafolder("regions_$regionname.jld"), "regions", regions, "offshoreregions", offshoreregions,
+                "regionlist", regionlist, "lonrange", lonrange, "latrange", latrange, compress=true)
+end
+
+function getcompanydata()
+    dfcompany = GDF.read("C:/Griddata/Elnätsområden Therese/omraden.shp")
+    dfcompany.bolag[276] = "Hedemorahyttorna"
+    dfcompany.snitt = parse.(Int, dfcompany.snitt)
+    disallowmissing!(dfcompany)
+    return dfcompany
+end
+
+"""Rasterize Swedish power company areas using center points of our 1 km grid squares.
+    Return (company, dfcompany), where company is a Raster and dfcompany a GeoDataFrame of company areas."""
+function getcompanyraster()
+    # Shapefile of Swedish power companies (purchased by Therese)
+    # Is this the source?   https://www.natomraden.se/
+    dfcompany = getcompanydata()
+    source = GeoFormatTypes.ProjString("+proj=utm +zone=33 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")    # SWEREF99 TM = EPSG:3006
+    dest = GeoFormatTypes.ProjString("+proj=longlat +datum=WGS84 +no_defs")
+    dfcompany = GDF.reproject(dfcompany, source, dest)
+    # dfcompany = GDF.reproject(dfcompany, EPSG(3006), EPSG(4326))
+    # company = rasterizeSWEREF99(dfcompany, :geometry)
+    company = reverse(rasterize_global(dfcompany, :geometry, :snitt), dims=2)
+    return company, dfcompany
+end
+
+"""Rasterize a SWEREF99 GeoDataFrame using center points of our 1 km grid squares.
+    Return (swe, dfdeso), where swe is a Raster and dfdeso a GeoDataFrame of DeSO areas."""
+function rasterizeSWEREF99(gdf, column)
+    # Build a raster by sampling the vector data every 1000 m in the *center* of our 1 km grid squares.
+    # The SWEREF99 cell ID ("Ruta") refers to the lower left corner of each cell, not the center.
+    # (outer coordinate limits: x: 181896.33 - 1086312.94, y: 6090353.78 - 7689478.31)
+    rasterize_geovector(gdf[!, column], (181500,1086500), (6089500,7689500), 1000, EPSG(3006))
+end
+
+# function rasterize_global(gdf, column)
+#     println("\nRasterizing GADM shapefile for global administrative areas (1-10 minute run time)...")
+#     # shapefile = in_datafolder("gadm36", "gadm36.shp")
+#     outfile = in_datafolder("hyunkyo_gbg.tif")
+#     options = "-a id -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
+#     @time rasterize(geojson, outfile, split(options, ' '))
+# end
+
+function rasterize_global(gdf, geomcolumn, datacolumn)
+    rasterize_geovector(gdf[!, geomcolumn], gdf[!, datacolumn], (-179.995,179.995), (-89.995,89.995), 0.01, EPSG(4326))
+end
+
+"""rasterize_geovector(gv, xlim, ylim, interval, crs; T=UInt32, missingval=UInt32(0))
+
+    Rasterize a geovector `gv` (i.e. the geometry column containing polygons of a GeoDataFrame)
+    using the values `vv` between coordinate limits `xlim` and `ylim` (i.e. Tuples in format (xmin, xmax)),
+    spaced by `interval` and using coordinate system `crs`. Return a Raster."""
+function rasterize_geovector(gv, vv, xlim, ylim, interval, crs; T=UInt32, missingval=UInt32(0))
+    # x, y = values(ext)
+    dimz = Rasters.X(xlim[1]:interval:xlim[2]; mode=Rasters.Projected(; sampling=Rasters.Points(), crs)),
+        Rasters.Y(ylim[1]:interval:ylim[2]; mode=Rasters.Projected(; sampling=Rasters.Points(), crs))
+    raster = Rasters.Raster(zeros(T, dimz); missingval)
+    for (g, v) in zip(gv, vv)
+        Rasters.rasterize!(raster, g, fill=v)
+    end
+    return raster
+end
+rasterize_geovector(gv, xlim, ylim, interval, crs; T=UInt32, missingval=UInt32(0)) =
+    rasterize_geovector(gv, 1:length(gv), xlim, ylim, interval, crs; T, missingval)
+
 function openmap(df::DataFrame, turbinenumber::Int)
     openmap(df, turbinenumber, :google)
     openmap(df, turbinenumber, :bing)
@@ -793,6 +890,7 @@ function openmap(lon::Real, lat::Real, source=:google)
     run(c)
 end
 
+# Use Google Map directions to show two sets of points
 function openmapdir(lon1, lat1, lon2, lat2)
     url = "https://www.google.com/maps/dir/$lat1,$lon1/$lat2,$lon2/"
     c = Cmd(`cmd /c start \"\" $url`, windows_verbatim=true)
@@ -801,4 +899,41 @@ end
 
 function openmapdir(df::DataFrame, turbinenumber::Int)
     openmapdir(df.lon[turbinenumber], df.lat[turbinenumber], df.lon_guess[turbinenumber], df.lat_guess[turbinenumber])
+end
+
+function read_vindbrukskollen()
+    # Länsstyrelsen: Vindbrukskollen, https://vbk.lansstyrelsen.se/  (click "Excel-export")
+    df = DataFrame(CSV.File(in_datafolder("Vindbrukskollen land 2025-01-28.csv")))
+    select!(df, ["Status", "Placering", "E-Koordinat", "N-Koordinat", "Navhöjd (m)", "Rotordiameter (m)", "Maxeffekt (MW)", "Uppfört", "Fabrikat", "Modell"])
+    rename!(df, [:status, :type, :lon, :lat, :hubheight, :rotordiam, :capac, :year, :brand, :model])
+    delete!(df, df.status .!= "Uppfört")
+    select!(df, Not(:status))
+    df.onshore .= true      # startswith.(df.type, "Land")     # all turbines are marked "Land" or "Vatten"
+    df.country .= "Sweden"
+    select!(df, Not(:type))
+    delete!(df, ismissing.(df.capac) .|| df.capac .== 0)
+    # df.capac .= Int.(df.capac * 1000)
+    df.year .= max.(1980, year.(df.year))
+    df.model = strip.(coalesce.(df.brand, "")) .* " " .* strip.(coalesce.(df.model, ""))
+    df.model = [m == " " ? missing : m for m in df.model]
+    select!(df, Not(:brand))
+
+    # df2 = DataFrame(CSV.File(in_datafolder("Vindbrukskollen hav 2025-01-28.csv")))
+    # select!(df2, ["Projektstatus", "Parken uppförd", "Uppfört antal verk", "Installerad effekt (MW)", "Elområde", "Län", "Kommun"])
+    # rename!(df2, [:status, :year, :nturbines, :capac, :zone, :region, :munic])
+    # delete!(df2, df2.status .!= "Uppförd")
+
+    # https://www.lantmateriet.se/sv/Kartor-och-geografisk-information/gps-geodesi-och-swepos/referenssystem/tvadimensionella-system/sweref-99-projektioner/
+    ec, nc = df.lon, df.lat
+    source = "+proj=utm +zone=33 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"     # SWEREF99 TM = EPSG:3006
+    dest = "+proj=longlat +datum=WGS84 +no_defs"
+    trans = Proj.Transformation(source, dest)
+    len = size(df,1)
+    lon, lat = zeros(len), zeros(len)
+    for i = 1:len
+        lon[i], lat[i] = trans(ec[i], nc[i])
+    end
+    df.lon = lon
+    df.lat = lat
+    return df
 end

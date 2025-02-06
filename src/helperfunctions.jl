@@ -388,22 +388,24 @@ function matlab2multinode(investments; gisregion="Europe54", year=1991)
     nsolarclasses = [size(solardata[varname], 2) for varname in capvar[3:4]] 
     nclasses = [nwindclasses; nsolarclasses]
 
-    open(in_datafolder("output", "capacity_GIS.inc"), "w") do f
+    open(in_datafolder("output", "maxcapacity_$(gisregion)_$year.inc"), "w") do f
         for (t, tech) in enumerate(technames)
             for c = 1:nclasses[t]
                 for (r,reg) in enumerate(region)
-                    val = data[capvar[t]][r,c]
+                    val = round(data[capvar[t]][r,c], digits=3)
+                    val == 0 && continue
                     !isnan(val) && val > 0 && @printf(f, "%s%-2d . %-3s %9.3f\n", tech, c, reg, val)
                 end
             end
         end
     end
-    open(in_datafolder("output", "investment_history.inc"), "w") do f
+    open(in_datafolder("output", "investmenthistory_$(gisregion)_$year.inc"), "w") do f
         for (t, tech) in enumerate(technames[1:2])
             for c = 1:nclasses[t]
                 for (r,reg) in enumerate(region)
                     for y = 1:11
-                        val = investments[t,c,r,y]
+                        val = round(investments[t,c,r,y], digits=3)
+                        val == 0 && continue
                         yr = decodeyear(y)
                         val > 0 && @printf(f, "%s%-2d . %-3s . %4d %9.3f\n", tech, c, reg, yr, val)
                     end
@@ -411,16 +413,19 @@ function matlab2multinode(investments; gisregion="Europe54", year=1991)
             end
         end
     end
-    # open(in_datafolder("output", "cf_$(tech[t]).inc"), "w") do f
-    #     for (r,reg) in enumerate(region)
-    #         for c = 1:nclasses[t]
-    #             for h = 1:8760
-    #                 val = data[cfvar[t]][h,r,c]
-    #                 !isnan(val) && val > 0 && @printf(f, "%-3s . %s%-2d . h%04d %10.6f\n", reg, classname[t], c, h, val)
-    #             end
-    #         end
-    #     end
-    # end
+    for (t, tech) in enumerate(technames)
+        open(in_datafolder("output", "cf_$(tech)_$(gisregion)_$year.inc"), "w") do f
+            for c = 1:nclasses[t]
+                for (r,reg) in enumerate(region)
+                    for h = 1:8760
+                        val = round(data[cfvar[t]][h,r,c], digits=6)
+                        val == 0 && continue
+                        !isnan(val) && val > 0 && @printf(f, "%s%-2d . %-3s . h%04d %0.6f\n", tech, c, reg, h, val)
+                    end
+                end
+            end
+        end
+    end
 end
 
 function dms2deg(dms)
