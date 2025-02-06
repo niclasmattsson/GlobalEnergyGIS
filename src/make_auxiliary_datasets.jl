@@ -166,8 +166,8 @@ end
 
 function rasterize_timezones()
     println("Rasterizing shapefile of time zones...")
-    shapefile = in_datafolder("timezones-with-oceans.shapefile", "dist", "combined-shapefile-with-oceans.shp")
-    sql = "select FID+1 as FID from \"combined-shapefile-with-oceans\""
+    shapefile = in_datafolder("timezones-with-oceans-now.shapefile", "combined-shapefile-with-oceans-now.shp")
+    sql = "select FID+1 as FID from \"combined-shapefile-with-oceans-now\""
     outfile = in_datafolder("timezones.tif")
     options = "-a FID -a_nodata 0 -ot Int16 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
     gdal_rasterize_path() do gdal_rasterize
@@ -175,7 +175,7 @@ function rasterize_timezones()
     end
 
     println("Creating .csv file for time zone index and name lookup...")
-    sql = "select FID+1 as FID,tzid from \"combined-shapefile-with-oceans\""
+    sql = "select FID+1 as FID,tzid from \"combined-shapefile-with-oceans-now\""
     outfile = in_datafolder("timezone_names.csv")
     ogr2ogr_path() do ogr2ogr
         @time run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
