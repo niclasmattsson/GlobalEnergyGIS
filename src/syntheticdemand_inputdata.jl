@@ -152,7 +152,7 @@ function buildtrainingdata(; gisregion="Europe8", sspscenario="ssp2-34", sspyear
 
     numreg, numhours = length(regionlist), length(hours)
     firsttime = ZonedDateTime.(hours[1], zone_maxpop)
-    zonedtime = hcat(collect.([firsttime[i]:Hour(1):firsttime[i]+Hour(8759) for i = 1:numreg])...)[:]
+    zonedtime = hcat(collect.([firsttime[i]:Hour(1):firsttime[i]+Hour(numhours-1) for i = 1:numreg])...)[:]
 
     println("\nShifting hourly temperatures from UTC to local time...")
     temperature_top3_mean = dropdims(mean(temp_popcenters, dims=3), dims=3)
