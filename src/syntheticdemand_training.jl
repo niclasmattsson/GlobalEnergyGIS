@@ -24,9 +24,9 @@ function predictdemand(; variables=defaultvariables, gisregion="Europe8",
         demand[:,r] = circshift(demand[:,r], round(Int, -offsets[r]))
     end
     println("\nSaving...")
-    JLD.save(in_datafolder("output",
-            "SyntheticDemand_$(gisregion)_$sspscenario-$(sspyear)_$era_year.jld"),
-            "demand", demand, compress=true)
+    filename_base = in_datafolder("output", "SyntheticDemand_$(gisregion)_$sspscenario-$(sspyear)_$era_year")
+    JLD.save("$filename_base.jld", "demand", demand, compress=true)
+    CSV.write("$filename_base.csv", DataFrame(demand, regionlist))
     nothing
 end
 
