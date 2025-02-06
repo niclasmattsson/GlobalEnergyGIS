@@ -674,31 +674,38 @@ function GISdata_for_ELLI_model(; plotmasks=true)
     gdf = groupby(df, [:reg54, :year5])
     # gdf_tot = combine(gdf, :capac => sum)
 
-    GISsolar(; gisregion="Europe54_SEfix", era_year=1991, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks)
-    GISwind(; gisregion="Europe54_SEfix", era_year=1991, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks)
-    predictdemand(gisregion="Europe54_SEfix", sspscenario="ssp2-26", sspyear=2020, era_year=1991)
+    gisregion="Europe54_SEfix"
 
-    GISsolar(; gisregion="Europe54_SEfix", era_year=1992, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks=false)
-    GISwind(; gisregion="Europe54_SEfix", era_year=1992, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks=false)
-    predictdemand(gisregion="Europe54_SEfix", sspscenario="ssp2-26", sspyear=2020, era_year=1992)
+    GISsolar(; gisregion, era_year=1991, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks)
+    GISwind(; gisregion, era_year=1991, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks)
+    predictdemand(gisregion, sspscenario="ssp2-26", sspyear=2020, era_year=1991)
+
+    GISsolar(; gisregion, era_year=1992, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks=false)
+    GISwind(; gisregion, era_year=1992, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks=false)
+    predictdemand(gisregion, sspscenario="ssp2-26", sspyear=2020, era_year=1992)
 
     distribute_investments_with_missing_years!(invest)
-    matlab2multinode(invest; gisregion="Europe54_SEfix", year=1991)
-    matlab2multinode(invest; gisregion="Europe54_SEfix", year=1992)
+    matlab2multinode(invest; gisregion, year=1991)
+    matlab2multinode(invest; gisregion, year=1992)
 
     open(in_datafolder("output", "README_GISparameters_$(gisregion).txt"), "w") do f
         commands = """
-            GISsolar(; gisregion="Europe54_SEfix", era_year=1991, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks)
-            GISwind(; gisregion="Europe54_SEfix", era_year=1991, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks)
-            predictdemand(gisregion="Europe54_SEfix", sspscenario="ssp2-26", sspyear=2020, era_year=1991)
+        The GIS data in this folder was created on $(Dates.now()) using GlobalEnergyGIS commit 4c2fd4f.
+        Below are the commands and parameters used to create the data (see GISdata_for_ELLI_model()):
 
-            GISsolar(; gisregion="Europe54_SEfix", era_year=1992, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks=false)
-            GISwind(; gisregion="Europe54_SEfix", era_year=1992, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks=false)
-            predictdemand(gisregion="Europe54_SEfix", sspscenario="ssp2-26", sspyear=2020, era_year=1992)
+        gisregion="Europe54_SEfix"
 
-            distribute_investments_with_missing_years!(invest)
-            matlab2multinode(invest; gisregion="Europe54_SEfix", year=1991)
-            matlab2multinode(invest; gisregion="Europe54_SEfix", year=1992)
+        GISsolar(; gisregion, era_year=1991, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks)
+        GISwind(; gisregion, era_year=1991, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks)
+        predictdemand(gisregion, sspscenario="ssp2-26", sspyear=2020, era_year=1991)
+
+        GISsolar(; gisregion, era_year=1992, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks=false)
+        GISwind(; gisregion, era_year=1992, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks=false)
+        predictdemand(gisregion, sspscenario="ssp2-26", sspyear=2020, era_year=1992)
+
+        distribute_investments_with_missing_years!(invest)
+        matlab2multinode(invest; gisregion, year=1991)
+        matlab2multinode(invest; gisregion, year=1992)
         """
         println(f, commands)
     end
