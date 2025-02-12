@@ -919,7 +919,7 @@ function read_vindbrukskollen()
     df.country .= "Sweden"
     select!(df, Not(:type))
     delete!(df, ismissing.(df.capac) .|| df.capac .== 0)
-    # df.capac .= Int.(df.capac * 1000)
+    df.capac .= coalesce.(df.capac / 1000)                  # 
     df.year .= max.(1980, year.(df.year))
     df.model = strip.(coalesce.(df.brand, "")) .* " " .* strip.(coalesce.(df.model, ""))
     df.model = [m == " " ? missing : m for m in df.model]
