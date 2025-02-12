@@ -63,7 +63,7 @@ end
 # changes frequently. So instead we use ordinary hourly ERA5 data. This assumes
 # that every year between 1979-2019 has been downloaded (for wind).
 function makemonthlywindera5(; windatlas_only=true)
-    years = 1979:2019
+    years = 1980:2019
     nyears = length(years)
     nmonths = nyears*12
     gridsize = (1280,640)

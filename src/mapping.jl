@@ -61,7 +61,7 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     isfile(filename) && rm(filename)
     Makie.save(filename, fig)
     if legend
-        makelegend(string.(regionlist), colors[2:end-1], scale=(4*scale)^0.7*resolutionscale)
+        makelegend(string.(regionlist), colors[2:end-1]) #, scale=(4*scale)^0.7 * resolutionscale)
         img = autocrop(load(filename))
         legend = autocrop(load(in_datafolder("output", "legend.png")))
         # FileIO.save(in_datafolder("output", "legend.png"), legend)
@@ -178,12 +178,11 @@ function ypad(img, newheight)
     return newimg
 end
 
-function makelegend(labels, colors; scale=2)
+function makelegend(labels, colors; scale=1)
     i = .!isempty.(labels)
     labels = labels[i]     # don't plot legend entries with empty labels
     colors = colors[i]
     len = length(labels)
-    scale = 1
     markerpositions = Point2f.(0, len:-1:1) .* scale
     textpositions = Point2f.(0.06, len:-1:1) .* scale
     dummypositions = Point2f.(1.0, len:-1:1) .* scale
