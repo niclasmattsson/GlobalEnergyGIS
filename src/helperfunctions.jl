@@ -383,6 +383,9 @@ function matlab2multinode(investments; gisregion="Europe54", year=1991)
     solardata = matread(in_datafolder("output", "GISdata_solar$(year)_$gisregion$filenamesuffix.mat"))
     data = merge(winddata, solardata)
 
+    sspscenario, sspyear = "ssp2-26", 2020
+    df = CSV.File(in_datafolder("output", "SyntheticDemand_$(gisregion)_$sspscenario-$(sspyear)_$year.csv")) |> DataFrame
+
     # read number of classes from wind & solar GIS output 
     nwindclasses = [size(winddata[varname], 2) for varname in capvar[1:2]] 
     nsolarclasses = [size(solardata[varname], 2) for varname in capvar[3:4]] 
@@ -423,6 +426,15 @@ function matlab2multinode(investments; gisregion="Europe54", year=1991)
                         !isnan(val) && val > 0 && @printf(f, "%s%-2d . %-3s . h%04d %0.6f\n", tech, c, reg, h, val)
                     end
                 end
+            end
+        end
+    end
+    open(in_datafolder("output", "syntheticdemand_$(gisregion)_$year.inc"), "w") do f
+        for reg in names(df)
+            for h = 1:8760
+                val = round(df[h, reg], digits=3)
+                val == 0 && continue
+                !isnan(val) && val > 0 && @printf(f, "%-3s . h%04d %9.3f\n", reg, h, val)
             end
         end
     end
