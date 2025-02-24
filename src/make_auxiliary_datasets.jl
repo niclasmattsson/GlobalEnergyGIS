@@ -570,7 +570,7 @@ function distribute_investments_with_missing_years!(invest)
     return invest
 end
 
-round_year5(x) = ismissing(x) ? missing : round(Int, x / 5) * 5
+round_year5(x) = ismissing(x) ? missing : ceil(Int, x / 5) * 5
 round_yearcode(x) = ismissing(x) ? 1 : round(Int, (x - 1970)/5)
 decodeyear(y) = (y == 1) ? 1111 : 1970 + 5*y
 
