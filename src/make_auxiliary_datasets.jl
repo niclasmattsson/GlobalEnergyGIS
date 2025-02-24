@@ -688,6 +688,10 @@ function GISdata_for_ELLI_model(; plotmasks=true)
     GISwind(; gisregion, era_year=2019, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks=false)
     predictdemand(; gisregion, sspscenario="ssp2-26", sspyear=2020, era_year=2019)
 
+    GISsolar(; gisregion, era_year=2019, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks=false)
+    GISwind(; gisregion, era_year=2019, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks=false)
+    predictdemand(; gisregion, sspscenario="ssp2-26", sspyear=2020, era_year=2019)
+
     distribute_investments_with_missing_years!(invest)
     matlab2multinode(invest; gisregion, year=1991)
     matlab2multinode(invest; gisregion, year=1992)
