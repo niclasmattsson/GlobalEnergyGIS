@@ -570,6 +570,32 @@ function distribute_investments_with_missing_years!(invest)
     return invest
 end
 
+# Distributes investments with missing years over the other years in proportion to the sum of investments in those years
+# invest: 2×5×54×11, onshore/offshore x wind class x region x yearcode
+function add_2025_wind_capacity!(invest)
+    regs = [:AT, :BE, :CR, :CZ, :DK, :EE, :FI, :FR, :DE, :GR, :IE, :IT, :LV, :LT, :LU, :NL, :PO, :PT, :RO, :SK, :ES, :SE, :UK]
+    won = [0.45, 0.23, 0.1, 0.04, 0.12, 0.13, 1.4, 2, 5.13, 0.5, 0.45, 0.4, 0.22, 0.35, 0.08, 0.5, 0.25, 0.23, 0.26, 0.06, 2, 1.34, 1.22]
+    woff = [0, 0, 0, 0, 0, 0, 0, 0.98, 0.94, 0, 0, 0, 0, 0, 0, 0, 0.57, 0, 0, 0, 0, 0, 4.26]
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions("Europe54")
+    allregions = string.(regionlist)
+    for (i, reg) in enumerate(string.(regs))
+        regindexes = findall(startswith.(allregions, reg))
+        # onshore
+        inv_class_reg = @view invest[1,:,regindexes,7:11]           # investments in last 25 years per class and subregion
+        mult = sum(inv_class_reg, dims=[3,4]) / sum(inv_class_reg)  # fractions of total investment
+        invest[1,:,regindexes,11] .+= mult * won[i]                 # add new 2025 onshore capacity with that class/subregion distribution
+        # offshore
+        woff[i] == 0 && continue
+        inv_class_reg = @view invest[2,:,regindexes,7:11]           # investments in last 25 years per class and subregion
+        mult = sum(inv_class_reg, dims=[3,4]) / sum(inv_class_reg)  # fractions of total investment
+        if reg == "PO"
+            invest[2,4,47,11] += woff[i]                            # exception to avoid NaN, assume all capac in class 4 and PO3
+        else
+            invest[2,:,regindexes,11] .+= mult * woff[i]            # add new 2025 onshore capacity with that class/subregion distribution
+        end
+    end
+end
+
 round_year5(x) = ismissing(x) ? missing : ceil(Int, x / 5) * 5
 round_yearcode(x) = ismissing(x) ? 1 : round(Int, (x - 1970)/5)
 decodeyear(y) = (y == 1) ? 1111 : 1970 + 5*y
@@ -693,6 +719,7 @@ function GISdata_for_ELLI_model(; plotmasks=true)
     predictdemand(; gisregion, sspscenario="ssp2-26", sspyear=2020, era_year=2019)
 
     distribute_investments_with_missing_years!(invest)
+    add_2025_wind_capacity!(invest)
     matlab2multinode(invest; gisregion, year=1991)
     matlab2multinode(invest; gisregion, year=1992)
     matlab2multinode(invest; gisregion, year=2019)
