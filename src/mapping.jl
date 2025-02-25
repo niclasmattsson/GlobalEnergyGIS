@@ -401,36 +401,25 @@ function ehub500()
 end
 
 function vgrdata(num_nodes=104; plotmasks=true, exclude_croplands_PV=false)
-    plotmasks && createmaps("vgr$num_nodes", lines=false, labels=true)
+    gisregion = "vgr$(num_nodes)b"
+    plotmasks && createmaps(gisregion, lines=false, labels=true)
     landclasses = exclude_croplands_PV ? [0,1,2,3,4,5,8,12] : [0,1,2,3,4,5,8]
     # landclasses = exclude_croplands_PV ? [0,1,2,3,4,5,8,12,14] : [0,1,2,3,4,5,8]
-    GISsolar(gisregion="vgr$num_nodes"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true, exclude_landtypes=landclasses,
+    GISsolar(; gisregion, era_year=2019, plotmasks, grid_everywhere=true, exclude_landtypes=landclasses,
                 pvclasses_min=[0.08], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0])
-    GISwind(gisregion="vgr$num_nodes"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true,
+    GISwind(; gisregion, era_year=2019, plotmasks, grid_everywhere=true,
                 onshoreclasses_min=[6], onshoreclasses_max=[99], offshoreclasses_min=[7], offshoreclasses_max=[99])
+    predictdemand(; gisregion, sspscenario="ssp2-26", sspyear=2020, era_year=2019)
 end
 
-function create_vgr_data(num_nodes=104)
-    # saveregions("VGR", ["VGR"  GADM(["Sweden"], "Västra Götaland")])
-    # vgr_munic = subregions(GADM, "Sweden", "Västra Götaland")
-    # saveregions("VGR_munic", [vgr_munic  [GADM(["Sweden", "Västra Götaland"], vv) for vv in vgr_munic]])
+function create_vgr_data()
+    dfsubs = GDF.read(in_datafolder("vgr", "subs_final.geojson"))
+    # dfsubs = CSV.read(in_datafolder("vgr", "subs_final.csv"), DataFrame)
 
-    # rasterize_vgr(num_nodes) # for Pandu's Voronoi, not used anymore
-    geojson = in_datafolder("vgr", "voronoi_cells_$(num_nodes)nodes.geojson")
-    df = GDF.read(in_datafolder("vgr", "voronoi_cells_$(num_nodes)nodes.geojson"))
-    buses = CSV.read(in_datafolder("Bus_and_line_data_EHUB400_future_data_v1_6 - buses.csv"), DataFrame)
-    # buses = buses[.!(buses.type .== "TRAFO" .&& buses[!, "Voltage [kV]"] .> 220), :]
-    unique!(buses, ["x-coordinate", "y-coordinate"])    # assumes voltages are in ascending order for each location
-    xy = Matrix(buses[:, ["x-coordinate", "y-coordinate"]])
-    # @show extrema(xy[:,1])
-    # @show extrema(xy[:,2])
+    xy = Matrix(dfsubs[:, ["lon", "lat"]])
     bbox = (4.5, 31.6, 54.8, 71.2) .+ (-1, 1, -1, 1)   # <-- tight,  [52.90 2.24; 72.84 33.24] with 6% padding
 
-    cc = first.(buses.bidding_zone, 2)  # country code
-
-    country = "SE"  # for in ["SE", "NO", "DK", "FI"]
-
-    tri = triangulate(xy[cc .== country, :]')
+    tri = triangulate(xy')
     vorn = voronoi(tri)
 
     # fig = Figure()
@@ -438,15 +427,16 @@ function create_vgr_data(num_nodes=104)
     # voronoiplot!(ax, vorn, show_generators=false)
     # display(fig)
 
-    n = num_polygons(vorn)
-    poly = [Point.(DelaunayTriangulation.get_polygon_coordinates(vorn, i, bbox)) |> GeoMakie.Polygon for i = 1:n]
-    # poly = [Point.(DelaunayTriangulation.get_polygon_coordinates(vorn, i, bbox)) |> GeoMakie.Polygon for i = 1:n] |> GeoMakie.MultiPolygon
+    num_nodes = num_polygons(vorn)
+    poly = [DelaunayTriangulation.get_polygon_coordinates(vorn, i, bbox) |> ArchGDAL.createpolygon for i = 1:num_nodes]
+    # poly = [Point.(DelaunayTriangulation.get_polygon_coordinates(vorn, i, bbox)) |> GeoMakie.Polygon for i = 1:num_nodes]
+    # poly = [Point.(DelaunayTriangulation.get_polygon_coordinates(vorn, i, bbox)) |> GeoMakie.Polygon for i = 1:num_nodes] |> GeoMakie.MultiPolygon
 
-    df = DataFrame(geometry=poly, FID=1:n, bus_id=buses.bus_id)
-
+    dfsubs.geometry = poly
+    GDF.write(in_datafolder("VGR subs with full Voronoi (no coasts).geojson"), dfsubs)
+    rasterize_vgr(num_nodes)
     
-
-    vgr = readraster(in_datafolder("vgr$num_nodes.tif"))
+    vgr = readraster(in_datafolder("vgr$(num_nodes)b.tif"))
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions("VGR")
 
     res = 0.01
@@ -460,8 +450,8 @@ function create_vgr_data(num_nodes=104)
     noreg = (regions .== NOREGION .|| offshoreregions .== NOREGION)
     vv[noreg] .= NOREGION
 
-    saveregions("vgr$num_nodes", df.node_id, vgr; autocrop=false, bbox)
-    makedistances("vgr$num_nodes")
+    saveregions("vgr$(num_nodes)b", dfsubs.node_id, vgr; autocrop=false, bbox)
+    makedistances("vgr$(num_nodes)b")
 end
 
 intersectedarea(p1,p2) = intersects(p1,p2) ? area(intersection(p1,p2)) : 0.0
@@ -491,17 +481,19 @@ function rasterize_ehub500()
     nothing
 end
 
-## Can't use Pandu's Voronoi data, maps incompatible with my GADM regions and coastlines
-# function rasterize_vgr(num_nodes=104)
-#     println("\nRasterizing vgr geojson...")
-#     geojson = in_datafolder("vgr", "voronoi_cells_$(num_nodes)nodes.geojson")
-#     outfile = in_datafolder("vgr$num_nodes.tif")
-#     options = "-a vor_id -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
-#     # options = "-a UID -ot Int32 -tr 0.02 0.02 -te -180 -90 180 90 -co COMPRESS=LZW"
-#     @time rasterize(geojson, outfile, split(options, ' '))
+# Can't use Pandu's original Voronoi data, maps incompatible with my GADM regions and coastlines.
+# 
+function rasterize_vgr(num_nodes=104)
+    println("\nRasterizing vgr geojson...")
+    # geojson = in_datafolder("vgr", "voronoi_cells_$(num_nodes)nodes.geojson")
+    geojson = in_datafolder("VGR subs with full Voronoi (no coasts).geojson")
+    outfile = in_datafolder("vgr$(num_nodes)b.tif")
+    options = "-a vor_id -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
+    # options = "-a UID -ot Int32 -tr 0.02 0.02 -te -180 -90 180 90 -co COMPRESS=LZW"
+    @time rasterize(geojson, outfile, split(options, ' '))
 
-#     nothing
-# end
+    nothing
+end
 
 function inpolys(point, polygons)
     for (i, poly) in enumerate(polygons)

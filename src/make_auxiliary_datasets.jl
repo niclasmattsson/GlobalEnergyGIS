@@ -726,7 +726,7 @@ function GISdata_for_ELLI_model(; plotmasks=true)
 
     open(in_datafolder("output", "README_GISparameters_$(gisregion).txt"), "w") do f
         commands = """
-        The GIS data in this folder was created on $(Dates.now()) using GlobalEnergyGIS commit 5a62098.
+        The GIS data in this folder was created on $(Dates.now()) using GlobalEnergyGIS commit 82a693c.
         Below are the commands and parameters used to create the data (see GISdata_for_ELLI_model()):
 
         gisregion="Europe54_SEfix"
@@ -744,6 +744,7 @@ function GISdata_for_ELLI_model(; plotmasks=true)
         predictdemand(; gisregion, sspscenario="ssp2-26", sspyear=2020, era_year=2019)
 
         distribute_investments_with_missing_years!(invest)
+        add_2025_wind_capacity!(invest)
         matlab2multinode(invest; gisregion, year=1991)
         matlab2multinode(invest; gisregion, year=1992)
         matlab2multinode(invest; gisregion, year=2019)
