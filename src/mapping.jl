@@ -400,12 +400,13 @@ function ehub500()
     return buses
 end
 
-function vgrdata(num_nodes=104; plotmasks=true, exclude_croplands_PV=false)
+function vgrdata(num_nodes=104; plotmasks=true, PV_exclude_croplands=true, PV_exclude_croplands_natural=false)
     gisregion = "vgr$(num_nodes)b"
-    plotmasks && createmaps(gisregion, lines=false, labels=true)
-    landclasses = exclude_croplands_PV ? [0,1,2,3,4,5,8,12] : [0,1,2,3,4,5,8]
-    # landclasses = exclude_croplands_PV ? [0,1,2,3,4,5,8,12,14] : [0,1,2,3,4,5,8]
-    GISsolar(; gisregion, era_year=2019, plotmasks, grid_everywhere=true, exclude_landtypes=landclasses,
+    plotmasks && createmaps(gisregion, lines=false, labels=true, resolutionscale=8, textscale=1/4)
+    exclude_landtypes = [0,1,2,3,4,5,8]
+    PV_exclude_croplands && push!(exclude_landtypes, 12) 
+    PV_exclude_croplands_natural && push!(exclude_landtypes, 14) 
+    GISsolar(; gisregion, era_year=2019, plotmasks, grid_everywhere=true, exclude_landtypes,
                 pvclasses_min=[0.08], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0])
     GISwind(; gisregion, era_year=2019, plotmasks, grid_everywhere=true,
                 onshoreclasses_min=[6], onshoreclasses_max=[99], offshoreclasses_min=[7], offshoreclasses_max=[99])
@@ -433,7 +434,8 @@ function create_vgr_data()
     # poly = [Point.(DelaunayTriangulation.get_polygon_coordinates(vorn, i, bbox)) |> GeoMakie.Polygon for i = 1:num_nodes] |> GeoMakie.MultiPolygon
 
     dfsubs.geometry = poly
-    GDF.write(in_datafolder("VGR subs with full Voronoi (no coasts).geojson"), dfsubs)
+    dfsubs.vor_id = 1:num_nodes
+    GDF.write(in_datafolder("output", "VGR subs with full Voronoi (no coasts).geojson"), dfsubs)
     rasterize_vgr(num_nodes)
     
     vgr = readraster(in_datafolder("vgr$(num_nodes)b.tif"))
@@ -486,7 +488,7 @@ end
 function rasterize_vgr(num_nodes=104)
     println("\nRasterizing vgr geojson...")
     # geojson = in_datafolder("vgr", "voronoi_cells_$(num_nodes)nodes.geojson")
-    geojson = in_datafolder("VGR subs with full Voronoi (no coasts).geojson")
+    geojson = in_datafolder("output", "VGR subs with full Voronoi (no coasts).geojson")
     outfile = in_datafolder("vgr$(num_nodes)b.tif")
     options = "-a vor_id -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
     # options = "-a UID -ot Int32 -tr 0.02 0.02 -te -180 -90 180 90 -co COMPRESS=LZW"
