@@ -843,6 +843,66 @@ function fixSEinEurope54()
                 "regionlist", regionlist, "lonrange", lonrange, "latrange", latrange, compress=true)
 end
 
+function winddata_40years(; wind=true, onshore=true)
+    windsolar = wind ? "wind" : "solar"
+    var = wind ? (onshore ? "CFtime_windonshoreA" : "CFtime_windoffshore") : "CFtime_pvplantA"
+    suffix = wind ? (onshore ? "" : "_offshore") : ""
+
+    # for yr=1980:2019
+    #     println(yr)
+    #     # GISwind(; gisregion="Sweden4_SEfix", era_year=yr, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks=false, filenamesuffix="Lisa30")
+    #     GISsolar(; gisregion="Sweden4_SEfix", era_year=yr, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks=false, filenamesuffix="Lisa30")
+    # end
+    # cols = ["SE$(r)_c$c" for c=1:5 for r=1:4]
+    # dftime = DataFrame(zeros(Int, 0, 2), ["year", "hour"])
+    # df = [dftime DataFrame(zeros(0, 20), cols)]
+    # for yr=1980:2019
+    #     println(yr)
+    #     ww = matread(in_datafolder("output", "GISdata_$(windsolar)$(yr)_Sweden4_SEfixLisa30.mat"))
+    #     w0 = round.(ww[var], digits=6)
+    #     nh = size(w0, 1)
+    #     dftime = DataFrame(year=fill(yr, nh), hour=1:nh)
+    #     dfyr = DataFrame(reshape(w0, nh, 20), cols)
+    #     df = vcat(df, [dftime dfyr])
+    # end
+    # CSV.write(in_datafolder("output", "$(windsolar)dataSE_40years$suffix.csv"), df)
+
+    # for yr=1980:2019
+    #     println(yr)
+    #     # GISwind(; gisregion="Sweden4_SEfix", era_year=yr, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks=false, filenamesuffix="Lisa30_1class",
+    #     #         onshoreclasses_min=[6], onshoreclasses_max=[99], offshoreclasses_min=[7], offshoreclasses_max=[99])
+    #     GISsolar(; gisregion="Sweden4_SEfix", era_year=yr, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, 
+    #             pvclasses_min=[0.08], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0], plotmasks=false, filenamesuffix="Lisa30_1class")
+    # end
+    # cols = ["SE1", "SE2", "SE3", "SE4"]
+    # dftime = DataFrame(zeros(Int, 0, 2), ["year", "hour"])
+    # df = [dftime DataFrame(zeros(0, 4), cols)]
+    # for yr=1980:2019
+    #     println(yr)
+    #     ww = matread(in_datafolder("output", "GISdata_$(windsolar)$(yr)_Sweden4_SEfixLisa30_1class.mat"))
+    #     w0 = round.(ww[var], digits=6)
+    #     nh = size(w0, 1)
+    #     dftime = DataFrame(year=fill(yr, nh), hour=1:nh)
+    #     dfyr = DataFrame(dropdims(w0, dims=3), cols)
+    #     df = vcat(df, [dftime dfyr])
+    # end
+    # CSV.write(in_datafolder("output", "$(windsolar)dataSE_40years_1class$suffix.csv"), df)
+
+    # cols = ["SE1", "SE2", "SE3", "SE4"]
+    # dftime = DataFrame(zeros(Int, 0, 2), ["year", "hour"])
+    # df = [dftime DataFrame(zeros(0, 4), cols)]
+    # for yr=1980:2019
+    #     println(yr)
+    #     predictdemand(gisregion="Sweden4_SEfix", sspscenario="ssp2-26", sspyear=2020, era_year=yr)
+    #     dfyr = CSV.File(in_datafolder("output", "SyntheticDemand_Sweden4_SEfix_ssp2-26-2020_$yr.csv")) |> DataFrame
+    #     dfyr .= round.(dfyr, digits=2)
+    #     nh = size(dfyr, 1)
+    #     dftime = DataFrame(year=fill(yr, nh), hour=1:nh)
+    #     df = vcat(df, [dftime dfyr])
+    # end
+    # CSV.write(in_datafolder("output", "syntheticdemand_40years.csv"), df)
+end
+
 function getcompanydata()
     dfcompany = GDF.read("C:/Griddata/Elnätsområden Therese/omraden.shp")
     dfcompany.bolag[276] = "Hedemorahyttorna"
