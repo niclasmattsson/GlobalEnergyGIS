@@ -1,9 +1,10 @@
 function speed2capacityfactor(windspeed, powercurve)
-    if 2*windspeed >= length(powercurve) || windspeed < 0
+    wind2 = 2 * windspeed   # *2 because the power curves are given in 0.5 m/s steps
+    fw = floor(Int, wind2)
+    if fw+2 > length(powercurve) || windspeed < 0
         return 0.0
     end
-    fw = floor(Int, 2 * windspeed)  # *2 because the power curves are given in 0.5 m/s steps
-    frac = windspeed - fw
+    frac = wind2 - fw
     return (1-frac).*powercurve[fw+1] + frac.*powercurve[fw+2]
 end
 
@@ -27,7 +28,7 @@ const powercurves = Dict(
     # A floating offshore turbine for the Mareld project, 0 - 40 m/s in 0.5 m/s steps
     # round.(generateSyntheticPowerCurve(; specificPower=0, cutin=3, cutout=31, v_rated=11.1,
     #           elec_losses=0.06, wake_losses=0.115, wakemodel=:shift, v_sample=0:0.5:40), digits=4)
-    "Vestas V136-15" => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0006, 0.0039, 0.0133, 0.0308, 0.057, 0.092, 0.1363, 0.1908, 0.2562,
+    "Vestas V236-15" => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0006, 0.0039, 0.0133, 0.0308, 0.057, 0.092, 0.1363, 0.1908, 0.2562,
         0.3329, 0.4202, 0.5153, 0.6129, 0.7054, 0.7853, 0.8473, 0.8901, 0.9161, 0.9299, 0.9363, 0.9388, 0.9397, 0.9399,
         0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94,
         0.94, 0.94, 0.94, 0.94, 0.94, 0.9397, 0.9389, 0.9362, 0.9285, 0.9103, 0.874, 0.8118, 0.72, 0.6021, 0.47, 0.3398,
