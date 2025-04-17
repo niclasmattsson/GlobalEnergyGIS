@@ -31,6 +31,8 @@ windoptions() = Dict(
     :offshoreclasses_min => [3,6,7,8,9],    # lower bound on annual offshore wind speeds for class X
     :offshoreclasses_max => [6,7,8,9,99],   # upper bound on annual offshore wind speeds for class X
 
+    :turbine_curve => "Vestas V112-3",      # turbine model for wind farm power curves, see windturbine_power_curve.jl
+
     :grid_everywhere => false,  # set to true to assume all pixels have grid access
     :downsample_masks => 1,     # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions 
     :classB_threshold => 0.001, # minimum share of pixels within distance_elec_access km that must have grid access
@@ -93,13 +95,14 @@ mutable struct WindOptions
     onshoreclasses_max      ::Vector{Float64}
     offshoreclasses_min     ::Vector{Float64}
     offshoreclasses_max     ::Vector{Float64}
+    turbine_curve              ::String
     grid_everywhere         ::Bool
     downsample_masks        ::Int
     classB_threshold        ::Float64
     climate_scenario        ::String
 end
 
-WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,100,100,0,0,[],[],[],[],false,0,0.0,"")
+WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,100,100,0,0,[],[],[],[],"",false,0,0.0,"")
 
 function WindOptions(d::Dict{Symbol,Any})
     options = WindOptions()
@@ -274,26 +277,10 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     return mask_onshoreA, mask_onshoreB, mask_offshore
 end
 
-# 0 - 29 m/s
-const windparkcurve = [
-    0.0, 0.0014, 0.0071, 0.0229, 0.0545, 0.1067, 0.1831, 0.2850, 0.4085, 0.5434,
-    0.6744, 0.7847, 0.8614, 0.9048, 0.9266, 0.9353, 0.9373, 0.9375, 0.9375, 0.9375,
-    0.9375, 0.9375, 0.9375, 0.9311, 0.8683, 0.6416, 0.2948, 0.0688, 0.0063, 0.0
-]
-
-function speed2capacityfactor(windspeed)
-    if windspeed >= 29 || windspeed < 0
-        return 0.0
-    end
-    fw = floor(Int, windspeed)
-    frac = windspeed - fw
-    return (1-frac).*windparkcurve[fw+1] + frac.*windparkcurve[ceil(Int, windspeed)+1]
-end
-
-function increment_windCF!(cf::AbstractVector{<:AbstractFloat}, speed_or_cf::AbstractVector{<:AbstractFloat}, factor, rescale::Bool)
+function increment_windCF!(cf::AbstractVector{<:AbstractFloat}, speed_or_cf::AbstractVector{<:AbstractFloat}, factor, powercurve, rescale::Bool)
     if rescale
         @inbounds for i = 1:length(cf)
-            cf[i] += speed2capacityfactor(speed_or_cf[i]*factor)
+            cf[i] += speed2capacityfactor(speed_or_cf[i]*factor, powercurve)
         end
     else
         @inbounds for i = 1:length(cf)
@@ -343,7 +330,7 @@ end
 function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed, meanwind_allyears, regions,
                 offshoreregions, regionlist, mask_onshoreA, mask_onshoreB, mask_offshore, lonrange, latrange)
 
-    @unpack onshoreclasses_min, offshoreclasses_min, rescale_to_wind_atlas, res, erares,
+    @unpack onshoreclasses_min, offshoreclasses_min, rescale_to_wind_atlas, res, erares, turbine_curve,
                 onshore_density, area_onshore, offshore_density, area_offshore, climate_scenario = options
     
     numreg = length(regionlist)
@@ -402,6 +389,8 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
     latlim = (lats[end]-res/2, lats[1]+res/2)
     regionsGeo = GeoArray(regions, res, lonlim, latlim)
 
+    powercurve = powercurves[turbine_curve]
+
     # Run times vary wildly depending on geographical area (because of far offshore regions with mostly zero wind speeds).
     # To improve the estimated time of completing the progress bar, iterate over latitudes in random order.
     Random.seed!(1)
@@ -411,7 +400,7 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
         colrange = lat_indices_within(regionsGeo, eralat - erares/2, eralat + erares/2)
         for i = 1:nlons
             meanwind[i,j] == 0 && continue
-            wind = rescale_to_wind_atlas ? windspeed[:, i, j] : speed2capacityfactor.(windspeed[:, i, j])
+            wind = rescale_to_wind_atlas ? windspeed[:, i, j] : speed2capacityfactor.(windspeed[:, i, j], powercurve)
             eralon = getlon(meanwindGeo, i)
             rowrange = lon_indices_within(regionsGeo, eralon - erares/2, eralon + erares/2)
             
@@ -431,11 +420,11 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
                     class = GWAclasses ? onshoreclass[r,c] : onshoreclass[i,j]
                     @views if reg > 0 && class > 0 && mask_onshoreA[r,c] > 0
                         capacity_onshoreA[reg,class] += 1/1000 * onshore_density * area_onshore * area
-                        increment_windCF!(windCF_onshoreA[:,reg,class], wind, windatlas[r,c] / meanwind_allyears[i,j], rescale_to_wind_atlas)
+                        increment_windCF!(windCF_onshoreA[:,reg,class], wind, windatlas[r,c] / meanwind_allyears[i,j], powercurve, rescale_to_wind_atlas)
                         count_onshoreA[reg,class] += 1
                     elseif reg > 0 && class > 0 && mask_onshoreB[r,c] > 0
                         capacity_onshoreB[reg,class] += 1/1000 * onshore_density * area_onshore * area
-                        increment_windCF!(windCF_onshoreB[:,reg,class], wind, windatlas[r,c] / meanwind_allyears[i,j], rescale_to_wind_atlas)
+                        increment_windCF!(windCF_onshoreB[:,reg,class], wind, windatlas[r,c] / meanwind_allyears[i,j], powercurve, rescale_to_wind_atlas)
                         count_onshoreB[reg,class] += 1
                     end
                 end
@@ -443,7 +432,7 @@ function calc_wind_vars(options, windatlas, windatlas_class, meanwind, windspeed
                     offclass = GWAclasses ? offshoreclass[r,c] : offshoreclass[i,j]
                     @views if offreg > 0 && offclass > 0 && mask_offshore[r,c] > 0
                         capacity_offshore[offreg,offclass] += 1/1000 * offshore_density * area_offshore * area
-                        increment_windCF!(windCF_offshore[:,offreg,offclass], wind, windatlas[r,c] / meanwind_allyears[i,j], rescale_to_wind_atlas)
+                        increment_windCF!(windCF_offshore[:,offreg,offclass], wind, windatlas[r,c] / meanwind_allyears[i,j], powercurve, rescale_to_wind_atlas)
                         count_offshore[offreg,offclass] += 1
                     end
                 end
@@ -532,6 +521,8 @@ function calcCF(lons, lats; optionlist...)
     windatlasGeo = GeoArray(windatlas, res)
     meanwindGeo = GeoArray(meanwind, erares)
 
+    powercurve = powercurves[options.turbine_curve]
+
     speeds, cf = zeros(len), zeros(len)
     for i = 1:len
         lon, lat = lons[i], lats[i]
@@ -540,7 +531,7 @@ function calcCF(lons, lats; optionlist...)
         factor = windatlas[index] / meanwind_allyears[eraindex]
         speed = windspeed[:, eraindex] * factor
         speeds[i] = mean(speed)
-        cf[i] = mean(speed2capacityfactor.(speed))
+        cf[i] = mean(speed2capacityfactor.(speed, powercurve))
     end
     return speeds, cf
 end
@@ -586,7 +577,7 @@ function calc_wind_map(options, windatlas_class, meanwind, windspeed, regions, o
     onshoreclass, offshoreclass = makewindclasses(options, windatlas_class)
     eralons, eralats, lonmap, latmap, cellarea = eralonlat(options, lonrange, latrange)
 
-    @unpack onshoreclasses_min, offshoreclasses_min, rescale_to_wind_atlas, res, erares,
+    @unpack onshoreclasses_min, offshoreclasses_min, rescale_to_wind_atlas, res, erares, turbine_curve,
                 onshore_density, area_onshore, offshore_density, area_offshore = options
 
     numreg = length(regionlist)
@@ -601,6 +592,8 @@ function calc_wind_map(options, windatlas_class, meanwind, windspeed, regions, o
         println("This will increase run times by an order of magnitude (since GWA has very high spatial resolution).")
     end
 
+    powercurve = powercurves[turbine_curve]
+
     # Run times vary wildly depending on geographical area (because of far offshore regions with mostly zero wind speeds).
     # To improve the estimated time of completing the progress bar, iterate over latitudes in random order.
     Random.seed!(1)
@@ -610,7 +603,7 @@ function calc_wind_map(options, windatlas_class, meanwind, windspeed, regions, o
         colrange = latmap[lat2col(eralat+erares/2, res):lat2col(eralat-erares/2, res)-1]
         for i = 1:nlons
             meanwind[i,j] == 0 && continue
-            wind = rescale_to_wind_atlas ? windspeed[:, i, j] : speed2capacityfactor.(windspeed[:, i, j])
+            wind = rescale_to_wind_atlas ? windspeed[:, i, j] : speed2capacityfactor.(windspeed[:, i, j], powercurve)
             eralon = eralons[i]
             # get all high resolution row and column indexes within this ERA5 cell         
             rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2, res)-1]
