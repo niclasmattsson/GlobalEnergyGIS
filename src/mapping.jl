@@ -413,6 +413,34 @@ function vgrdata(num_nodes=104; plotmasks=true, PV_exclude_croplands=true, PV_ex
     predictdemand(; gisregion, sspscenario="ssp2-26", sspyear=2020, era_year=2019)
 end
 
+function create_mareld_region()
+    kommuner = ["Sotenäs", "Lysekil", "Orust"]
+    regiondata = [kommuner GADM.(Ref(["Sweden", "Västra Götaland"]), kommuner)]
+    saveregions("Mareld4", regiondata; autocrop=false, bbox=[57.90 10.0; 58.60 12.0])
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions("Mareld4")
+
+    # rough lon, lat coords of Mareld polygon obtained by clicking on Google Maps and comparing with Mareld map
+    polycoords = [(10.20, 58.29), (10.74, 58.27), (10.95, 58.00), (10.87, 57.96), (10.62, 58.16), (10.20, 58.29)]    
+    poly = ArchGDAL.createpolygon(polycoords)
+
+    df = DataFrame(geometry = [poly], id=1:1)
+    geojson = in_datafolder("mareld.geojson")
+    GDF.write(geojson, df)
+    outfile = in_datafolder("mareld.tif")
+    options = "-a id -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
+    @time rasterize(geojson, outfile, split(options, ' '))
+
+    mareld = readraster(outfile)[lonrange, latrange]
+    offshoreregions[mareld .> 0] .= 4
+    push!(regionlist, :Mareld)
+    regionname = "Mareld4"
+
+    JLD.save(in_datafolder("regions_$regionname.jld"), "regions", regions, "offshoreregions", offshoreregions,
+            "regionlist", regionlist, "lonrange", lonrange, "latrange", latrange, compress=true)
+    makedistances(regionname)
+    createmaps(regionname)
+end
+
 function create_vgr_data()
     dfsubs = GDF.read(in_datafolder("vgr", "subs_final.geojson"))
     # dfsubs = CSV.read(in_datafolder("vgr", "subs_final.csv"), DataFrame)
