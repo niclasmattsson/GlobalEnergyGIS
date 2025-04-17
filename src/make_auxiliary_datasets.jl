@@ -869,10 +869,12 @@ function winddata_40years(; wind=true, onshore=true)
 
     # for yr=1980:2019
     #     println(yr)
+    #     GISwind(gisregion="Mareld4", era_year=yr, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, max_depth=9999,
+    #             turbine_curve="Vestas 236-15", wind_speed_altitude=200, wind_class_altitude=200, plotmasks=false)
     #     # GISwind(; gisregion="Sweden4_SEfix", era_year=yr, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks=false, filenamesuffix="Lisa30_1class",
     #     #         onshoreclasses_min=[6], onshoreclasses_max=[99], offshoreclasses_min=[7], offshoreclasses_max=[99])
-    #     GISsolar(; gisregion="Sweden4_SEfix", era_year=yr, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, 
-    #             pvclasses_min=[0.08], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0], plotmasks=false, filenamesuffix="Lisa30_1class")
+    #     # GISsolar(; gisregion="Sweden4_SEfix", era_year=yr, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, 
+    #     #         pvclasses_min=[0.08], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0], plotmasks=false, filenamesuffix="Lisa30_1class")
     # end
     # cols = ["SE1", "SE2", "SE3", "SE4"]
     # dftime = DataFrame(zeros(Int, 0, 2), ["year", "hour"])
@@ -901,6 +903,20 @@ function winddata_40years(; wind=true, onshore=true)
     #     df = vcat(df, [dftime dfyr])
     # end
     # CSV.write(in_datafolder("output", "syntheticdemand_40years.csv"), df)
+
+    cols = ["CF_Mareld"]
+    dftime = DataFrame(zeros(Int, 0, 2), ["year", "hour"])
+    df = [dftime DataFrame(zeros(0, 1), cols)]
+    for yr=1980:2019
+        println(yr)
+        ww = matread(in_datafolder("output", "GISdata_$(windsolar)$(yr)_Mareld4.mat"))
+        w0 = round.(ww[var][:,:,5], digits=6)
+        nh = size(w0, 1)
+        dftime = DataFrame(year=fill(yr, nh), hour=1:nh)
+        dfyr = DataFrame([w0[:,4]], cols)
+        df = vcat(df, [dftime dfyr])
+    end
+    CSV.write(in_datafolder("output", "$(windsolar)data_Mareld$suffix.csv"), df)
 end
 
 function getcompanydata()
