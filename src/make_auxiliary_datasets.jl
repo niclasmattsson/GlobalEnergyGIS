@@ -830,7 +830,8 @@ end
 function fixSEinEurope54()
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions("Europe54")
     landcover = JLD.load(in_datafolder("landcover.jld"), "landcover")
-    company, dfcompany = getcompanyraster()
+    dfcompany = getcompanydata()
+    company = rasterize_SWEREF_to_global_lonlat(dfcompany)
     landcover = landcover[lonrange, latrange]
     company = company[lonrange, latrange]
     company = company[feature_transform(company.>0)]    # expand company map to fill in holes and artifacts in the shapefile
@@ -838,7 +839,7 @@ function fixSEinEurope54()
     regions[iii] .= 51 .- company[iii] .+ 1
     territory = regions[feature_transform(regions.>0)]
     offshoreregions = territory .* (landcover .== 0)
-    regionname = "Europe54_SEfix"    
+    regionname = "Europe54_SEfix"
     JLD.save(in_datafolder("regions_$regionname.jld"), "regions", regions, "offshoreregions", offshoreregions,
                 "regionlist", regionlist, "lonrange", lonrange, "latrange", latrange, compress=true)
 end
@@ -920,26 +921,22 @@ function winddata_40years(; wind=true, onshore=true)
 end
 
 function getcompanydata()
-    dfcompany = GDF.read("C:/Griddata/Elnätsområden Therese/omraden.shp")
-    dfcompany.bolag[276] = "Hedemorahyttorna"
-    dfcompany.snitt = parse.(Int, dfcompany.snitt)
-    disallowmissing!(dfcompany)
-    return dfcompany
-end
-
-"""Rasterize Swedish power company areas using center points of our 1 km grid squares.
-    Return (company, dfcompany), where company is a Raster and dfcompany a GeoDataFrame of company areas."""
-function getcompanyraster()
     # Shapefile of Swedish power companies (purchased by Therese)
     # Is this the source?   https://www.natomraden.se/
-    dfcompany = getcompanydata()
+    gdf = GDF.read("C:/Griddata/Elnätsområden Therese/omraden.shp")
+    gdf.bolag[276] = "Hedemorahyttorna"
+    gdf.snitt = parse.(Int, gdf.snitt)
+    disallowmissing!(gdf)
+    return gdf
+end
+
+"""Rasterize a GeoDataFrame in SWEREF99 into lonlat format with global extent and 0.01 degree resolution."""
+function rasterize_SWEREF_to_global_lonlat(gdf)
     source = GeoFormatTypes.ProjString("+proj=utm +zone=33 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")    # SWEREF99 TM = EPSG:3006
     dest = GeoFormatTypes.ProjString("+proj=longlat +datum=WGS84 +no_defs")
-    dfcompany = GDF.reproject(dfcompany, source, dest)
-    # dfcompany = GDF.reproject(dfcompany, EPSG(3006), EPSG(4326))
-    # company = rasterizeSWEREF99(dfcompany, :geometry)
-    company = reverse(rasterize_global(dfcompany, :geometry, :snitt), dims=2)
-    return company, dfcompany
+    gdf_proj = GDF.reproject(gdf, source, dest)
+    raster = reverse(rasterize_global(gdf_proj, :geometry, :snitt), dims=2)
+    return raster
 end
 
 """Rasterize a SWEREF99 GeoDataFrame using center points of our 1 km grid squares.
