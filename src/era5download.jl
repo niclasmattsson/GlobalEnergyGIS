@@ -1,4 +1,4 @@
-using PyCall, Pkg.TOML
+using PythonCall, Pkg.TOML
 
 export era5download, monthlyera5download, saveconfig, download_and_convert_era5
 
@@ -53,7 +53,7 @@ function download_and_convert_era5(year=2018; datasets=["wind", "solar", "temp"]
     println("\nERA5 datasets $datasets downloaded and converted. Temporary files cleaned up.")
 end
 
-function era5download(year=2018; datasets=["wind", "solar", "temp"])
+function era5download(year=2018; datasets=["wind", "solar", "temp"], res=0.28125, bbox=(-180.0, 180.0, -90.0, 90.0)) # (lonmin, lonmax, latmin, latmax)
     mkpath(in_datafolder("downloads"))
     count = 0
     for dataset in datasets, month = 1:12, monthhalf = 1:2
@@ -75,7 +75,7 @@ function era5download(year=2018; datasets=["wind", "solar", "temp"])
         outfile = in_datafolder("downloads", "$dataset$year-$monthstr$firstday-$monthstr$lastday.nc")
         count += 1
         println("\nFile $count of $(24*length(datasets)):")
-        request_era5_vars(outfile, vars, date1, date2)
+        request_era5_vars(outfile, vars, date1, date2; res, bbox)
     end
 end
 
@@ -97,48 +97,50 @@ function monthlyera5download(; datasets=["wind", "solar", "temp"])
     end
 end
 
-function request_era5_vars(outfile::String, vars::Vector{String}, firstdate::String, lastdate::String)
+function request_era5_vars(outfile::String, vars::Vector{String}, firstdate::String, lastdate::String;
+                            res=0.28125, bbox=(-180.0, 180.0, -90.0, 90.0))     # (lonmin, lonmax, latmin, latmax)
     datestring = "$firstdate/$lastdate"
-    py"""
-    import cdsapi
+    gridstring = "$res/$res"
+    areastring = "$(bbox[4]-res/2)/$(bbox[1]+res/2)/$(bbox[3]+res/2)/$(bbox[2]-res/2)"   # north/west/south/east
 
-    c = cdsapi.Client()
-    c.retrieve(
-        'reanalysis-era5-single-levels',
-        {
-            'product_type': 'reanalysis',
-            'format': 'netcdf',
-            'variable': $vars,
-            'grid': '0.28125/0.28125',
-            'area': '89.859375/-179.859375/-89.859375/179.859375',
-            'date': $datestring,
-            'time': '00/to/23/by/1'
-        },
-        $outfile)
-    """
+    apidata = Dict(
+        "product_type" => "reanalysis",
+        "format" => "netcdf",
+        "variable" => pylist(vars),
+        "grid" => gridstring,
+        "area" => areastring,
+        "date" => datestring,
+        "time" => "00/to/23/by/1",
+        "download_format" => "unarchived"
+    )
+
+    cdsapi = pyimport("cdsapi")
+    client = cdsapi.Client()
+    client.retrieve("reanalysis-era5-single-levels", pydict(apidata), outfile)
 end
 
-function request_monthly_era5_vars(outfile::String, vars::Vector{String}, years::Vector{Int})
-    stryears = string.(years)
+function request_monthly_era5_vars(outfile::String, vars::Vector{String}, years::Vector{Int};
+                            res=0.28125, bbox=(-180.0, 180.0, -90.0, 90.0))
+    gridstring = "$res/$res"
+    areastring = "$(bbox[4]-res/2)/$(bbox[1]+res/2)/$(bbox[3]+res/2)/$(bbox[2]-res/2)"   # north/west/south/east
+    yearstrings = string.(years)
     months = string.(1:12)
-    py"""
-    import cdsapi
 
-    c = cdsapi.Client()
-    c.retrieve(
-        'reanalysis-era5-single-levels-monthly-means',
-        {
-            'product_type': 'monthly_averaged_reanalysis',
-            'format': 'netcdf',
-            'variable': $vars,
-            'grid': '0.28125/0.28125',
-            'area': '89.859375/-179.859375/-89.859375/179.859375',
-            'year': $stryears,
-            'month': $months,
-            'time': '00:00'
-        },
-        $outfile)
-    """
+    apidata = Dict(
+        "product_type" => "monthly_averaged_reanalysis",
+        "format" => "netcdf",
+        "variable" => pylist(vars),
+        "grid" => gridstring,
+        "area" => areastring,
+        "year" => pylist(yearstrings),
+        "month" => pylist(months),
+        "time" => "00:00",
+        "download_format" => "unarchived"
+    )
+
+    cdsapi = pyimport("cdsapi")
+    client = cdsapi.Client()
+    client.retrieve("reanalysis-era5-single-levels-monthly-means", pydict(apidata), outfile)
 end
 
 # For some reason the delivered NetCDF files are unreadable unless they are limited to 15-16 days each.
