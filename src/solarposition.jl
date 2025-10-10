@@ -196,6 +196,7 @@ function solarposition(datetime::DateTime, latitude, longitude)
 end
 
 sines_and_cosines(δ, H) = sin(δ), cos(δ), sin(H), cos(H)
+sines_and_cosines(δH::Tuple) = sines_and_cosines(δH[1], δH[2])
 
 function zenith_azimuth(latitude, sδ, cδ, sH, cH)
 	sϕ, cϕ = sind(latitude), cosd(latitude)
@@ -204,6 +205,7 @@ function zenith_azimuth(latitude, sδ, cδ, sH, cH)
 	zenith = π/2 - asin(se0) + 4.26e-5*sqrt(1-se0^2)  # sqrt(1-se0^2) = cos(e0), but slightly faster
 	return zenith, azimuth		# radians
 end
+zenith_azimuth(latitude, solarpos::Tuple) = zenith_azimuth(latitude, solarpos...)
 
 function zenith(latitude, sδ, cδ, sH, cH)
 	sϕ, cϕ = sind(latitude), cosd(latitude)

@@ -23,6 +23,7 @@ struct GeoArray{T,N} <: AbstractArray{T,N}
 end
 
 GeoArray(arr, res, extent::Vector{<:Real}) = GeoArray(arr, res, (extent[1],extent[3]), (extent[2],extent[4]))
+GeoArray(arr, res, bbox::NTuple{4, <:Real}) = GeoArray(arr, res, (bbox[1],bbox[2]), (bbox[3],bbox[4]))
 GeoArray(arr, res) = GeoArray(arr, res, (-180, 180), (-90, 90))
 
 function Base.show(io::IO, ::MIME"text/plain", a::GeoArray)
