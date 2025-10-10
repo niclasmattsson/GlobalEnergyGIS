@@ -32,8 +32,49 @@ function makedistances(gisregion; scenarioyear="ssp2_2050", res=0.01)
     nothing
 end
 
-# returns great circle distance in km between points given as (lat,lon) tuples (in degrees).
+# returns great circle distance in km between points given as (lon,lat) tuples (in degrees).
 greatcircledistance(point1::Tuple, point2::Tuple) = haversine(point1, point2, 6371.0)
+
+function greatcircledistance_explicit(point1::Tuple, point2::Tuple)
+    lon1, lat1 = point1
+    lon2, lat2 = point2
+    
+    # Haversine formula using degree-based trig functions
+    Δlon = lon2 - lon1
+    Δlat = lat2 - lat1
+    
+    a = sind(Δlat/2)^2 + cosd(lat1) * cosd(lat2) * sind(Δlon/2)^2
+    c = 2 * asin(sqrt(a))
+    
+    # Earth's radius in km
+    R = 6371.0
+    
+    return R * c
+end
+
+# returns initial and final bearings in degrees (from North) when traveling on a great circle 
+# between points given as (lat,lon) tuples (in degrees). Normalize to [0, 360].
+function greatcirclebearings(point1::Tuple, point2::Tuple)
+    startbearing = mod(initial_bearing(point1, point2), 360)
+
+    # Final bearing at point2 (initial bearing from point2 to point1 + 180°)
+    endbearing = mod(initial_bearing(point2, point1) + 180, 360)
+
+    return startbearing, endbearing
+end
+
+# returns initial bearing in degrees (from North) when traveling on a great circle 
+# between points given as (lon,lat) tuples (in degrees).
+function initial_bearing(point1::Tuple, point2::Tuple)
+    lon1, lat1 = point1
+    lon2, lat2 = point2
+    
+    Δlon = lon2 - lon1
+
+    y = sind(Δlon) * cosd(lat2)
+    x = cosd(lat1) * sind(lat2) - sind(lat1) * cosd(lat2) * cosd(Δlon)
+    return atand(y, x)
+end
 
 function getregioncenters(regions, numreg, lonrange, latrange, res, scenarioyear)
     lats = (90-res/2:-res:-90+res/2)[latrange]          # latitude values (pixel center)
@@ -45,7 +86,7 @@ function getregioncenters(regions, numreg, lonrange, latrange, res, scenarioyear
     popdens = pop ./ cellarea'
 
     geocenters, popcenters = regioncenters(regions, numreg, popdens, lonrange, latrange, res)
-    return geocenters, popcenters   # column order (lat,lon)
+    return geocenters, popcenters   # column order (lon,lat)
 end
 
 function regioncenters(regions, numreg, popdens, lonrange, latrange, res)
@@ -62,15 +103,15 @@ function regioncenters(regions, numreg, popdens, lonrange, latrange, res)
             reg = regions[r,c]
             (reg == 0 || reg == NOREGION) && continue
             lon = lons[r]
-            geocenters[reg,:] += [lat, lon]
-            popcenters[reg,:] += popdens[r,c] .* [lat, lon]
+            geocenters[reg,:] += [lon, lat]
+            popcenters[reg,:] += popdens[r,c] .* [lon, lat]
             counts[reg] += 1
             popdenssum[reg] += popdens[r,c]
         end
     end
     geocenters ./= counts
-    popcenters ./= popdenssum    
-    return geocenters, popcenters   # column order (lat,lon)
+    popcenters ./= popdenssum
+    return geocenters, popcenters   # column order (lon,lat)
 end
 
 # find a suitable spot to put the region name label on the map
@@ -91,11 +132,11 @@ function find_landarea_near_popcenter(regions, numreg, popcenters, lonrange, lat
             reg = regions[r,c]
             (reg == 0 || reg == NOREGION) && continue
             lon = lons[r]
-            distpop = greatcircledistance((lat,lon), Tuple(popcenters[reg,:]))
+            distpop = greatcircledistance((lon,lat), Tuple(popcenters[reg,:]))
             closelandfactor = (1 - weight)*distpop/10000 + weight*(1 - mostlyland[r,c])
             if closelandfactor < landfactors[reg]
                 landfactors[reg] = closelandfactor
-                landcenters[reg,:] .= lat, lon
+                landcenters[reg,:] .= lon, lat
             end
         end
     end
