@@ -157,24 +157,26 @@ end
 function read_weatherdata_DLR(year)
     nc_wt = Dataset(in_datafolder("downloads", "ehubDLR_windtemp_$year.nc"))
     nc_s = Dataset(in_datafolder("downloads", "ehubDLR_solar_$year.nc"))
+    sz = size(nc_wt["u100"])
 
     res = 0.25
     bbox = (3.5, 33.0, 53.5, 72.5)
 
-    u100 = GeoArray(nc_wt["u100"], res, bbox)   # instantaneous, eastward [m/s]
-    v100 = GeoArray(nc_wt["v100"], res, bbox)   # instantaneous, northward [m/s]
-    t2m = GeoArray(nc_wt["t2m"], res, bbox)     # instantaneous [K]
-    ssrd = GeoArray(nc_s["ssrd"], res, bbox)    # accumulated [J/m2/period]
-    fdir = GeoArray(nc_s["fdir"], res, bbox)    # accumulated [J/m2/period]
+    geo = GeoArray(zeros(sz[1:2]), res, bbox)
+    u100 = permutedims(nc_wt["u100"][:,:,:], [3,1,2])   # instantaneous, eastward [m/s]
+    v100 = permutedims(nc_wt["v100"][:,:,:], [3,1,2])   # instantaneous, northward [m/s]
+    t2m = permutedims(nc_wt["t2m"][:,:,:], [3,1,2])     # instantaneous [K]
+    ssrd = permutedims(nc_s["ssrd"][:,:,:], [3,1,2])    # accumulated [J/m2/period]
+    fdir = permutedims(nc_s["fdir"][:,:,:], [3,1,2])    # accumulated [J/m2/period]
 
     lons = bbox[1] + res/2 : res : bbox[2] - res/2
     lats = bbox[4] - res/2 : -res : bbox[3] + res/2     # lats in descending order
-    return (; u100, v100, t2m, ssrd, fdir, lons, lats, res, year)
+    return (; geo, u100, v100, t2m, ssrd, fdir, lons, lats, res, year)
 end
 
 function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, weatherdata)
     lon, lat = cell
-    (; u100, v100, t2m, ssrd, fdir, year) = weatherdata   # u is eastward, v is northward
+    (; geo, u100, v100, t2m, ssrd, fdir, year) = weatherdata   # u is eastward, v is northward
     (; temp_air, wind_speed, wind_angle, insolation, wind_u, wind_v, SSRD, FDIR) = cell_weather
 
     # Note that while the solar position calculations are instantaneous positions, ERA5 radiation variables
@@ -184,18 +186,18 @@ function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, weat
     # https://confluence.ecmwf.int//display/CKB/ERA5+data+documentation#ERA5datadocumentation-Meanratesandaccumulations
     datetime = DateTime(year,1,1) - Minute(30):Hour(1):DateTime(year,12,31,23) - Minute(30)
     time = 1:8760
-    temp_air .= lookup.(Ref(t2m), lon, lat, time) .- 273.15   # [°C]
-
-    wind_u .= lookup.(Ref(u100), lon, lat, time)
-    wind_v .= lookup.(Ref(v100), lon, lat, time)
+    index = lonlat_index(geo, lon, lat)
+    temp_air .= t2m[time, index] .- 273.15   # [°C]
+    wind_u .= u100[time, index]
+    wind_v .= v100[time, index]
     wind_speed .= sqrt.(wind_u.^2 + wind_v.^2)           # [m/s]
     wind_angle .= mod.(atand.(wind_v, wind_u), 360)      # angle from North, clockwise
 
     almostzero = eps(Float32)
 
     # ERA5 radiations are in J/m2/period, so for hourly data divide by 3600 to get W/m2
-    # SSRD .= lookup.(Ref(ssrd), lon, lat, time) ./ 3600  # total (global) horizontal insolation [W/m2]
-    FDIR .= lookup.(Ref(fdir), lon, lat, time) ./ 3600  # direct insolation on a horizontal surface [W/m2]
+    SSRD .= ssrd[time, index] ./ 3600  # total (global) horizontal insolation [W/m2]
+    # FDIR .= fdir[time, index] ./ 3600  # direct insolation on a horizontal surface [W/m2]
     insolation .= 0.0
     for (i, dt) in enumerate(datetime)
         TSI = solarinsolation(dt)                       # Total Solar Irradiance (top of atmosphere, perpendicular to sun) [W/m2]

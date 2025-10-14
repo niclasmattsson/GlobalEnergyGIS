@@ -41,7 +41,7 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
             end
         end
 
-        ampacity[:, i] .= minimum((@view maxcurrent_segment[:, 1:length(linesegments)]), dims=2)    # [A]
+        ampacity[:, i] .= minimum(maxcurrent_segment[:, 1:length(linesegments)], dims=2)    # [A]
         thermal_capacity[:, i] .= thermal_capacity_limit(line.voltage, ampacity[:, i])              # [MW]
     end
 
