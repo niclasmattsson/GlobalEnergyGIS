@@ -20,7 +20,7 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
 
     cell_weather = (;   # initialize cell weather vectors to be filled in get_cell_weather! (to avoid repeated allocations)
         temp_air=zeros(nhours), wind_speed=zeros(nhours), wind_angle=zeros(nhours), insolation=zeros(nhours),
-        wind_u=zeros(nhours), wind_v=zeros(nhours), solar_ssrd=zeros(nhours), solar_fdir=zeros(nhours)
+        wind_u=zeros(nhours), wind_v=zeros(nhours), SSRD=zeros(nhours), FDIR=zeros(nhours)
     )
 
     updateprogress = Progress(nlines, 1)

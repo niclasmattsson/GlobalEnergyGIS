@@ -175,8 +175,14 @@ end
 function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, weatherdata)
     lon, lat = cell
     (; u100, v100, t2m, ssrd, fdir, year) = weatherdata   # u is eastward, v is northward
-    (; temp_air, wind_speed, wind_angle, insolation, wind_u, wind_v, solar_ssrd, solar_fdir) = cell_weather
-    datetime = DateTime(year,1,1):Hour(1):DateTime(year,12,31,23)
+    (; temp_air, wind_speed, wind_angle, insolation, wind_u, wind_v, SSRD, FDIR) = cell_weather
+
+    # Note that while the solar position calculations are instantaneous positions, ERA5 radiation variables
+    # represent accumulated radiation over the hour *ending* at the indicated time. Therefore, solar positions
+    # must be shifted 30 minutes BACK to correspond to the midpoint time of the ERA5 accumulations.
+    # Source: ERA5 "accumulations are over the hour ending at the forecast step"
+    # https://confluence.ecmwf.int//display/CKB/ERA5+data+documentation#ERA5datadocumentation-Meanratesandaccumulations
+    datetime = DateTime(year,1,1) - Minute(30):Hour(1):DateTime(year,12,31,23) - Minute(30)
     time = 1:8760
     temp_air .= lookup.(Ref(t2m), lon, lat, time)       # [°C]
 
@@ -185,21 +191,31 @@ function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, weat
     wind_speed .= sqrt.(wind_u.^2 + wind_v.^2)           # [m/s]
     wind_angle .= mod.(atand.(wind_v, wind_u), 360)      # angle from North, clockwise
 
+    almostzero = eps(Float32)
+
     # ERA5 radiations are in J/m2/period, so for hourly data divide by 3600 to get W/m2
-    # solar_ssrd .= lookup.(Ref(ssrd), lon, lat, time) ./ 3600
-    solar_fdir .= lookup.(Ref(fdir), lon, lat, time) ./ 3600
+    # SSRD .= lookup.(Ref(ssrd), lon, lat, time) ./ 3600  # total (global) horizontal insolation [W/m2]
+    FDIR .= lookup.(Ref(fdir), lon, lat, time) ./ 3600  # direct insolation on a horizontal surface [W/m2]
     insolation .= 0.0
     for (i, dt) in enumerate(datetime)
+        TSI = solarinsolation(dt)                       # Total Solar Irradiance (top of atmosphere, perpendicular to sun) [W/m2]
         δ, H = solarposition(dt, lon)                   # absolute solar position (declination, hour angle)
         solarpos = sines_and_cosines(δ, H)
         zen, az = zenith_azimuth(lat, solarpos...)      # relative solar position (radians)
+        cos_zen = max(almostzero, cos(zen))
+        
+        # When the solar elevation is close to 0, both FDIR and cos(zenith) will also be near 0, and
+        # calculated DNI will approach "0/0". So we'll clamp DNI to avoid artifacts.
+        # That wasn't enough, so we'll add an artificial term to increase the denominator near the horizon.
+        DNI = clamp(FDIR[i] / (cos_zen + horizoncorrection(zen)), 0, TSI)  # Direct Normal Irradiance [W/m2]
+
         zenith, azimuth = rad2deg(zen), rad2deg(az)
         zenith > 90 && continue                         # sun below horizon
 
         Δaz = azimuth - line_azimuth
         cosθ = sind(zenith) * cosd(Δaz)
         sinθ = sqrt(1 - cosθ^2)
-        insolation[i] = solar_fdir[i] * line_diameter*1e-3 * sinθ   # direct component only [W/m] (per unit length of line)
+        insolation[i] = DNI * line_diameter*1e-3 * sinθ   # direct component only [W/m] (per unit length of line)
     end
 end
 
