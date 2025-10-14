@@ -185,8 +185,9 @@ function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, weat
     wind_speed .= sqrt.(wind_u.^2 + wind_v.^2)           # [m/s]
     wind_angle .= mod.(atand.(wind_v, wind_u), 360)      # angle from North, clockwise
 
-    # solar_ssrd .= lookup.(Ref(ssrd), lon, lat, time)
-    solar_fdir .= lookup.(Ref(fdir), lon, lat, time)
+    # ERA5 radiations are in J/m2/period, so for hourly data divide by 3600 to get W/m2
+    # solar_ssrd .= lookup.(Ref(ssrd), lon, lat, time) ./ 3600
+    solar_fdir .= lookup.(Ref(fdir), lon, lat, time) ./ 3600
     insolation .= 0.0
     for (i, dt) in enumerate(datetime)
         δ, H = solarposition(dt, lon)                   # absolute solar position (declination, hour angle)
