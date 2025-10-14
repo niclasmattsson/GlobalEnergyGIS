@@ -207,7 +207,8 @@ function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, weat
         # When the solar elevation is close to 0, both FDIR and cos(zenith) will also be near 0, and
         # calculated DNI will approach "0/0". So we'll clamp DNI to avoid artifacts.
         # That wasn't enough, so we'll add an artificial term to increase the denominator near the horizon.
-        DNI = clamp(FDIR[i] / (cos_zen + horizoncorrection(zen)), 0, TSI)  # Direct Normal Irradiance [W/m2]
+        # Also, we'll use SSRD instead of FDIR to capture total insolation, so we have GNI instead of DNI.
+        GNI = clamp(SSRD[i] / (cos_zen + horizoncorrection(zen)), 0, TSI)  # Global Normal Irradiance [W/m2]
 
         zenith, azimuth = rad2deg(zen), rad2deg(az)
         zenith > 90 && continue                         # sun below horizon
@@ -215,7 +216,7 @@ function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, weat
         Δaz = azimuth - line_azimuth
         cosθ = sind(zenith) * cosd(Δaz)
         sinθ = sqrt(1 - cosθ^2)
-        insolation[i] = DNI * line_diameter*1e-3 * sinθ   # direct component only [W/m] (per unit length of line)
+        insolation[i] = GNI * line_diameter*1e-3 * sinθ   # direct component only [W/m] (per unit length of line)
     end
 end
 
