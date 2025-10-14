@@ -52,8 +52,8 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
 
     CSV.write(in_datafolder("downloads", "Processed_line_data.csv"), lines)
 
-    max_capacity = min.(thermal_capacity, lines.SLR_max')  # [MW]
-    thermal_ratio = max_capacity ./ lines.SLR_max'         # ratio of IEEE dynamic max to static max
+    max_capacity = min.(thermal_capacity, lines.SLR_angle')     # [MW]
+    thermal_ratio = max_capacity ./ lines.SLR_max'              # ratio of IEEE dynamic max to static max
 
     df_ampacity = DataFrame(ampacity, string.(lines.line_id))
     df_thermal_ratio = DataFrame(thermal_ratio, string.(lines.line_id))
