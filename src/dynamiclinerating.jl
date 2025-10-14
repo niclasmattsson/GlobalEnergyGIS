@@ -4,10 +4,9 @@ function dynamic_line_rating(year=2019)
     weatherdata = read_weatherdata_DLR(year)
 
     println("Calculating line ratings...")
-    calculate_line_ratings(lines, weatherdata)
+    ampacity = calculate_line_ratings(lines, weatherdata)
+    return ampacity
     # add Global Wind Atlas data
-    # compare with notebook calculations - where is cosθ and sinθ?
-    # loop over all lines, segments and all time steps inside calculate_line_ratings()
     # return min, (max) and mean thermal rating for each line and time step
 end
 

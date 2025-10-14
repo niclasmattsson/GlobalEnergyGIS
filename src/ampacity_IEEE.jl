@@ -37,12 +37,12 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
             get_cell_weather!(cell_weather, cell, mean_bearing, line.diameter, weatherdata)
             Threads.@threads for hour in 1:nhours
                 weather = hourly_weather(hour, cell_weather)
-                maxcurrent_segment[hour, seg] = calculate_ampacity(line, weather, line_params)   # [A]
+                maxcurrent_segment[hour, seg] = calculate_ampacity(line, weather, line_params)      # [A]
             end
         end
 
-        ampacity[:, i] .= minimum(maxcurrent_segment, dims=2)                           # [A]
-        thermal_capacity[:, i] .= thermal_capacity_limit(line.voltage, ampacity[:, i])  # [MW]
+        ampacity[:, i] .= minimum((@view maxcurrent_segment[:, 1:length(linesegments)]), dims=2)    # [A]
+        thermal_capacity[:, i] .= thermal_capacity_limit(line.voltage, ampacity[:, i])              # [MW]
     end
 
     # Static line rating capacities (MW)
