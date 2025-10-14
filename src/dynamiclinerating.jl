@@ -161,11 +161,11 @@ function read_weatherdata_DLR(year)
     res = 0.25
     bbox = (3.5, 33.0, 53.5, 72.5)
 
-    u100 = GeoArray(nc_wt["u100"], res, bbox)
-    v100 = GeoArray(nc_wt["v100"], res, bbox)
-    t2m = GeoArray(nc_wt["t2m"], res, bbox)
-    ssrd = GeoArray(nc_s["ssrd"], res, bbox)
-    fdir = GeoArray(nc_s["fdir"], res, bbox)
+    u100 = GeoArray(nc_wt["u100"], res, bbox)   # instantaneous, eastward [m/s]
+    v100 = GeoArray(nc_wt["v100"], res, bbox)   # instantaneous, northward [m/s]
+    t2m = GeoArray(nc_wt["t2m"], res, bbox)     # instantaneous [K]
+    ssrd = GeoArray(nc_s["ssrd"], res, bbox)    # accumulated [J/m2/period]
+    fdir = GeoArray(nc_s["fdir"], res, bbox)    # accumulated [J/m2/period]
 
     lons = bbox[1] + res/2 : res : bbox[2] - res/2
     lats = bbox[4] - res/2 : -res : bbox[3] + res/2     # lats in descending order
@@ -184,7 +184,7 @@ function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, weat
     # https://confluence.ecmwf.int//display/CKB/ERA5+data+documentation#ERA5datadocumentation-Meanratesandaccumulations
     datetime = DateTime(year,1,1) - Minute(30):Hour(1):DateTime(year,12,31,23) - Minute(30)
     time = 1:8760
-    temp_air .= lookup.(Ref(t2m), lon, lat, time)       # [°C]
+    temp_air .= lookup.(Ref(t2m), lon, lat, time) .- 273.15   # [°C]
 
     wind_u .= lookup.(Ref(u100), lon, lat, time)
     wind_v .= lookup.(Ref(v100), lon, lat, time)
