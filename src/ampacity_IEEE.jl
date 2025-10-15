@@ -67,7 +67,7 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
             mean_line_weather[k][:, i] ./= length(linesegments)     # average hourly weather along the line
         end
 
-        ampacity[:, i] .= min_line_ampacity                                             # [A]
+        ampacity[:, i] .= line.circuits * min_line_ampacity                             # [A]
         thermal_capacity[:, i] .= thermal_capacity_limit(line.voltage, ampacity[:, i])  # [MW]
     end
 
