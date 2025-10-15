@@ -7,7 +7,6 @@ function dynamic_line_rating(year=2019)
     ampacity = calculate_line_ratings(lines, weatherdata)
     return ampacity
     # add Global Wind Atlas data
-    # return min, (max) and mean thermal rating for each line and time step
 end
 
 getlinecoords(line) = (line.start_lon, line.start_lat), (line.end_lon, line.end_lat)
@@ -146,17 +145,17 @@ function download_era5_DLR(year)
     # Split into two requests, one for instantaneous variables (wind/temp)
     # and one for accumulated (solar) (otherwise Copernicus returns a zip file)
     windvars = ["100m_u_component_of_wind", "100m_v_component_of_wind", "2m_temperature"]
-    outfile = in_datafolder("downloads", "ehubDLR_windtemp_$year.nc")
+    outfile = in_datafolder("DLR", "ehubDLR_windtemp_$year.nc")
     request_era5_vars(outfile, windvars, date1, date2; res=0.25, bbox=(3.5, 33.0, 53.5, 72.5))
 
     solarvars = ["surface_solar_radiation_downwards", "total_sky_direct_solar_radiation_at_surface"]
-    outfile = in_datafolder("downloads", "ehubDLR_solar_$year.nc")
+    outfile = in_datafolder("DLR", "ehubDLR_solar_$year.nc")
     request_era5_vars(outfile, solarvars, date1, date2; res=0.25, bbox=(3.5, 33.0, 53.5, 72.5))
 end
 
 function read_weatherdata_DLR(year)
-    nc_wt = Dataset(in_datafolder("downloads", "ehubDLR_windtemp_$year.nc"))
-    nc_s = Dataset(in_datafolder("downloads", "ehubDLR_solar_$year.nc"))
+    nc_wt = Dataset(in_datafolder("DLR", "ehubDLR_windtemp_$year.nc"))
+    nc_s = Dataset(in_datafolder("DLR", "ehubDLR_solar_$year.nc"))
     sz = size(nc_wt["u100"])
 
     res = 0.25
@@ -233,7 +232,7 @@ end
 
 "Collect all the line and conductor data we need from Excel files into a DataFrame."
 function read_line_data()
-    xlsx_buslines = in_datafolder("downloads", "Bus_and_line_data_EHUB400_future_data_v1_11_2.xlsx")
+    xlsx_buslines = in_datafolder("DLR", "Bus_and_line_data_EHUB400_future_data_v1_11_2.xlsx")
     lines = XLSX.readtable(xlsx_buslines, "lines"; infer_eltypes=true) |> DataFrame
     buses = XLSX.readtable(xlsx_buslines, "buses"; infer_eltypes=true) |> DataFrame
     rename!(lines, ["line_id", "start_node", "end_node", "resistance", "reactance", "voltage", "transformer",
@@ -241,7 +240,7 @@ function read_line_data()
     select!(buses, ["bus_id", "x-coordinate", "y-coordinate"])
     rename!(buses, "x-coordinate"=>"lon", "y-coordinate"=>"lat")
 
-    xlsx_conductors = in_datafolder("downloads", "Conductor_data.xlsx")
+    xlsx_conductors = in_datafolder("DLR", "Conductor_data.xlsx")
     df_cond = XLSX.readtable(xlsx_conductors, "Line_data"; infer_eltypes=true) |> DataFrame
     select!(df_cond, ["Name", "Diam", "DC-res"])
     rename!(df_cond, ["name", "diameter", "dc_resistance"])
@@ -273,4 +272,14 @@ function read_line_data()
     # lines.conductor_type .= coalesce.(lines.conductor_type)
 
     return lines
+end
+
+function write_csv(basename, var, columns)
+    df = DataFrame(var, string.(columns))
+    CSV.write(in_datafolder("DLR", "$basename.csv"), df)
+end
+
+function read_csv(basename)
+    df = CSV.read(in_datafolder("DLR", "$basename.csv"), DataFrame)
+    return df
 end

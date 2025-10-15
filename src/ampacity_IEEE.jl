@@ -13,15 +13,22 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
     )
     (; temp_line, max_power_angle, elevation, emissivity, absorptivity) = line_params
 
-    nhours, max_segments, nlines = 8760, 50, nrow(lines)
-    maxcurrent_segment = zeros(nhours, max_segments)
-    ampacity = zeros(nhours, nlines)            # max current carrying capacity [A]
-    thermal_capacity = zeros(nhours, nlines)    # dynamic thermal capacity [MW]
+    nhours, nlines = 8760, nrow(lines)
+    mean_bearings = zeros(nlines)
+    min_line_ampacity = zeros(nhours)
+    segment_ampacities = zeros(nhours)
+    ampacity = zeros(nhours, nlines)                # max current carrying capacity [A]
+    thermal_capacity = zeros(nhours, nlines)        # dynamic thermal capacity [MW]
 
     cell_weather = (;   # initialize cell weather vectors to be filled in get_cell_weather! (to avoid repeated allocations)
         temp_air=zeros(nhours), wind_speed=zeros(nhours), wind_angle=zeros(nhours), insolation=zeros(nhours),
         wind_u=zeros(nhours), wind_v=zeros(nhours), SSRD=zeros(nhours), FDIR=zeros(nhours)
     )
+    mean_line_weather = (;  # to accumulate mean weather along the line
+        temp_air=zeros(nhours, nlines), wind_speed=zeros(nhours, nlines),
+        wind_angle=zeros(nhours, nlines), insolation=zeros(nhours, nlines)
+    )
+    dimensioning_line_weather = deepcopy(mean_line_weather)     # to store weather of the dimensioning segment for each hour
 
     updateprogress = Progress(nlines, 1)
     for (i, line) in enumerate(eachrow(lines))
@@ -31,40 +38,63 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
         linestart, lineend = getlinecoords(line)
         linesegments = greatcircle_waypoints(linestart, lineend, weatherdata.res)
 
-        maxcurrent_segment .= 0.0
-        for (seg, segment) in enumerate(linesegments)
-            (; cell, len, mean_bearing) = segment   # NM: don't we need len anywhere???
+        min_line_ampacity .= Inf
+        segment_ampacities .= 0.0
+
+        for segment in linesegments
+            (; cell, mean_bearing) = segment    # NM: don't we need len anywhere???
             get_cell_weather!(cell_weather, cell, mean_bearing, line.diameter, weatherdata)
+            mean_bearings[i] += mean_bearing
+
             Threads.@threads for hour in 1:nhours
                 weather = hourly_weather(hour, cell_weather)
-                maxcurrent_segment[hour, seg] = calculate_ampacity(line, weather, line_params)      # [A]
+                segment_ampacities[hour] = calculate_ampacity(line, weather, line_params)  # [A]
+            end
+
+            new_minimum = segment_ampacities .< min_line_ampacity   # hours where this segment is dimensioning
+            min_line_ampacity[new_minimum] .= segment_ampacities[new_minimum]
+            for k in keys(dimensioning_line_weather)
+                dimensioning_line_weather[k][new_minimum, i] .= cell_weather[k][new_minimum]
+            end
+
+            for k in keys(mean_line_weather)
+                mean_line_weather[k][:, i] .+= cell_weather[k]      # accumulate weather along the line
             end
         end
 
-        ampacity[:, i] .= minimum(maxcurrent_segment[:, 1:length(linesegments)], dims=2)    # [A]
-        thermal_capacity[:, i] .= thermal_capacity_limit(line.voltage, ampacity[:, i])              # [MW]
+        mean_bearings[i] /= length(linesegments)
+        for k in keys(mean_line_weather)
+            mean_line_weather[k][:, i] ./= length(linesegments)     # average hourly weather along the line
+        end
+
+        ampacity[:, i] .= min_line_ampacity                                             # [A]
+        thermal_capacity[:, i] .= thermal_capacity_limit(line.voltage, ampacity[:, i])  # [MW]
     end
 
     # Static line rating capacities (MW)
     lines.SLR_thermal .= thermal_capacity_limit.(lines.voltage, lines.c_rating)
     lines.SLR_angle .= angle_capacity_limit.(lines.reactance, max_power_angle)
     lines.SLR_max .= min.(lines.SLR_thermal, lines.SLR_angle)
+    lines.mean_bearing .= mean_bearings
 
-    CSV.write(in_datafolder("downloads", "Processed_line_data.csv"), lines)
+    CSV.write(in_datafolder("DLR", "line_data.csv"), lines)
 
     max_capacity = min.(thermal_capacity, lines.SLR_angle')     # [MW]
     thermal_ratio = max_capacity ./ lines.SLR_max'              # ratio of IEEE dynamic max to static max
 
-    df_ampacity = DataFrame(ampacity, string.(lines.line_id))
-    df_thermal_ratio = DataFrame(thermal_ratio, string.(lines.line_id))
-    CSV.write(in_datafolder("downloads", "ampacity_test.csv"), df_ampacity)
-    CSV.write(in_datafolder("downloads", "thermal_ratio_test.csv"), df_thermal_ratio)
-    return ampacity
+    line_ids = lines.line_id
+    write_csv("ampacity", ampacity, line_ids)
+    write_csv("thermal_ratio", thermal_ratio, line_ids)
+    write_csv("mean_temp_air", mean_line_weather.temp_air, line_ids)
+    write_csv("mean_wind_speed", mean_line_weather.wind_speed, line_ids)
+    write_csv("mean_wind_angle", mean_line_weather.wind_angle, line_ids)
+    write_csv("mean_insolation", mean_line_weather.insolation, line_ids)
+    write_csv("dimensioning_temp_air", dimensioning_line_weather.temp_air, line_ids)
+    write_csv("dimensioning_wind_speed", dimensioning_line_weather.wind_speed, line_ids)
+    write_csv("dimensioning_wind_angle", dimensioning_line_weather.wind_angle, line_ids)
+    write_csv("dimensioning_insolation", dimensioning_line_weather.insolation, line_ids)
 
-    # # If Voltage == 0 or NaN → use angle limit only
-    # # mask_V0 = ismissing.(df.voltage) .|| df.voltage .== 0
-    # # df[mask_V0, :max_capacity] .= angle_capacity_limits(df[mask_V0, :reactance], max_power_angle)
-    # # df[mask_V0, :SLR_max] .= angle_capacity_limits(df[mask_V0, :reactance], max_power_angle)
+    return ampacity
 end
 
 "Calculate the total current carrying capacity of a line."
