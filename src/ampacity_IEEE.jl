@@ -48,7 +48,7 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
 
             Threads.@threads for hour in 1:nhours
                 weather = hourly_weather(hour, cell_weather)
-                segment_ampacities[hour] = calculate_ampacity(line, weather, line_params)  # [A]
+                segment_ampacities[hour] = calculate_ampacity(line, mean_bearing, weather, line_params)  # [A]
             end
 
             new_minimum = segment_ampacities .< min_line_ampacity   # hours where this segment is dimensioning
@@ -98,17 +98,18 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
 end
 
 "Calculate the total current carrying capacity of a line."
-function calculate_ampacity(line, cell_weather, line_params)
+function calculate_ampacity(line, mean_bearing, cell_hourly_weather, line_params)
     (; line_id, conductor_count, conductor_type, diameter, dc_resistance) = line
-    (; temp_air, wind_speed, wind_angle, insolation) = cell_weather
+    (; temp_air, wind_speed, wind_angle, insolation) = cell_hourly_weather
     (; temp_line, elevation, emissivity, absorptivity) = line_params
 
     temp_film = (temp_line + temp_air) / 2          # i.e. the thermal boundary layer around the conductor
+    wind_attack_angle = abs(mod(mean_bearing - wind_angle + 90, 180) - 90)
 
     k_f = air_conductivity(temp_film)           # [W/m·K]
     rho_f = air_density(temp_film, elevation)   # [kg/m^3]
     mu_f = air_viscosity(temp_film)             # [Pa·s]
-    k_angle = wind_cooling_factor(wind_angle)
+    k_angle = wind_cooling_factor(wind_attack_angle)
 
     diam_m = diameter * 1e-3                                # Outer diameter [m]
     N_re = reynolds_number(diam_m, rho_f, wind_speed, mu_f)
