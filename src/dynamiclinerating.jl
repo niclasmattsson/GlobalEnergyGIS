@@ -232,11 +232,11 @@ end
 
 "Collect all the line and conductor data we need from Excel files into a DataFrame."
 function read_line_data()
-    xlsx_buslines = in_datafolder("DLR", "Bus_and_line_data_EHUB400_future_data_v1_11_3.xlsx")
+    xlsx_buslines = in_datafolder("DLR", "Bus_and_line_data_EHUB400_future_data_v1_12.xlsx")
     lines = XLSX.readtable(xlsx_buslines, "lines"; infer_eltypes=true) |> DataFrame
     buses = XLSX.readtable(xlsx_buslines, "buses"; infer_eltypes=true) |> DataFrame
     rename!(lines, ["line_id", "start_node", "end_node", "resistance", "reactance", "voltage", "transformer",
-                    "c_rating", "length", "geometry", "conductor_count", "conductor_type", "circuits"])
+                    "c_rating", "length", "geometry", "conductor_count", "conductor_type", "circuits", "b_f", "b_t", "series_compensation", "country"])
     select!(buses, ["bus_id", "x-coordinate", "y-coordinate"])
     rename!(buses, "x-coordinate"=>"lon", "y-coordinate"=>"lat")
 
