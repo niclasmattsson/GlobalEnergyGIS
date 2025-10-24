@@ -79,12 +79,14 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
 
     CSV.write(in_datafolder("DLR", "line_data.csv"), lines)
 
-    max_capacity = min.(thermal_capacity, lines.SLR_angle')     # [MW]
-    thermal_ratio = max_capacity ./ lines.SLR_max'              # ratio of IEEE dynamic max to static max
+    max_capacity = min.(thermal_capacity, lines.SLR_angle')         # [MW]
+    thermal_ratio = max_capacity ./ lines.SLR_max'                  # ratio of IEEE dynamic max to static max
+    thermal_ratio_noangle = thermal_capacity ./ lines.SLR_thermal'  # ratio of IEEE dynamic to static thermal max
 
     line_ids = lines.line_id
     write_csv("ampacity", ampacity, line_ids)
     write_csv("thermal_ratio", thermal_ratio, line_ids)
+    write_csv("thermal_ratio_noangle", thermal_ratio_noangle, line_ids)
     write_csv("mean_temp_air", mean_line_weather.temp_air, line_ids)
     write_csv("mean_wind_speed", mean_line_weather.wind_speed, line_ids)
     write_csv("mean_wind_angle", mean_line_weather.wind_angle, line_ids)
