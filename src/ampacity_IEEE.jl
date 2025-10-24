@@ -6,12 +6,11 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
     # weatherdata fields: (; u100, v100, t2m, ssrd, fdir, lons, lats, res)
     line_params = (
         temp_line = 50.0,       # Max conductor surface temperature [°C]
-        max_power_angle = 30,
         elevation = 0.0,        # Elevation above sea level [m]
         emissivity = 0.9,
         absorptivity = 0.5
     )
-    (; temp_line, max_power_angle, elevation, emissivity, absorptivity) = line_params
+    (; temp_line, elevation, emissivity, absorptivity) = line_params
 
     nhours, nlines = 8760, nrow(lines)
     mean_bearings = zeros(nlines)
@@ -71,22 +70,27 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
         thermal_capacity[:, i] .= thermal_capacity_limit(line.voltage, ampacity[:, i])  # [MW]
     end
 
-    # Static line rating capacities (MW)
-    lines.SLR_thermal .= thermal_capacity_limit.(lines.voltage, lines.c_rating)
-    lines.SLR_angle .= angle_capacity_limit.(lines.reactance, max_power_angle)
-    lines.SLR_max .= min.(lines.SLR_thermal, lines.SLR_angle)
+    calculate_static_line_ratings!(lines; max_power_angle=30)       # Static line rating capacities (MW)
     lines.mean_bearing .= mean_bearings
-
     CSV.write(in_datafolder("DLR", "line_data.csv"), lines)
 
-    max_capacity = min.(thermal_capacity, lines.SLR_angle')         # [MW]
-    thermal_ratio = max_capacity ./ lines.SLR_max'                  # ratio of IEEE dynamic max to static max
+    thermal_ratio = calculate_thermal_ratio(thermal_capacity, lines)
     thermal_ratio_noangle = thermal_capacity ./ lines.SLR_thermal'  # ratio of IEEE dynamic to static thermal max
+    
+    calculate_static_line_ratings!(lines; max_power_angle=20)
+    thermal_ratio_20 = calculate_thermal_ratio(thermal_capacity, lines)
+    calculate_static_line_ratings!(lines; max_power_angle=40)
+    thermal_ratio_40 = calculate_thermal_ratio(thermal_capacity, lines)
+    calculate_static_line_ratings!(lines; max_power_angle=50)
+    thermal_ratio_50 = calculate_thermal_ratio(thermal_capacity, lines)
 
     line_ids = lines.line_id
     write_csv("ampacity", ampacity, line_ids)
     write_csv("thermal_ratio", thermal_ratio, line_ids)
     write_csv("thermal_ratio_noangle", thermal_ratio_noangle, line_ids)
+    write_csv("thermal_ratio_20", thermal_ratio_20, line_ids)
+    write_csv("thermal_ratio_40", thermal_ratio_40, line_ids)
+    write_csv("thermal_ratio_50", thermal_ratio_50, line_ids)
     write_csv("mean_temp_air", mean_line_weather.temp_air, line_ids)
     write_csv("mean_wind_speed", mean_line_weather.wind_speed, line_ids)
     write_csv("mean_wind_angle", mean_line_weather.wind_angle, line_ids)
@@ -202,6 +206,20 @@ function max_current(qc, qr, qs, R_ohm_per_m)
         # error("Invalid parameters for calculate_imax")
     end
     return sqrt(numerator / R_ohm_per_m)
+end
+
+function calculate_thermal_ratio(thermal_capacity, lines::DataFrame)
+    max_capacity = min.(thermal_capacity, lines.SLR_angle')         # [MW]
+    thermal_ratio = max_capacity ./ lines.SLR_max'                  # ratio of IEEE dynamic max to static max
+    return thermal_ratio
+end
+
+"Calculate static line rating capacities (all in MW)."
+function calculate_static_line_ratings!(lines::DataFrame; max_power_angle)
+    lines.SLR_thermal .= thermal_capacity_limit.(lines.voltage, lines.c_rating)
+    lines.SLR_angle .= angle_capacity_limit.(lines.reactance, max_power_angle)
+    lines.SLR_max .= min.(lines.SLR_thermal, lines.SLR_angle)
+    return nothing
 end
 
 "Calculate thermal line capacities."
