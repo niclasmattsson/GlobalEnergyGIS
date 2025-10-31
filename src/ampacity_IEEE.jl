@@ -229,5 +229,6 @@ end
 
 "Calculate power angle limits."
 function angle_capacity_limit(reactance, max_power_angle)
-    return (1 ./ reactance) * max_power_angle / 57.29 * 1000   # [MW]
+    return (1 ./ reactance) .* sind.(max_power_angle) .* 1000   # [MW]
+    # return (1 ./ reactance) * deg2rad(max_power_angle) * 1000   # [MW]
 end
