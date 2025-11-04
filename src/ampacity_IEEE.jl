@@ -76,21 +76,11 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
 
     thermal_ratio = calculate_thermal_ratio(thermal_capacity, lines)
     thermal_ratio_noangle = thermal_capacity ./ lines.SLR_thermal'  # ratio of IEEE dynamic to static thermal max
-    
-    calculate_static_line_ratings!(lines; max_power_angle=20)
-    thermal_ratio_20 = calculate_thermal_ratio(thermal_capacity, lines)
-    calculate_static_line_ratings!(lines; max_power_angle=40)
-    thermal_ratio_40 = calculate_thermal_ratio(thermal_capacity, lines)
-    calculate_static_line_ratings!(lines; max_power_angle=50)
-    thermal_ratio_50 = calculate_thermal_ratio(thermal_capacity, lines)
 
     line_ids = lines.line_id
     write_csv("ampacity", ampacity, line_ids)
     write_csv("thermal_ratio", thermal_ratio, line_ids)
     write_csv("thermal_ratio_noangle", thermal_ratio_noangle, line_ids)
-    write_csv("thermal_ratio_20", thermal_ratio_20, line_ids)
-    write_csv("thermal_ratio_40", thermal_ratio_40, line_ids)
-    write_csv("thermal_ratio_50", thermal_ratio_50, line_ids)
     write_csv("mean_temp_air", mean_line_weather.temp_air, line_ids)
     write_csv("mean_wind_speed", mean_line_weather.wind_speed, line_ids)
     write_csv("mean_wind_angle", mean_line_weather.wind_angle, line_ids)
@@ -99,6 +89,12 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
     write_csv("dimensioning_wind_speed", dimensioning_line_weather.wind_speed, line_ids)
     write_csv("dimensioning_wind_angle", dimensioning_line_weather.wind_angle, line_ids)
     write_csv("dimensioning_insolation", dimensioning_line_weather.insolation, line_ids)
+
+    for angle in (20, 40, 50, 60, 70, 80)
+        calculate_static_line_ratings!(lines; max_power_angle=angle)
+        thermal_ratio_angle = calculate_thermal_ratio(thermal_capacity, lines)
+        write_csv("thermal_ratio_$(angle)", thermal_ratio_angle, line_ids)
+    end
 
     return ampacity
 end
