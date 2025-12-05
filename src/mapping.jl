@@ -513,6 +513,39 @@ function rasterize_ehub500()
     nothing
 end
 
+function rasterize_riksintressen_vindkraft()
+    println("\nReading and aggregating geopackage layers using Geodataframes...")
+    file = in_datafolder("samrad_ri_vindkraft_250925.gpkg")
+    aggfile = in_datafolder("riksintressen_vindkraft_aggregated.gpkg")
+
+    land, hav = GDF.read(file, 0), GDF.read(file, 1)
+    land.id .= 1:size(land, 1)
+    hav.id .= (1:size(hav, 1)) .+ 1000
+    df = vcat(land[!, [:Shape, :id]], hav[!, [:Shape, :id]])
+    GDF.write(aggfile, df)
+
+    println("\nReading new geopackage info using ogrinfo...")
+    ogrinfo_path() do ogrinfo
+        @time run(`$ogrinfo -al -so $aggfile`)
+    end
+
+    aggfile_proj = in_datafolder("riksintressen_vindkraft_aggregated_proj.gpkg")
+    # Couldn't figure out how to make gdal_rasterize reproject on the fly, so...
+    if !isfile(aggfile_proj)
+        println("\nReprojecting shapefile to EPSG:4326...")
+        ogr2ogr_path() do ogr2ogr
+            @time run(`$ogr2ogr -t_srs epsg:4326 $aggfile_proj $aggfile`)
+        end
+    end
+
+    println("\nRasterizing...")
+    outfile = in_datafolder("riksintressen_vindkraft.tif")
+    options = "-a id -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
+    @time rasterize(aggfile_proj, outfile, split(options, ' '))
+
+    nothing
+end
+
 function rasterize_vgr_military_areas()
     println("\nReading shapefile info using ogrinfo...")
     shapefile = in_datafolder("rikstackande-geodata-forsvarsmakten", "shp", "Stoppområde för höga objekt.shp")

@@ -243,12 +243,17 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     # all mask conditions
     mask_offshore = gridB .& .!shore .& (topo .> -max_depth) .& (offshoreregions .> 0) .& .!protected_area
 
-    mask_military_areas = false
-    if mask_military_areas
+    extramasktype = :riksintressen       # :none, :military, :riksintressen
+    if extramasktype == :military
         military = readraster(in_datafolder("geodata_försvarsmakten.tif"))[lonrange,latrange] .> 0
-        mask_onshoreA .&= .!military
+        mask_onshoreA .&= .!military    # exclude military areas
         mask_onshoreB .&= .!military
         mask_offshore .&= .!military
+    else
+        riksintressen = readraster(in_datafolder("riksintressen_vindkraft.tif"))[lonrange,latrange]
+        mask_onshoreA .= (riksintressen .> 0 .&& riksintressen .< 1000)     # override with onshore riksintressen areas
+        mask_onshoreB .= false
+        mask_offshore .= (riksintressen .> 1000)    # override with offshore riksintressen areas
     end
 
     if plotmasks != false   # can == :onlymasks as well
@@ -260,9 +265,12 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         masks = zeros(Int16, size(regions))
         masks[(masks .== 0) .& (popdens .> persons_per_km2)] .= 2
         masks[(masks .== 0) .& protected_area] .= 3
-        if mask_military_areas
-            masks[(masks .== 0) .& military] .= 4
-            legendtext = ["bad land type", "high population", "protected area", "military", "", "", "wind plant A", "wind plant B"]
+        if extramasktype == :military
+            masks[(masks .== 0) .& military] .= 5
+            legendtext = ["bad land type", "high population", "protected area", "", "military", "", "wind plant A", "wind plant B"]
+        elseif extramasktype == :riksintressen
+            masks[isregion .& mask_onshoreA] .= 5   # any onshore pixel with riksintressen (override 2 & 3)
+            legendtext = ["bad land type", "high population", "protected area", "", "riksintressen", "", "wind plant A", "wind plant B"]
         else
             masks[(masks .== 0) .& .!gridA .& .!gridB] .= 4
             legendtext = ["bad land type", "high population", "protected area", "no grid", "", "", "wind plant A", "wind plant B"]
@@ -279,9 +287,12 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         masks[(masks .== 0) .& shore .& isregion] .= 1
         masks[(masks .== 0) .& protected_area] .= 3
         masks[(masks .== 0) .& (topo .<= -max_depth)] .= 8
-        if mask_military_areas
-            masks[(masks .== 0) .& military] .= 4
-            legendtext = ["near shore", "", "protected area", "military", "", "", "wind offshore", "too deep water"]
+        if extramasktype == :military
+            masks[(masks .== 0) .& military] .= 5
+            legendtext = ["near shore", "", "protected area", "", "military", "", "wind offshore", "too deep water"]
+        elseif extramasktype == :riksintressen
+            masks[isregion .& mask_offshore] .= 5   # any onshore pixel with riksintressen (override 2 & 3)
+            legendtext = ["near shore", "", "protected area", "", "riksintressen", "", "wind offshore", "too deep water"]
         else
             masks[(masks .== 0) .& .!gridB] .= 4
             legendtext = ["near shore", "", "protected area", "no grid", "", "", "wind offshore", "too deep water"]
