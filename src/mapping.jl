@@ -1,9 +1,12 @@
 using FileIO, GeoMakie, ColorSchemes, Downloads, CairoMakie, Proj, GeoDataFrames, DelaunayTriangulation #, Rasters
 
-GDF = GeoDataFrames
 export createmaps, plotmap
 
 using GeoMakie.GeoJSON, GeoMakie.GeoInterface
+
+GDF = GeoDataFrames
+GI = GeoInterface
+GO = GDF.GeometryOps
 
 function createmap(gisregion, regions, regionlist, lons, lats, colors, source, dest,
                     landcenters, popcenters, connected, connectedoffshore;
@@ -163,15 +166,14 @@ function maskmap(mapname, regions, regionlist, lonrange, latrange;
 end
 
 function autocrop(img, padding::Int=0)
-    rowrange = dataindexes_lat(vec(any(img .!= RGB(1.0,1.0,1.0), dims=2)), padding)
-    colrange = dataindexes_lat(vec(any(img .!= RGB(1.0,1.0,1.0), dims=1)), padding)   # use _lat both times (_lon does it circularly) 
+    rowrange = dataindexes_lat(vec(any(img .!= RGBA(1.0,1.0,1.0,1.0), dims=2)), padding)
+    colrange = dataindexes_lat(vec(any(img .!= RGBA(1.0,1.0,1.0,1.0), dims=1)), padding)   # use _lat both times (_lon does it circularly) 
     return img[rowrange, colrange]
 end
 
 function ypad(img, newheight)
     height, width = size(img)
-    height == newheight && return img
-    height > newheight && error("Can't pad an image to a smaller size.")
+    height >= newheight && return img
     firstrow = (newheight - height) ÷ 2
     newimg = fill(RGB{N0f8}(1.0,1.0,1.0), (newheight, width))
     newimg[firstrow:(firstrow + height - 1), :] = img
@@ -204,9 +206,9 @@ function makelegend(labels, colors; scale=1)
         markersize = 0.1*scale,
         markerspace = :relative
     )
-    annotations!(ax,
-        labels,
+    text!(ax,
         textpositions,
+        text = labels,
         align = (:left, :center),
         fontsize = 20*scale,
         # space = :data
@@ -558,7 +560,7 @@ end
 
 function inpolys(point, polygons)
     for (i, poly) in enumerate(polygons)
-        if ArchGDAL.contains(poly, point)
+        if GO.contains(poly, point)
             return i
         end
     end
@@ -680,14 +682,14 @@ end
 
 function ehub_gridGIS()
     df = GDF.read(in_datafolder("ehub500.geojson"))
-    dfgeo = CSV.read("C:/Griddata/dfgeo_for_ehub500.csv", DataFrame)
-
+    dfgeo = CSV.read(in_datafolder("dfgeo_for_ehub500.csv"), DataFrame)
+    
     dfgeo.bus_id .= 0
     dfgeo.bus_row .= 0
     dfgeo.popDH .= 0
 
     for row in eachrow(dfgeo)
-        coords = ArchGDAL.createpoint(row.lon, row.lat)
+        coords = GI.Point(row.lon, row.lat)
         ndx = inpolys(coords, df.geometry)
         ndx == 0 && continue
         row.bus_id = df.bus_id[ndx]
@@ -695,8 +697,8 @@ function ehub_gridGIS()
         row.popDH = row.pop * (row.index_DHarea > 0)
     end
 
-    df.centroid .= ArchGDAL.centroid.(df.geometry)
-    df.vor_area .= ArchGDAL.geomarea.(df.geometry) .* rastercellarea.(GeoInterface.getcoord.(df.centroid, 2), 1.0)
+    df.centroid .= GO.centroid.(df.geometry)
+    df.vor_area .= GO.area.(df.geometry) .* rastercellarea.(GI.getcoord.(df.centroid, 2), 1.0)
 
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions("ehub500")
     res = 0.01

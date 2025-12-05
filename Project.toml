@@ -1,7 +1,7 @@
 name = "GlobalEnergyGIS"
 uuid = "31bfc850-377e-11e9-327a-adf9289f3a6c"
-authors = ["niclasmattsson <33093224+niclasmattsson@users.noreply.github.com>"]
 version = "0.1.0"
+authors = ["niclasmattsson <33093224+niclasmattsson@users.noreply.github.com>"]
 
 [deps]
 ArchGDAL = "c9ce4bd3-c3d5-55b8-8973-c0e20141b8c3"
@@ -21,7 +21,6 @@ Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 GDAL = "add2ef01-049f-52c4-9ee2-e494f65e021a"
 GDAL_jll = "a7073274-a066-55f0-b90d-d619367d196c"
-GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 GeoDataFrames = "62cb38b5-d8d2-4862-a48e-6a340996859f"
 GeoMakie = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
