@@ -249,6 +249,7 @@ const non_NUTS_Europe = [
     "west"      GADM("Greenland")
 ]
 
+# saveregions("Europe22", europe22; bbox=[34 -12; 72 32])   # bbox added to simply eliminate non-European territories
 const europe22 = [
     "SE1"   NUTS("SE332")
     "SE2"   NUTS("SE313", "SE321", "SE322", "SE331")
@@ -269,12 +270,16 @@ const europe22 = [
     "BAL"   NUTS("EE", "LV", "LT")
     "IRL"   NUTS("IE")
     "UK"    NUTS("UK")
-    "FRA"   (NUTS("FR"), GADM("Monaco"))
+    "FRA"   NUTS("FR", "MC")
+    # "FRA"   (NUTS("FR"), GADM("Monaco"))
     "CEN"   NUTS("AT", "CH", "LI", "CZ", "HU", "SK", "RO")  # Austria, Switzerland, Liechtenstein, Czech Rep, Hungary, Slovakia, Romania
-    "SPA"   (NUTS("ES", "PT"), GADM("Andorra"))             # Spain includes Gibraltar
-    "MED"   (NUTS("IT", "SI", "HR", "RS", "BG", "ME",       # Italy, Slovenia, Croatia, Serbia, Bularia, Montenegro
-                  "AL", "MK", "EL"),                        # Albania, North Macedonia, Greece
-            GADM("San Marino", "Vatican City", "Bosnia and Herzegovina", "Kosovo"))       # these are not included in NUTS-2016
+    "SPP"   NUTS("ES", "PT", "AD")                          # Spain includes Gibraltar
+    # "SPA"   (NUTS("ES", "PT"), GADM("Andorra"))             # Spain includes Gibraltar
+    "MED"   NUTS("IT", "SI", "HR", "RS", "BG", "ME",       # Italy, Slovenia, Croatia, Serbia, Bularia, Montenegro
+                  "AL", "MK", "EL", "SM", "VA", "BA", "1A")      # Albania, North Macedonia, Greece, San Marino, Vatican City, Bosnia and Herzegovina, Kosovo
+    # "MED"   (NUTS("IT", "SI", "HR", "RS", "BG", "ME",       # Italy, Slovenia, Croatia, Serbia, Bularia, Montenegro
+                  #   "AL", "MK", "EL"),                        # Albania, North Macedonia, Greece
+            # GADM("San Marino", "Vatican City", "Bosnia and Herzegovina", "Kosovo"))       # these are not included in NUTS-2016
     # Not included in any region:  Iceland, Faroe Islands, Cyprus, Malta, Isle of Man, Guernsey, Jersey, Jan Mayen, Svalbard, Bear Island,
     #                               Moldova, Ukraine, Belarus, Kaliningrad (or any part of Russia)
     # Islands that ARE included:  Canarias, Mallorca and other Balearic islands (ES); Madeira, Azores (PT); Åland (FI);
