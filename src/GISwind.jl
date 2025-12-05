@@ -243,6 +243,14 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     # all mask conditions
     mask_offshore = gridB .& .!shore .& (topo .> -max_depth) .& (offshoreregions .> 0) .& .!protected_area
 
+    mask_military_areas = false
+    if mask_military_areas
+        military = readraster(in_datafolder("geodata_försvarsmakten.tif"))[lonrange,latrange] .> 0
+        mask_onshoreA .&= .!military
+        mask_onshoreB .&= .!military
+        mask_offshore .&= .!military
+    end
+
     if plotmasks != false   # can == :onlymasks as well
         # drawmap(land)
         isregion = (regions .> 0) .& (regions .!= NOREGION)
@@ -252,13 +260,18 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         masks = zeros(Int16, size(regions))
         masks[(masks .== 0) .& (popdens .> persons_per_km2)] .= 2
         masks[(masks .== 0) .& protected_area] .= 3
-        masks[(masks .== 0) .& .!gridA .& .!gridB] .= 4
+        if mask_military_areas
+            masks[(masks .== 0) .& military] .= 4
+            legendtext = ["bad land type", "high population", "protected area", "military", "", "", "wind plant A", "wind plant B"]
+        else
+            masks[(masks .== 0) .& .!gridA .& .!gridB] .= 4
+            legendtext = ["bad land type", "high population", "protected area", "no grid", "", "", "wind plant A", "wind plant B"]
+        end
         masks[(masks .== 0) .& .!goodland] .= 1
         masks[(masks .== 0) .& .!gridA .& gridB] .= 8
         masks[(masks .== 0) .& isregion] .= 7
         masks[regions .== 0] .= 0
         masks[regions .== NOREGION] .= NOREGION
-        legendtext = ["bad land type", "high population", "protected area", "no grid", "", "", "wind plant A", "wind plant B"]
         maskmap("$(gisregion)_masks_wind$filenamesuffix", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
 
         isregion = (offshoreregions .> 0) .& (offshoreregions .!= NOREGION)
@@ -266,11 +279,17 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         masks[(masks .== 0) .& shore .& isregion] .= 1
         masks[(masks .== 0) .& protected_area] .= 3
         masks[(masks .== 0) .& (topo .<= -max_depth)] .= 8
+        if mask_military_areas
+            masks[(masks .== 0) .& military] .= 4
+            legendtext = ["near shore", "", "protected area", "military", "", "", "wind offshore", "too deep water"]
+        else
+            masks[(masks .== 0) .& .!gridB] .= 4
+            legendtext = ["near shore", "", "protected area", "no grid", "", "", "wind offshore", "too deep water"]
+        end
         masks[(masks .== 0) .& .!gridB] .= 4
         masks[(masks .== 0) .& isregion] .= 7
         masks[offshoreregions .== 0] .= NOREGION
         masks[offshoreregions .== NOREGION] .= 0
-        legendtext = ["near shore", "", "protected area", "no grid", "", "", "wind offshore", "too deep water"]
         maskmap("$(gisregion)_masks_windoffshore$filenamesuffix", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
     end
 

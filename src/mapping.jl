@@ -511,6 +511,37 @@ function rasterize_ehub500()
     nothing
 end
 
+function rasterize_vgr_military_areas()
+    println("\nReading shapefile info using ogrinfo...")
+    shapefile = in_datafolder("rikstackande-geodata-forsvarsmakten", "shp", "Stoppområde för höga objekt.shp")
+    ogrinfo_path() do ogrinfo
+        @time run(`$ogrinfo -al -so $shapefile`)
+    end
+    println("\nCreating .csv file for metadata...")
+    # sql = "select uid,id_0,name_0,id_1,name_1,id_2,name_2 from gadm36"
+    sql = "select * from \"Stoppområde för höga objekt\""
+    outfile = in_datafolder("geodata_försvarsmakten.csv")
+    ogr2ogr_path() do ogr2ogr
+        @time run(`$ogr2ogr -f CSV $outfile -sql $sql $shapefile`)
+    end
+
+    shapefile_proj = in_datafolder("rikstackande-geodata-forsvarsmakten", "shp", "Stoppområde för höga objekt - reprojected.shp")
+    # Couldn't figure out how to make gdal_rasterize reproject on the fly, so...
+    if !isfile(shapefile_proj)
+        println("Reprojecting shapefile to EPSG:4326...")
+        ogr2ogr_path() do ogr2ogr
+            @time run(`$ogr2ogr -t_srs epsg:4326 -lco ENCODING=UTF-8 $shapefile_proj $shapefile`)
+        end
+    end
+
+    println("\nRasterizing shapefile...")
+    outfile = in_datafolder("geodata_försvarsmakten.tif")
+    options = "-a OBJECTID -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
+    @time rasterize(shapefile_proj, outfile, split(options, ' '))
+
+    nothing
+end
+
 # Can't use Pandu's original Voronoi data, maps incompatible with my GADM regions and coastlines.
 # 
 function rasterize_vgr(num_nodes=104)
