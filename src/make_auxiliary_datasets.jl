@@ -199,7 +199,7 @@ end
 
 function loadtimezones(lonrange, latrange)
     jldopen(in_datafolder("timezones.jld"), "r") do file
-        return read(file, "timezones")[lonrange, latrange], read(file, "tznames")
+        return JLD.read(file, "timezones")[lonrange, latrange], JLD.read(file, "tznames")
     end
 end
 

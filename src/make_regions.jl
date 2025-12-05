@@ -99,8 +99,8 @@ end
 
 function loadregions(regionname)
     jldopen(in_datafolder("regions_$regionname.jld"), "r") do file
-        return read(file, "regions"), read(file, "offshoreregions"), read(file, "regionlist"),
-                    read(file, "lonrange"), read(file, "latrange")
+        return JLD.read(file, "regions"), JLD.read(file, "offshoreregions"), JLD.read(file, "regionlist"),
+                    JLD.read(file, "lonrange"), JLD.read(file, "latrange")
     end
 end
 
