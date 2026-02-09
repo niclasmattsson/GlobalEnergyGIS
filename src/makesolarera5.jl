@@ -49,7 +49,7 @@ function makesolarera5(; year=2018, land_cells_only=true)
             # DHI = GHI - replace(ncdataset["fdir"][:,:,:], missing => 0.0) .* (land .> 0) ./ (3600*1000)
             ssrd = nomissing(ncdataset["ssrd"][:,:,:], 0.0)
             fdir = nomissing(ncdataset["fdir"][:,:,:], 0.0)
-            datetime = nomissing(ncdataset["time"][:], DateTime(0))
+            datetime = nomissing(ncdataset["valid_time"][:], DateTime(0))
             GTI, DNI = @time transform_solar_vars(ssrd, fdir, datetime, land, land_cells_only)
 
             totalGTI += sumdrop(GTI, dims=1)
