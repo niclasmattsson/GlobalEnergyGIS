@@ -243,13 +243,13 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     # all mask conditions
     mask_offshore = gridB .& .!shore .& (topo .> -max_depth) .& (offshoreregions .> 0) .& .!protected_area
 
-    extramasktype = :riksintressen       # :none, :military, :riksintressen
+    extramasktype = :none       # :none, :military, :riksintressen
     if extramasktype == :military
         military = readraster(in_datafolder("geodata_försvarsmakten.tif"))[lonrange,latrange] .> 0
         mask_onshoreA .&= .!military    # exclude military areas
         mask_onshoreB .&= .!military
         mask_offshore .&= .!military
-    else
+    elseif extramasktype == :riksintressen
         riksintressen = readraster(in_datafolder("riksintressen_vindkraft.tif"))[lonrange,latrange]
         mask_onshoreA .= (riksintressen .> 0 .&& riksintressen .< 1000)     # override with onshore riksintressen areas
         mask_onshoreB .= false
