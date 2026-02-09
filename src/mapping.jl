@@ -9,7 +9,7 @@ GI = GeoInterface
 GO = GDF.GeometryOps
 
 function createmap(gisregion, regions, regionlist, lons, lats, colors, source, dest,
-                    landcenters, popcenters, connected, connectedoffshore;
+                    landcenters, popcenters, connected, connectedoffshore; capacitymap=false,
                     lines=false, labels=false, resolutionscale=1, textscale=1, dotscale=1.5, legend=false, dots=nothing, project=true)
     nreg = length(regionlist)
     scale = maximum(size(regions))/6500
@@ -27,10 +27,17 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     fig = Figure(size=pngsize)
     ga = GeoAxis(fig[1, 1]; dest = "+proj=tmerc +lon_0=$(mean(lons))", limits=lims)  # moll or tmerc for Sweden
 
-    if project  # no longer disables projection. heatmap! disables color interpolation but doesn't work in GLMakie, only CairoMakie
-        surface!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), shading=NoShading)
+    cmap = [RGBA(0.7,0.7,0.7,1.0); [cgrad(:linear_bgy_10_95_c74_n256)[x] for x in 0.0:0.01:1.0]]
+    if capacitymap
+        regions[regions.==0] .= -1
+        hm = heatmap!(ga, lons, lats, regions; colormap=cmap)
+        Colorbar(fig[1, 2], hm)
     else
-        heatmap!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), shading=NoShading)
+        if project  # no longer disables projection. heatmap! disables color interpolation but doesn't work in GLMakie, only CairoMakie
+            surface!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), shading=NoShading)
+        else
+            heatmap!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), shading=NoShading)
+        end
     end
 
     if lines
@@ -94,6 +101,7 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
     mergeregions[regions.==0] .= offshoreregions[regions.==0]
     mergeconnected = connectedregions(mergeregions, nreg)
     colorindices = greedycolor(mergeconnected, 1:7, 1:nreg, randseed=randseed)
+    # colorindices = [1, 5, 2, 6]  # for SE1234
     onshorecolors = [RGB(0.2,0.3,0.4); colorschemes[:Set2_7].colors[colorindices]; RGB(0.4,0.4,0.4)]
     offshorecolors = [RGB(0.4,0.4,0.4); colorschemes[:Set2_7].colors[colorindices]; RGB(0.2,0.3,0.4)]
     # onshorecolors = RGBA.([RGB(0.2,0.3,0.4); colorschemes[:Set2_7].colors[colorindices]; RGB(0.4,0.4,0.4)], 0.8)
@@ -162,6 +170,60 @@ function maskmap(mapname, regions, regionlist, lonrange, latrange;
     println("\nOnshore map...")
     createmap(mapname, regions, regionlist, lons, lats, onshorecolors, source, dest,
         [], [], connected, connected, lines=false, labels=false, resolutionscale=resolutionscale, textscale=textscale, legend=legend)
+    return nothing
+end
+
+function capacitymaps(regionname; resolutionscale=1, downsample=1)
+    regions, _, regionlist, lonrange, latrange = loadregions(regionname)
+    regions = regions[1:downsample:end, 1:downsample:end]
+    lonrange = lonrange[1:downsample:end]
+    latrange = latrange[1:downsample:end]
+    countries = unique([string(r)[1:2] for r in regionlist])
+    countrymap = [findfirst(countries .== string(r)[1:2]) for r in regionlist]
+    country = similar(regions)
+    for (i, r) in enumerate(regions)
+        country[i] = (r >= 1 && r <= length(regionlist)) ? countrymap[r] : 0
+    end
+
+    winddata = matread(in_datafolder("output", "GISdata_wind2019_$regionname.mat"))
+    solardata = matread(in_datafolder("output", "GISdata_solar2019_$regionname.mat"))
+    nreg = length(regionlist)
+
+    capon, cfon = winddata["capacity_onshoreA"], dropdims(mean(winddata["CFtime_windonshoreA"], dims=1), dims=1)
+    capoff, cfoff = winddata["capacity_offshore"], dropdims(mean(winddata["CFtime_windoffshore"], dims=1), dims=1)
+    capplant, cfplant = solardata["capacity_pvplantA"], dropdims(mean(solardata["CFtime_pvplantA"], dims=1), dims=1)
+    caproof, cfroof = solardata["capacity_pvrooftop"], dropdims(mean(solardata["CFtime_pvrooftop"], dims=1), dims=1)
+    cfon[isnan.(cfon)] .= 0.0
+    cfoff[isnan.(cfoff)] .= 0.0
+    cfplant[isnan.(cfplant)] .= 0.0
+    cfroof[isnan.(cfroof)] .= 0.0
+
+    classon, classoff, classpv = 3:5, 4:5, 3:5
+    areaon, areaoff = 0.08, 0.33
+    areaplant, arearoof = 0.03, 0.03
+    wintot = sum(capon[:, classon] .* cfon[:, classon] * 8.76 * areaon, dims=2) .+ sum(capoff[:, classoff] .* cfoff[:, classoff] * 8.76 * areaoff, dims=2)
+    pvtot = sum(capplant[:, classpv] .* cfplant[:, classpv] * 8.76 * areaplant, dims=2) .+ sum(caproof[:, classpv] .* cfroof[:, classpv] * 8.76 * arearoof, dims=2)
+    wind = zeros(size(regions))
+    pv = zeros(size(regions))
+    vrestot = zeros(size(regions))
+    for reg in 1:nreg
+        cty = countrymap[reg]
+        wind[country .== cty] .+= wintot[reg]
+        pv[country .== cty] .+= pvtot[reg]
+        vrestot[country .== cty] .+= wintot[reg] + pvtot[reg]
+    end
+
+    println("\nProjecting coordinates (Mollweide)...")
+    res = 0.01
+    res2 = res/2
+    lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
+    lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
+    source = "+proj=longlat +datum=WGS84"
+    dest = "+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84"
+
+    println("\nOnshore map...")
+    createmap("vres_energy_$regionname", vrestot, regionlist, lons, lats, RGB[], source, dest, [], [], Bool[], Bool[];
+        capacitymap=true, lines=false, labels=false, resolutionscale=resolutionscale)
     return nothing
 end
 
@@ -336,15 +398,20 @@ function create_ehub_data(; plotmasks=true, exclude_croplands_PV=false)
     # rasterize_district_heating_areas()
     # create_scenario_datasets("SSP2", 2020)
 
-    ehub500()
-    readhydro()
-    plotmasks && createmaps("ehub500", lines=false, labels=false)
+    # ehub500()
+    # readhydro()
+    # plotmasks && createmaps("ehub500", lines=false, labels=false)
     landclasses = exclude_croplands_PV ? [0,1,2,3,4,5,8,12] : [0,1,2,3,4,5,8]
     # landclasses = exclude_croplands_PV ? [0,1,2,3,4,5,8,12,14] : [0,1,2,3,4,5,8]
-    GISsolar(gisregion="ehub500"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true, exclude_landtypes=landclasses,
-                pvclasses_min=[0.08], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0])
+
+    # GISsolar(gisregion="ehub500"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true, exclude_landtypes=landclasses,
+    #             pvclasses_min=[0.08], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0])
     GISwind(gisregion="ehub500"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true,
                 onshoreclasses_min=[6], onshoreclasses_max=[99], offshoreclasses_min=[7], offshoreclasses_max=[99])
+
+    # using riksintressen vindkraft (available area = 1.0)
+    # GISwind(gisregion="ehub500"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, 
+    #             onshoreclasses_min=[6], onshoreclasses_max=[99], offshoreclasses_min=[7], offshoreclasses_max=[99])
     matlab2ehub()
     ehub_gridGIS()
     ehub_gridGIS_2()
