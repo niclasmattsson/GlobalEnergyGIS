@@ -844,6 +844,25 @@ function fixSEinEurope54()
                 "regionlist", regionlist, "lonrange", lonrange, "latrange", latrange, compress=true)
 end
 
+function make_SE1234_regions()
+    # saveregions("SwedenNUTS", ["SWE" NUTS("SE")])
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions("SwedenNUTS")
+    reg54, off54, list54, lonrange54, latrange54 = loadregions("Europe54_SEfix")
+    landcover = JLD.load(in_datafolder("landcover.jld"), "landcover")
+    landcover = landcover[lonrange54, latrange54]
+    loncrop = findfirst(==(lonrange[1]), lonrange54):findfirst(==(lonrange[end]), lonrange54)
+    latcrop = findfirst(==(latrange[1]), latrange54):findfirst(==(latrange[end]), latrange54)
+    reg54 = reg54[loncrop, latcrop]
+    landcover = landcover[loncrop, latcrop]
+    regions[regions.==1] .= 52 .- reg54[regions.==1]    # use correct SE1234 order, not the stupid ELLI order
+    territory = regions[feature_transform(regions.>0)]
+    offshoreregions = territory .* (landcover .== 0)
+    regionlist = Symbol.("SE" .* string.(1:4))
+    regionname = "SE1234"
+    JLD.save(in_datafolder("regions_$regionname.jld"), "regions", regions, "offshoreregions", offshoreregions,
+                "regionlist", regionlist, "lonrange", lonrange, "latrange", latrange, compress=true)
+end
+
 function winddata_40years(; wind=true, onshore=true)
     windsolar = wind ? "wind" : "solar"
     var = wind ? (onshore ? "CFtime_windonshoreA" : "CFtime_windoffshore") : "CFtime_pvplantA"
