@@ -25,7 +25,7 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
 
     println("...constructing map...")
     fig = Figure(size=pngsize)
-    ga = GeoAxis(fig[1, 1]; dest = "+proj=tmerc +lon_0=$(mean(lons))", limits=lims)  # moll or tmerc for Sweden
+    ga = GeoAxis(fig[1, 1]; dest = "+proj=moll +lon_0=$(mean(lons))", limits=lims)  # moll or tmerc for Sweden
 
     cmap = [RGBA(0.7,0.7,0.7,1.0); [cgrad(:linear_bgy_10_95_c74_n256)[x] for x in 0.0:0.01:1.0]]
     if capacitymap

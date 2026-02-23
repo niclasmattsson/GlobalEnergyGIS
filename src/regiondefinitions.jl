@@ -1,5 +1,5 @@
 export europe8, eurasia38, scand3, scand4, eurasia21, china6, europe13, europe21, europe22, europe54, syntheticdemandregions,
-        testreg, caspian, NUTS_Europe, eurasia92
+        testreg, caspian, NUTS_Europe, eurasia92, global7
 
 const scand3 = [
     "SWE"   GADM("Sweden")
@@ -534,4 +534,49 @@ johanna_virkesområden = [
                                 "Herrljunga", "Ulricehamn", "Borås", "Tranemo", "Svenljunga", "Mark")
     "Örebro"               GADM(["Sweden"], "Orebro")
     "Östergötland"         GADM(["Sweden"], "Östergötland")
+]
+
+const global7 = [
+    "Africa"        GADM("Algeria","Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon","Cape Verde",
+                         "Central African Republic","Chad","Comoros","Côte d'Ivoire","Democratic Republic of the Congo",
+                         "Djibouti","Egypt","Equatorial Guinea","Eritrea","Ethiopia","Gabon","Gambia","Ghana","Guinea",
+                         "Guinea-Bissau","Kenya","Lesotho","Liberia","Libya","Madagascar","Malawi","Mali","Mauritania",
+                         "Mauritius","Mayotte","Morocco","Mozambique","Namibia","Niger","Nigeria","Republic of Congo",
+                         "Reunion","Rwanda","São Tomé and Príncipe","Senegal","Seychelles","Sierra Leone","Somalia",
+                         "South Africa","South Sudan","Sudan","Swaziland","Tanzania","Togo","Tunisia","Uganda",
+                         "Western Sahara","Zambia","Zimbabwe")
+    "North America" GADM("Anguilla","Antigua and Barbuda","Aruba","Bahamas","Barbados","Belize","Bermuda",
+                         "Bonaire, Sint Eustatius and Saba","British Virgin Islands","Canada",
+                         "Cayman Islands","Clipperton Island","Costa Rica","Cuba","Curaçao",
+                         "Dominica","Dominican Republic","El Salvador",
+                         "Grenada","Guadeloupe","Guatemala","Haiti","Honduras","Jamaica","Martinique",
+                         "Mexico","Montserrat","Nicaragua","Panama","Puerto Rico",
+                         "Saint Kitts and Nevis","Saint Lucia","Saint Pierre and Miquelon",
+                         "Saint Vincent and the Grenadines","Saint-Barthélemy","Saint-Martin","Sint Maarten",
+                         "Trinidad and Tobago","Turks and Caicos Islands","United States",
+                         "United States Minor Outlying Islands","Virgin Islands, U.S.")
+    "South America" GADM("Argentina","Bolivia","Brazil","Chile","Colombia","Ecuador","Falkland Islands","French Guiana",
+                         "Guyana","Paraguay","Peru","South Georgia and the South Sandwich Islands",
+                         "Suriname","Uruguay","Venezuela")
+    "Asia"          GADM("Afghanistan","Armenia","Azerbaijan","Bahrain","Bangladesh","Bhutan","Brunei","Caspian Sea","Cambodia",
+                         "China","Cyprus","Georgia","Hong Kong","India","Indonesia","Iran","Iraq","Israel","Japan",
+                         "Jordan","Kazakhstan","Kuwait","Kyrgyzstan","Laos","Lebanon","Macao","Malaysia","Maldives",
+                         "Mongolia","Myanmar","Nepal","North Korea","Oman","Pakistan","Palestina","Philippines",
+                         "Qatar","Saudi Arabia","Singapore","South Korea","Sri Lanka","Syria","Taiwan","Tajikistan",
+                         "Thailand","Timor-Leste","Turkey","Turkmenistan","United Arab Emirates","Uzbekistan",
+                         "Vietnam","Yemen","Northern Cyprus","Paracel Islands","Spratly Islands","Russia")
+    "Europe"        GADM("Albania","Andorra","Austria","Belarus","Belgium","Bosnia and Herzegovina","Bulgaria",
+                         "Croatia","Czech Republic","Denmark","Estonia","Faroe Islands","Finland","France","Greenland",
+                         "Germany","Gibraltar","Greece","Guernsey","Hungary","Iceland","Ireland","Isle of Man",
+                         "Italy","Jersey","Kosovo","Latvia","Liechtenstein","Lithuania","Luxembourg","Macedonia",
+                         "Malta","Moldova","Monaco","Montenegro","Netherlands","Norway","Poland","Portugal",
+                         "Romania","San Marino","Serbia","Slovakia","Slovenia","Spain","Sweden",
+                         "Switzerland","Ukraine","United Kingdom","Vatican City","Åland","Akrotiri and Dhekelia",
+                         "Svalbard and Jan Mayen","Saint Helena","British Indian Ocean Territory")
+    "Oceania"       GADM("Australia","Cook Islands","Fiji","French Polynesia","Guam","Kiribati","Marshall Islands",
+                         "Micronesia","Nauru","New Caledonia","New Zealand","Niue","Norfolk Island",
+                         "Northern Mariana Islands","Palau","Papua New Guinea","Pitcairn Islands","Samoa",
+                         "Solomon Islands","Tokelau","Tonga","Tuvalu","Vanuatu","Wallis and Futuna",
+                         "American Samoa","Christmas Island","Cocos Islands","Heard Island and McDonald Islands")
+    "Antarctica"    GADM("Antarctica","Bouvet Island","French Southern Territories")
 ]
