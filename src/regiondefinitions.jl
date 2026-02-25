@@ -239,6 +239,36 @@ const NUTS_Europe = [
     "CAND"  NUTS("ME","MK","AL","RS","TR","BA","XK")
 ]
 
+const NUTS_EU27 = [
+    "AT" NUTS("AT") # Austria
+    "BE" NUTS("BE") # Belgium
+    "BG" NUTS("BG") # Bulgaria
+    "CY" NUTS("CY") # Cyprus
+    "CZ" NUTS("CZ") # Czechia
+    "DE" NUTS("DE") # Germany
+    "DK" NUTS("DK") # Denmark
+    "EE" NUTS("EE") # Estonia
+    "EL" NUTS("EL") # Greece
+    "ES" NUTS("ES") # Spain
+    "FI" NUTS("FI") # Finland
+    "FR" NUTS("FR") # France
+    "HR" NUTS("HR") # Croatia
+    "HU" NUTS("HU") # Hungary
+    "IE" NUTS("IE") # Ireland
+    "IT" NUTS("IT") # Italy
+    "LT" NUTS("LT") # Lithuania
+    "LU" NUTS("LU") # Luxembourg
+    "LV" NUTS("LV") # Latvia
+    "MT" NUTS("MT") # Malta
+    "NL" NUTS("NL") # Netherlands
+    "PL" NUTS("PL") # Poland
+    "PT" NUTS("PT") # Portugal
+    "RO" NUTS("RO") # Romania
+    "SE" NUTS("SE") # Sweden
+    "SI" NUTS("SI") # Slovenia
+    "SK" NUTS("SK") # Slovakia 
+]
+
 # Non NUTS regions and neighboring countries to European regions (onshore or offshore)
 # https://ec.europa.eu/eurostat/statistical-atlas/gis/viewer/?config=typologies.json
 const non_NUTS_Europe = [
