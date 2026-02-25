@@ -34,9 +34,9 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
         Colorbar(fig[1, 2], hm)
     else
         if project  # no longer disables projection. heatmap! disables color interpolation but doesn't work in GLMakie, only CairoMakie
-            surface!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), shading=NoShading)
+            surface!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), colorrange=(0, nreg+1), shading=NoShading)
         else
-            heatmap!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), shading=NoShading)
+            heatmap!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), colorrange=(0, nreg+1), shading=NoShading)
         end
     end
 
