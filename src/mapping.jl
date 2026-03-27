@@ -8,9 +8,10 @@ GDF = GeoDataFrames
 GI = GeoInterface
 GO = GDF.GeometryOps
 
-function createmap(gisregion, regions, regionlist, lons, lats, colors, source, dest,
+function createmap(gisregion, regions, regionlist, lons, lats, colors,
                     landcenters, popcenters, connected, connectedoffshore; capacitymap=false,
-                    lines=false, labels=false, resolutionscale=1, textscale=1, dotscale=1.5, legend=false, dots=nothing, project=true)
+                    lines=false, labels=false, resolutionscale=1, textscale=1, dotscale=1.5,
+                    legend=false, dots=nothing, proj="moll", fixoffset=false)
     nreg = length(regionlist)
     scale = maximum(size(regions))/6500
 
@@ -23,9 +24,9 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     pngwidth = max(1200, round(Int, resolutionscale*1.02*size(regions,1))) # allow for margins (+1% on both sides)
     pngsize = pngwidth, round(Int, pngwidth * aspect_ratio)     # use aspect ratio after projection transformation
 
-    println("...constructing map...")
+    println("...constructing map ($proj)...")
     fig = Figure(size=pngsize)
-    ga = GeoAxis(fig[1, 1]; dest = "+proj=moll +lon_0=$(mean(lons))", limits=lims)  # moll or tmerc for Sweden
+    ga = GeoAxis(fig[1, 1]; dest = "+proj=$proj +lon_0=$(mean(lons))", limits=lims)  # use proj = moll or longlat in general, or tmerc for Sweden
 
     cmap = [RGBA(0.7,0.7,0.7,1.0); [cgrad(:linear_bgy_10_95_c74_n256)[x] for x in 0.0:0.01:1.0]]
     if capacitymap
@@ -33,10 +34,12 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
         hm = heatmap!(ga, lons, lats, regions; colormap=cmap)
         Colorbar(fig[1, 2], hm)
     else
-        if project  # no longer disables projection. heatmap! disables color interpolation but doesn't work in GLMakie, only CairoMakie
-            surface!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), colorrange=(0, nreg+1), shading=NoShading)
+        if proj == "longlat"
+            # heatmap! disables color interpolation but doesn't work in GLMakie, only CairoMakie
+            # check if this can be deleted - exact same result with longlat as using surface! in CairoMakie
+            heatmap!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), colorrange=(0, nreg+1+fixoffset))
         else
-            heatmap!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), colorrange=(0, nreg+1), shading=NoShading)
+            surface!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), colorrange=(0, nreg+1+fixoffset), shading=NoShading)
         end
     end
 
@@ -87,7 +90,8 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors, source, d
     nothing
 end
 
-function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true, resolutionscale=1, textscale=1, randseed=1, downsample=1)
+function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true, resolutionscale=1, textscale=1,
+                    randseed=1, downsample=1, proj="moll", fixoffset=false)
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
     regions = regions[1:downsample:end, 1:downsample:end]
     offshoreregions = offshoreregions[1:downsample:end, 1:downsample:end]
@@ -107,13 +111,10 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
     # onshorecolors = RGBA.([RGB(0.2,0.3,0.4); colorschemes[:Set2_7].colors[colorindices]; RGB(0.4,0.4,0.4)], 0.8)
     # offshorecolors = RGBA.([RGB(0.4,0.4,0.4); colorschemes[:Set2_7].colors[colorindices]; RGB(0.2,0.3,0.4)], 0.8)
 
-    println("\nProjecting coordinates (Mollweide)...")
     res = 0.01
     res2 = res/2
     lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
     lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
-    source = "+proj=longlat +datum=WGS84"
-    dest = "+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84"
 
     println("\nFinding interregional transmission lines...")
     geocenters, popcenters = getregioncenters(regions, nreg, lonrange, latrange, res, scenarioyear)   # column order (lat,lon)
@@ -123,11 +124,11 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
     connectedoffshore[connected] .= false
 
     println("\nOnshore map...")
-    createmap(gisregion, regions, regionlist, lons, lats, onshorecolors, source, dest,
-        landcenters, popcenters, connected, connectedoffshore; lines, labels, resolutionscale, textscale)
+    createmap(gisregion, regions, regionlist, lons, lats, onshorecolors,
+        landcenters, popcenters, connected, connectedoffshore; lines, labels, resolutionscale, textscale, proj, fixoffset)
     println("\nOffshore map...")
-    createmap("$(gisregion)_offshore", offshoreregions, regionlist, lons, lats, offshorecolors, source, dest,
-        landcenters, popcenters, connected, connectedoffshore, lines=false, labels=false, resolutionscale=resolutionscale, textscale=textscale)
+    createmap("$(gisregion)_offshore", offshoreregions, regionlist, lons, lats, offshorecolors,
+        landcenters, popcenters, connected, connectedoffshore; lines=false, labels=false, resolutionscale, textscale, proj, fixoffset)
     # exit()
     return nothing
 end
@@ -136,7 +137,7 @@ xygrid(lons, lats) = [lon for lon in lons, lat in lats], [lat for lon in lons, l
 
 # ColorBrewer Set2_7:  https://juliagraphics.github.io/ColorSchemes.jl/stable/basics/#colorbrewer-1
 function maskmap(mapname, regions, regionlist, lonrange, latrange;
-                    resolutionscale=1, textscale=1, randseed=1, legend=false, downsample=1)
+                    resolutionscale=1, textscale=1, randseed=1, legend=false, downsample=1, proj="moll")
     regions = regions[1:downsample:end, 1:downsample:end]
     lonrange = lonrange[1:downsample:end]
     latrange = latrange[1:downsample:end]
@@ -164,16 +165,14 @@ function maskmap(mapname, regions, regionlist, lonrange, latrange;
     res2 = res/2
     lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
     lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
-    source = "+proj=longlat +datum=WGS84"
-    dest = "+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84"
 
     println("\nOnshore map...")
-    createmap(mapname, regions, regionlist, lons, lats, onshorecolors, source, dest,
-        [], [], connected, connected, lines=false, labels=false, resolutionscale=resolutionscale, textscale=textscale, legend=legend)
+    createmap(mapname, regions, regionlist, lons, lats, onshorecolors,
+        [], [], connected, connected; lines=false, labels=false, resolutionscale, textscale, legend, proj)
     return nothing
 end
 
-function capacitymaps(regionname; resolutionscale=1, downsample=1)
+function capacitymaps(regionname; resolutionscale=1, downsample=1, proj="moll")
     regions, _, regionlist, lonrange, latrange = loadregions(regionname)
     regions = regions[1:downsample:end, 1:downsample:end]
     lonrange = lonrange[1:downsample:end]
@@ -222,8 +221,8 @@ function capacitymaps(regionname; resolutionscale=1, downsample=1)
     dest = "+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84"
 
     println("\nOnshore map...")
-    createmap("vres_energy_$regionname", vrestot, regionlist, lons, lats, RGB[], source, dest, [], [], Bool[], Bool[];
-        capacitymap=true, lines=false, labels=false, resolutionscale=resolutionscale)
+    createmap("vres_energy_$regionname", vrestot, regionlist, lons, lats, RGB[], [], [], Bool[], Bool[];
+        capacitymap=true, lines=false, labels=false, resolutionscale, proj)
     return nothing
 end
 

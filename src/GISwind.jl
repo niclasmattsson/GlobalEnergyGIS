@@ -112,7 +112,7 @@ function WindOptions(d::Dict{Symbol,Any})
     return options
 end
 
-function GISwind(; savetodisk=true, plotmasks=false, optionlist...)
+function GISwind(; savetodisk=true, plotmasks=false, proj="moll",optionlist...)
     options = WindOptions(merge(windoptions(), optionlist))
     @unpack gisregion, era_year, filenamesuffix, downsample_masks, climate_scenario = options
 
@@ -120,8 +120,8 @@ function GISwind(; savetodisk=true, plotmasks=false, optionlist...)
                 read_datasets(options)
 
     mask_onshoreA, mask_onshoreB, mask_offshore =
-        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange,
-                            plotmasks=plotmasks, downsample=downsample_masks)
+        create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange;
+                            plotmasks, downsample=downsample_masks, proj)
 
     plotmasks == :onlymasks && return nothing
 
@@ -207,7 +207,8 @@ function read_wind_datasets(options, lonrange, latrange)
     end
 end
 
-function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange; plotmasks=false, downsample=1)
+function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange;
+                            plotmasks=false, downsample=1, proj="moll")
     @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2,
                 min_shore_distance, max_depth, classB_threshold, filenamesuffix, grid_everywhere = options
 
@@ -280,7 +281,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         masks[(masks .== 0) .& isregion] .= 7
         masks[regions .== 0] .= 0
         masks[regions .== NOREGION] .= NOREGION
-        maskmap("$(gisregion)_masks_wind$filenamesuffix", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
+        maskmap("$(gisregion)_masks_wind$filenamesuffix", masks, legendtext, lonrange, latrange; legend=true, downsample, proj)
 
         isregion = (offshoreregions .> 0) .& (offshoreregions .!= NOREGION)
         masks = zeros(Int16, size(offshoreregions))
@@ -301,7 +302,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         masks[(masks .== 0) .& isregion] .= 7
         masks[offshoreregions .== 0] .= NOREGION
         masks[offshoreregions .== NOREGION] .= 0
-        maskmap("$(gisregion)_masks_windoffshore$filenamesuffix", masks, legendtext, lonrange, latrange; legend=true, downsample=downsample)
+        maskmap("$(gisregion)_masks_windoffshore$filenamesuffix", masks, legendtext, lonrange, latrange; legend=true, downsample, proj)
     end
 
     return mask_onshoreA, mask_onshoreB, mask_offshore

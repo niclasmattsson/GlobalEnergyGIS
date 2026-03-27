@@ -90,7 +90,7 @@ function map_protected(; downsample=1, resolutionscale=1, textscale=1, project=t
 
     println("\nOnshore map...")
     zoom = 8
-    createmap("$(gisregion)_protected", repeat(mask, inner=(zoom,zoom)), legendtext, lons, lats, colors, source, dest, repeat(xs, inner=(zoom,zoom)), repeat(ys, inner=(zoom,zoom)),
+    createmap("$(gisregion)_protected", repeat(mask, inner=(zoom,zoom)), legendtext, lons, lats, colors, repeat(xs, inner=(zoom,zoom)), repeat(ys, inner=(zoom,zoom)),
         [], [], connected, connected; lines=false, labels=false, resolutionscale, textscale, dotscale, project, legend=true, dots=(tx,ty))
 end
 
