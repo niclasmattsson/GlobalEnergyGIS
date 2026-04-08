@@ -38,6 +38,7 @@ windoptions() = Dict(
     :classB_threshold => 0.001, # minimum share of pixels within distance_elec_access km that must have grid access
                                 # for a pixel to be considered for wind class B.
 
+    :extramask => :none,        # :none, :military, :riksintressen
     :climate_scenario => ""     # e.g. "HCLIM_EC-EARTH_100m_rcp85_2050", "CORDEX_ictp_EC-EARTH_100m_rcp85_2050"
 )
     # Land types
@@ -95,15 +96,15 @@ mutable struct WindOptions
     onshoreclasses_max      ::Vector{Float64}
     offshoreclasses_min     ::Vector{Float64}
     offshoreclasses_max     ::Vector{Float64}
-    turbine_curve              ::String
+    turbine_curve           ::String
     grid_everywhere         ::Bool
     downsample_masks        ::Int
     classB_threshold        ::Float64
+    extramask               ::Symbol
     climate_scenario        ::String
 end
 
-WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,100,100,0,0,[],[],[],[],"",false,0,0.0,"")
-
+WindOptions() = WindOptions("","",0,0,0,0,0,0,0,0,[],[],"",0,false,100,100,0,0,[],[],[],[],"",false,0,0.0,:none,"")
 function WindOptions(d::Dict{Symbol,Any})
     options = WindOptions()
     for (key,val) in d
@@ -210,7 +211,7 @@ end
 function create_wind_masks(options, regions, offshoreregions, gridaccess, popdens, topo, land, protected, lonrange, latrange;
                             plotmasks=false, downsample=1, proj="moll")
     @unpack res, gisregion, exclude_landtypes, protected_codes, distance_elec_access, persons_per_km2,
-                min_shore_distance, max_depth, classB_threshold, filenamesuffix, grid_everywhere = options
+                min_shore_distance, max_depth, classB_threshold, filenamesuffix, grid_everywhere, extramask = options
 
     println("Creating masks...")
 
@@ -244,17 +245,19 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     # all mask conditions
     mask_offshore = gridB .& .!shore .& (topo .> -max_depth) .& (offshoreregions .> 0) .& .!protected_area
 
-    extramasktype = :none       # :none, :military, :riksintressen
-    if extramasktype == :military
+    if extramask == :military
         military = readraster(in_datafolder("geodata_försvarsmakten.tif"))[lonrange,latrange] .> 0
         mask_onshoreA .&= .!military    # exclude military areas
         mask_onshoreB .&= .!military
         mask_offshore .&= .!military
-    elseif extramasktype == :riksintressen
+    elseif extramask == :riksintressen
         riksintressen = readraster(in_datafolder("riksintressen_vindkraft.tif"))[lonrange,latrange]
-        mask_onshoreA .= (riksintressen .> 0 .&& riksintressen .< 1000)     # override with onshore riksintressen areas
-        mask_onshoreB .= false
-        mask_offshore .= (riksintressen .> 1000)    # override with offshore riksintressen areas
+        countries, _, countrynames, _, _ = loadregions("Global_GADM0")
+        # findfirst(countrynames .== :Sweden)   # => 222
+        isSweden = countries[lonrange,latrange] .== 222
+        mask_onshoreA[isSweden] .= (riksintressen .> 0 .&& riksintressen .< 1000)[isSweden]     # override with onshore riksintressen areas
+        mask_onshoreB[isSweden] .= false
+        mask_offshore[isSweden] .= (riksintressen .> 1000)[isSweden]    # override with offshore riksintressen areas
     end
 
     if plotmasks != false   # can == :onlymasks as well
@@ -266,14 +269,14 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         masks = zeros(Int16, size(regions))
         masks[(masks .== 0) .& (popdens .> persons_per_km2)] .= 2
         masks[(masks .== 0) .& protected_area] .= 3
-        if extramasktype == :military
-            masks[(masks .== 0) .& military] .= 5
-            legendtext = ["bad land type", "high population", "protected area", "", "military", "", "wind plant A", "wind plant B"]
-        elseif extramasktype == :riksintressen
-            masks[isregion .& mask_onshoreA] .= 5   # any onshore pixel with riksintressen (override 2 & 3)
-            legendtext = ["bad land type", "high population", "protected area", "", "riksintressen", "", "wind plant A", "wind plant B"]
+        masks[(masks .== 0) .& .!gridA .& .!gridB] .= 4
+        if extramask == :military
+            masks[(masks .== 0) .& military] .= 6
+            legendtext = ["bad land type", "high population", "protected area", "no grid", "", "military", "wind plant A", "wind plant B"]
+        elseif extramask == :riksintressen
+            masks[isregion .& mask_onshoreA] .= 6   # any onshore pixel with riksintressen (override 2 & 3)
+            legendtext = ["bad land type", "high population", "protected area", "no grid", "", "riksintressen", "wind plant A", "wind plant B"]
         else
-            masks[(masks .== 0) .& .!gridA .& .!gridB] .= 4
             legendtext = ["bad land type", "high population", "protected area", "no grid", "", "", "wind plant A", "wind plant B"]
         end
         masks[(masks .== 0) .& .!goodland] .= 1
@@ -288,14 +291,14 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         masks[(masks .== 0) .& shore .& isregion] .= 1
         masks[(masks .== 0) .& protected_area] .= 3
         masks[(masks .== 0) .& (topo .<= -max_depth)] .= 8
-        if extramasktype == :military
-            masks[(masks .== 0) .& military] .= 5
-            legendtext = ["near shore", "", "protected area", "", "military", "", "wind offshore", "too deep water"]
-        elseif extramasktype == :riksintressen
-            masks[isregion .& mask_offshore] .= 5   # any onshore pixel with riksintressen (override 2 & 3)
-            legendtext = ["near shore", "", "protected area", "", "riksintressen", "", "wind offshore", "too deep water"]
+        masks[(masks .== 0) .& .!gridB] .= 4
+        if extramask == :military
+            masks[(masks .== 0) .& military] .= 6
+            legendtext = ["near shore", "", "protected area", "no grid", "", "military", "wind offshore", "too deep water"]
+        elseif extramask == :riksintressen
+            masks[isregion .& mask_offshore] .= 6   # any onshore pixel with riksintressen (override 2 & 3)
+            legendtext = ["near shore", "", "protected area", "no grid", "", "riksintressen", "wind offshore", "too deep water"]
         else
-            masks[(masks .== 0) .& .!gridB] .= 4
             legendtext = ["near shore", "", "protected area", "no grid", "", "", "wind offshore", "too deep water"]
         end
         masks[(masks .== 0) .& .!gridB] .= 4
@@ -490,7 +493,6 @@ function annualwindindex(options; resource=:wind, sites_quantile=1.0, aggregater
     smallregions = resize_categorical(regions, regionlist, lonrange, latrange;
                 skipNOREGION=true)
     eralonranges, eralatrange = eraranges(lonrange, latrange, res, erares)
-    varname = (resource == :wind) ? "annualwind" : "annualssrd"
     annualwind = getmonthlywind(:annual, resource, eralonranges, eralatrange, filenamesuffix)
     meanwind = meandrop(annualwind, dims=1)
     nyears, nreg = size(annualwind, 1), length(regionlist)
@@ -507,6 +509,24 @@ function annualwindindex(; resource=:wind, sites_quantile=1.0, aggregateregions=
     options = WindOptions(merge(windoptions(), optionlist))
     return annualwindindex(options, resource=resource, sites_quantile=sites_quantile,
                     aggregateregions=aggregateregions)
+end
+
+function export_annual_resource_indexes()
+    ww, _,_,_ = annualwindindex(; sites_quantile=0.5, gisregion="Europe54")
+    ss, _,_,_ = annualwindindex(; sites_quantile=0.5, resource=:solar, gisregion="Europe54")
+    regions, _, regionlist, lonrange, latrange = loadregions("Europe54")
+    years = 1980:2025
+    # make dataframes, year data in rows and regionlist in columns, years is first column
+    df_year = DataFrame(year=years)
+    df_winddata = DataFrame(ww, :auto)
+    rename!(df_winddata, Symbol.(regionlist))
+    df_wind = hcat(df_year, df_winddata)
+    df_solardata = DataFrame(ss, :auto)
+    rename!(df_solardata, Symbol.(regionlist))
+    df_solar = hcat(df_year, df_solardata)
+    CSV.write(in_datafolder("annual_resource_indexes_wind.csv"), df_wind)
+    CSV.write(in_datafolder("annual_resource_indexes_solar.csv"), df_solar)
+    nothing
 end
 
 function seasonalwindprofile(; resource=:wind, sites_quantile=1.0, aggregateregions=[], optionlist...)
@@ -529,7 +549,7 @@ end
 
 function getmonthlywind(time, resource, eralonranges, eralatrange, filenamesuffix)
     h5open(in_datafolder("era5monthly$resource$filenamesuffix.h5"), "r") do file
-        varname = (resource == :wind) ? "$(time)wind" : "$(time)ssrd"
+        varname = (resource == :wind) ? "$(time)wind" : "$(time)GTI"
         if length(eralonranges) == 1
             file[varname][:, eralonranges[1], eralatrange]
         else
