@@ -811,6 +811,69 @@ function mapping_voronoi_virke_elli()
     end
 end
 
+function region_mapping_simon()
+    ehub = CSV.read(in_datafolder("ehub_gridGIS_v2.csv"), DataFrame, delim=';', decimal=',')
+    # xlsx_buslines = in_datafolder("DLR", "Bus_and_line_data_EHUB400_future_data_v1_12.xlsx")
+    # lines = XLSX.readtable(xlsx_buslines, "lines"; infer_eltypes=true) |> DataFrame
+    # buses = XLSX.readtable(xlsx_buslines, "buses"; infer_eltypes=true) |> DataFrame
+    # return buses
+    buses = CSV.read(in_datafolder("Bus_and_line_data_EHUB400_future_data_v1_6 - buses.csv"), DataFrame)
+    # df = GDF.read(in_datafolder("ehub500.geojson"))
+    df = GDF.read("C:/Users/niclas/Downloads/ehub500.geojson")
+    return df
+
+    # open(in_datafolder("output", "maxcapacity_$(gisregion)_$year.inc"), "w") do f
+    #     for (t, tech) in enumerate(technames)
+    #         for c = 1:nclasses[t]
+    #             for (r,reg) in enumerate(region)
+    #                 val = round(data[capvar[t]][r,c], digits=3)
+    #                 val == 0 && continue
+    #                 !isnan(val) && val > 0 && @printf(f, "%s%-2d . %-3s %9.3f\n", tech, c, reg, val)
+    #             end
+    #         end
+    #     end
+    # end
+end
+
+function solarfilippo()
+    res, erares = 0.01, 0.28125
+    molndalC = lonlat2rowcol((12.015, 57.655), res)
+    lindomeC = lonlat2rowcol((12.088, 57.577), res)
+    lackareback = lonlat2rowcol((12.013, 57.666), res)
+    lons = extrema([molndalC[1], lindomeC[1], lackareback[1]])
+    lats = extrema([molndalC[2], lindomeC[2], lackareback[2]])
+    lonrange = lons[1]:lons[2]
+    latrange = lats[1]:lats[2]
+    _, GTI2024, _, _ = read_solar_datasets((; res, erares, era_year=2024), lonrange, latrange)
+    _, GTI2025, _, _ = read_solar_datasets((; res, erares, era_year=2025), lonrange, latrange)
+    cf = clamp.(round.(meandrop([GTI2024; GTI2025], dims=(2,3)), digits=9), 0.0, 1.0)
+    time = DateTime(2024, 1, 1, 0) : Hour(1) : DateTime(2025, 12, 31, 23)
+    df = DataFrame(time=time, CF=cf)
+    CSV.write(in_datafolder("output", "SolarPV Mölndal 2024-2025.csv"), df)
+
+    GISsolar(gisregion="Sweden21"; era_year=2024, grid_everywhere=true,
+                pvclasses_min=[0.01], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0])
+    GISsolar(gisregion="Sweden21"; era_year=2025, grid_everywhere=true,
+                pvclasses_min=[0.01], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0])
+    GISsolar(gisregion="Sweden290"; era_year=2024, grid_everywhere=true,
+                pvclasses_min=[0.01], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0])
+    GISsolar(gisregion="Sweden290"; era_year=2025, grid_everywhere=true,
+                pvclasses_min=[0.01], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0])
+    cf21_2024 = matread(in_datafolder("output", "GISdata_solar2024_Sweden21.mat"))["CFtime_pvplantA"]
+    cf21_2025 = matread(in_datafolder("output", "GISdata_solar2025_Sweden21.mat"))["CFtime_pvplantA"]
+    cf290_2024 = matread(in_datafolder("output", "GISdata_solar2024_Sweden290.mat"))["CFtime_pvplantA"]
+    cf290_2025 = matread(in_datafolder("output", "GISdata_solar2025_Sweden290.mat"))["CFtime_pvplantA"]
+    cf21 = clamp.(round.(dropdims([cf21_2024; cf21_2025], dims=3), digits=9), 0.0, 1.0)
+    cf290 = clamp.(round.(dropdims([cf290_2024; cf290_2025], dims=3), digits=9), 0.0, 1.0)
+    _, _, regionlist21, _, _ = loadregions("Sweden21")
+    _, _, regionlist290, _, _ = loadregions("Sweden290")
+    df21 = DataFrame(cf21, regionlist21)
+    df290 = DataFrame(cf290, regionlist290)
+    dftime = DataFrame(time=time)
+    CSV.write(in_datafolder("output", "SolarPV alla län 2024-2025.csv"), hcat(dftime, df21))
+    CSV.write(in_datafolder("output", "SolarPV alla kommuner 2024-2025.csv"), hcat(dftime, df290))
+end
+
 function swedish_capacity_diagnostic()
     df0 = CSV.File(in_datafolder("Windfarms_Europe_20240407_CLEANED.csv")) |> DataFrame
     df, invest = add_gisdata_to_farms(df0) 

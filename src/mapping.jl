@@ -394,29 +394,41 @@ function plottimeoffsets()
 end
 
 function create_ehub_data(; plotmasks=true, exclude_croplands_PV=false)
-    # saveregions("Scand4_ehub500", scand4_ehub500; autocrop=false, bbox=[53.8 3.5; 72.2 32.6])
-    # makedistances("Scand4_ehub500")
-    # createmaps("Scand4_ehub500")
-    # rasterize_district_heating_areas()
-    # create_scenario_datasets("SSP2", 2020)
+    # # saveregions("Scand4_ehub500", scand4_ehub500; autocrop=false, bbox=[53.8 3.5; 72.2 32.6])
+    # # makedistances("Scand4_ehub500")
+    # # createmaps("Scand4_ehub500")
+    # # rasterize_district_heating_areas()
+    # # create_scenario_datasets("SSP2", 2020)
 
-    # ehub500()
-    # readhydro()
-    # plotmasks && createmaps("ehub500", lines=false, labels=false)
-    landclasses = exclude_croplands_PV ? [0,1,2,3,4,5,8,12] : [0,1,2,3,4,5,8]
-    # landclasses = exclude_croplands_PV ? [0,1,2,3,4,5,8,12,14] : [0,1,2,3,4,5,8]
+    # # ehub500()
+    # # readhydro()
+    # # plotmasks && createmaps("ehub500", lines=false, labels=false)
+    # landclasses = exclude_croplands_PV ? [0,1,2,3,4,5,8,12] : [0,1,2,3,4,5,8]
+    # # landclasses = exclude_croplands_PV ? [0,1,2,3,4,5,8,12,14] : [0,1,2,3,4,5,8]
 
-    # GISsolar(gisregion="ehub500"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true, exclude_landtypes=landclasses,
-    #             pvclasses_min=[0.08], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0])
-    GISwind(gisregion="ehub500"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true,
-                onshoreclasses_min=[6], onshoreclasses_max=[99], offshoreclasses_min=[7], offshoreclasses_max=[99])
-
-    # using riksintressen vindkraft (available area = 1.0)
-    # GISwind(gisregion="ehub500"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, 
+    # # GISsolar(gisregion="ehub500"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true, exclude_landtypes=landclasses,
+    # #             pvclasses_min=[0.08], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0])
+    # GISwind(gisregion="ehub500"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true,
     #             onshoreclasses_min=[6], onshoreclasses_max=[99], offshoreclasses_min=[7], offshoreclasses_max=[99])
-    matlab2ehub()
-    ehub_gridGIS()
-    ehub_gridGIS_2()
+
+    # # using riksintressen vindkraft (available area = 1.0)
+    # # GISwind(gisregion="ehub500"; era_year=2019, plotmasks=plotmasks, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, 
+    # #             onshoreclasses_min=[6], onshoreclasses_max=[99], offshoreclasses_min=[7], offshoreclasses_max=[99])
+    # matlab2ehub()
+    # ehub_gridGIS()
+    # ehub_gridGIS_2()
+
+    predictdemand(; gisregion="ehub500", sspscenario="ssp2-26", sspyear=2020, era_year=2019)
+    temp = CSV.read(in_datafolder("output", "temperature_top3_mean_ehub500_2019.csv"), DataFrame)
+    hubdata = CSV.read(in_datafolder("output", "ehub_gridGIS.csv"), DataFrame; delim=';', decimal=',')
+    newcols = setdiff(hubdata.bus_id, parse.(Int, names(temp)))
+    tempzeros = DataFrame(zeros(nrow(temp), length(newcols)), string.(newcols))
+    newtemp = hcat(temp, tempzeros)
+    newtemp = newtemp[:, sortperm(parse.(Int, names(newtemp)))]
+    hours = 'h' .* lpad.(string.(1:8760), 4, '0')
+    df_hours = DataFrame("" => hours)
+    newtemp = hcat(df_hours, newtemp)
+    CSV.write(in_datafolder("output", "temperature_top3_mean_ehub500_2019.csv"), newtemp; delim=';', decimal=',')
 end
 
 function ehub500()
@@ -471,15 +483,15 @@ function ehub500()
     return buses
 end
 
-function vgrdata(num_nodes=104; plotmasks=true, PV_exclude_croplands=true, PV_exclude_croplands_natural=false)
-    gisregion = "vgr$(num_nodes)b"
+function vgrdata(num_nodes=122; plotmasks=true, extramask=:none, PV_exclude_croplands=true, PV_exclude_croplands_natural=false)
+    gisregion = "vgr$(num_nodes)c"
     plotmasks && createmaps(gisregion, lines=false, labels=true, resolutionscale=8, textscale=1/4)
     exclude_landtypes = [0,1,2,3,4,5,8]
     PV_exclude_croplands && push!(exclude_landtypes, 12) 
     PV_exclude_croplands_natural && push!(exclude_landtypes, 14) 
     GISsolar(; gisregion, era_year=2019, plotmasks, grid_everywhere=true, exclude_landtypes,
                 pvclasses_min=[0.08], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0])
-    GISwind(; gisregion, era_year=2019, plotmasks, grid_everywhere=true,
+    GISwind(; gisregion, era_year=2019, plotmasks, grid_everywhere=true, extramask,
                 onshoreclasses_min=[6], onshoreclasses_max=[99], offshoreclasses_min=[7], offshoreclasses_max=[99])
     predictdemand(; gisregion, sspscenario="ssp2-26", sspyear=2020, era_year=2019)
 end
@@ -513,8 +525,10 @@ function create_mareld_region()
 end
 
 function create_vgr_data()
-    dfsubs = GDF.read(in_datafolder("vgr", "subs_final.geojson"))
+    dfsubs = CSV.read(in_datafolder("vgr", "substations_vgr.csv"), DataFrame; decimal=',')[1:end-4, :]  # exclude 4 virtual nodes
+    # dfsubs = GDF.read(in_datafolder("vgr", "subs_final.geojson"))
     # dfsubs = CSV.read(in_datafolder("vgr", "subs_final.csv"), DataFrame)
+    display(dfsubs)
 
     xy = Matrix(dfsubs[:, ["lon", "lat"]])
     bbox = (4.5, 31.6, 54.8, 71.2) .+ (-1, 1, -1, 1)   # <-- tight,  [52.90 2.24; 72.84 33.24] with 6% padding
@@ -537,8 +551,8 @@ function create_vgr_data()
     GDF.write(in_datafolder("output", "VGR subs with full Voronoi (no coasts).geojson"), dfsubs)
     rasterize_vgr(num_nodes)
     
-    vgr = readraster(in_datafolder("vgr$(num_nodes)b.tif"))
-    regions, offshoreregions, regionlist, lonrange, latrange = loadregions("VGR")
+    vgr = readraster(in_datafolder("vgr$(num_nodes)c.tif"))
+    regions, offshoreregions, regionlist, lonrange, latrange = loadregions("VGR_NUTS")
 
     res = 0.01
     res2 = res/2
@@ -551,8 +565,8 @@ function create_vgr_data()
     noreg = (regions .== NOREGION .|| offshoreregions .== NOREGION)
     vv[noreg] .= NOREGION
 
-    saveregions("vgr$(num_nodes)b", dfsubs.node_id, vgr; autocrop=false, bbox)
-    makedistances("vgr$(num_nodes)b")
+    saveregions("vgr$(num_nodes)c", dfsubs.node_id, vgr; autocrop=false, bbox)
+    makedistances("vgr$(num_nodes)c")
 end
 
 intersectedarea(p1,p2) = intersects(p1,p2) ? area(intersection(p1,p2)) : 0.0
@@ -652,7 +666,7 @@ function rasterize_vgr(num_nodes=104)
     println("\nRasterizing vgr geojson...")
     # geojson = in_datafolder("vgr", "voronoi_cells_$(num_nodes)nodes.geojson")
     geojson = in_datafolder("output", "VGR subs with full Voronoi (no coasts).geojson")
-    outfile = in_datafolder("vgr$(num_nodes)b.tif")
+    outfile = in_datafolder("vgr$(num_nodes)c.tif")
     options = "-a vor_id -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
     # options = "-a UID -ot Int32 -tr 0.02 0.02 -te -180 -90 180 90 -co COMPRESS=LZW"
     @time rasterize(geojson, outfile, split(options, ' '))

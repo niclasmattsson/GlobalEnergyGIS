@@ -566,6 +566,13 @@ johanna_virkesområden = [
     "Östergötland"         GADM(["Sweden"], "Östergötland")
 ]
 
+const sweden_län = subregions(GADM, "Sweden")
+const sweden21 = [sweden_län GADM.(["Sweden"], sweden_län)]
+
+const sweden_kommuner = Dict(munic => reg for reg in sweden_län for munic in subregions(GADM, "Sweden", reg))
+const swe_gadm_helper = [GADM(["Sweden", reg], munic) for (munic, reg) in sweden_kommuner]
+const sweden290 = [collect(keys(sweden_kommuner)) swe_gadm_helper]
+
 const global7 = [
     "Africa"        GADM("Algeria","Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon","Cape Verde",
                          "Central African Republic","Chad","Comoros","Côte d'Ivoire","Democratic Republic of the Congo",
