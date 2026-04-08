@@ -188,7 +188,7 @@ function buildtrainingdata(; gisregion="Europe8", sspscenario="ssp2-34", sspyear
     df = innerjoin(df_time, df_monthlytemp, on=[:country, :month]) |>
                     d -> innerjoin(d, df_reg, on=:country)
 
-    filename = "temperature_top3_mean_$(gisregion)_$sspscenario-$(sspyear)_$era_year.csv"
+    filename = "temperature_top3_mean_$(gisregion)_$era_year.csv"
     CSV.write(in_datafolder("output", filename), DataFrame(temperature_top3_mean, regionlist))
 
     return df, offsets, population
