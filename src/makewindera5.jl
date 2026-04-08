@@ -61,9 +61,9 @@ end
 # which take monthly averages of u and v components of wind speed. Doing so would
 # greatly underestimate absolute wind speeds in locations where wind direction
 # changes frequently. So instead we use ordinary hourly ERA5 data. This assumes
-# that every year between 1979-2019 has been downloaded (for wind).
+# that every year between 1979-2025 has been downloaded (for wind).
 function makemonthlywindera5(; windatlas_only=true)
-    years = 1980:2019
+    years = 1980:2025
     nyears = length(years)
     nmonths = nyears*12
     gridsize = (1280,640)

@@ -67,45 +67,41 @@ function makesolarera5(; year=2018, land_cells_only=true)
     nothing
 end
 
-function makemonthlysolarera5(; land_cells_only=true)
-    years = 1979:2019
+function makemonthlysolarera5()
+    years = 1980:2025
     nyears = length(years)
     nmonths = nyears*12
     gridsize = (1280,640)
 
     datafolder = getconfig("datafolder")
-    downloadsfolder = joinpath(datafolder, "downloads")
-    
+
     filename = joinpath(datafolder, "era5monthlysolar.h5")
     isfile(filename) && error("File $filename exists in $datafolder, please delete or rename manually.")
 
-    land = imresize(JLD.load(joinpath(datafolder, "landcover.jld"), "landcover"), gridsize)
-
     println("Creating HDF5 file:  $filename")
-    h5open(filename, "w") do file 
+    h5open(filename, "w") do file
         group = file["/"]
-        # create GTI and DNI variables (Global Tilted Irradiance and Direct Normal Irradiance)
-        dataset_ssrd = create_dataset(group, "monthlyssrd", datatype(Float32), dataspace(nmonths,gridsize...), chunk=(nmonths,16,16), blosc=3)
-        dataset_fdir = create_dataset(group, "monthlyfdir", datatype(Float32), dataspace(nmonths,gridsize...), chunk=(nmonths,16,16), blosc=3)
-        dataset_annualssrd = create_dataset(group, "annualssrd", datatype(Float32), dataspace(nyears,gridsize...), chunk=(nyears,16,16), blosc=3)
-        dataset_annualfdir = create_dataset(group, "annualfdir", datatype(Float32), dataspace(nyears,gridsize...), chunk=(nyears,16,16), blosc=3)
-   
-        erafile = in_datafolder("downloads", "monthlysolar_$(years[1])-$(years[end]).nc")
+        # create monthly and annual GTI and DNI variables (Global Tilted Irradiance and Direct Normal Irradiance)
+        dataset_monthlyGTI = create_dataset(group, "monthlyGTI", datatype(Float32), dataspace(nmonths,gridsize...), chunk=(nmonths,16,16), blosc=3)
+        dataset_monthlyDNI = create_dataset(group, "monthlyDNI", datatype(Float32), dataspace(nmonths,gridsize...), chunk=(nmonths,16,16), blosc=3)
+        dataset_annualGTI = create_dataset(group, "annualGTI", datatype(Float32), dataspace(nyears,gridsize...), chunk=(nyears,16,16), blosc=3)
+        dataset_annualDNI = create_dataset(group, "annualDNI", datatype(Float32), dataspace(nyears,gridsize...), chunk=(nyears,16,16), blosc=3)
 
-        println("Reading solar diffuse and direct components from $erafile...")
-        # Permute dimensions to get hours as dimension 1 (for efficient iteration in GISwind())
-        ncdataset = Dataset(erafile)
-        ssrd = permutedims(nomissing(ncdataset["ssrd"][:,:,:], 0.0) .* (land .> 0), [3,1,2])
-        fdir = permutedims(nomissing(ncdataset["fdir"][:,:,:], 0.0) .* (land .> 0), [3,1,2])
-
-        println("Writing to $filename...")
-        # For these monthly average insolations we skip the sun position calculations
-        # made for the hourly dataset and just assign SSRD & FDIR directly.
-        dataset_ssrd[:,:,:] = ssrd
-        dataset_fdir[:,:,:] = fdir
-        for y = 1:nyears
-            dataset_annualssrd[y,:,:] = sum(ssrd[12*(y-1) .+ (1:12),:,:], dims=1) ./ 12
-            dataset_annualfdir[y,:,:] = sum(fdir[12*(y-1) .+ (1:12),:,:], dims=1) ./ 12
+        for (y, year) in enumerate(years)
+            print("$year: ")
+            options = SolarOptions(merge(solaroptions(), Dict(:era_year => year)))
+            meanGTI, solarGTI, meanDNI, solarDNI = read_solar_datasets(options, 1:36000, 1:18000)
+            monthdays = [Dates.daysinmonth(Date("$year-$m")) for m in 1:12]
+            lasthour = cumsum(24*monthdays)
+            firsthour = [1; lasthour[1:end-1] .+ 1]
+            for m = 1:12
+                dataset_monthlyGTI[12*(y-1) + m,:,:] =
+                    mean(solarGTI[firsthour[m]:lasthour[m], :, :], dims=1)
+                dataset_monthlyDNI[12*(y-1) + m,:,:] =
+                    mean(solarDNI[firsthour[m]:lasthour[m], :, :], dims=1)
+            end
+            dataset_annualGTI[y,:,:] = meanGTI
+            dataset_annualDNI[y,:,:] = meanDNI
         end
     end
     nothing
