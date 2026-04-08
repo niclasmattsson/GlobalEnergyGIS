@@ -755,6 +755,135 @@ function GISdata_for_ELLI_model(; plotmasks=true)
     nothing
 end
 
+const simonhubs = ["Norrbotten_inland","Norrbotten_kust","Västerbotten_inland","Västerbotten_kust","Västernorrland","Jämtland",
+    "Härjedalen","Dalarna","Gävleborg","Värmland","Örebro","Västmanland","Uppsala","Stockholm","Södermanland","Östergötland",
+    "Skaraborg","Älvsborg","Bohuslän/Dalsland","Halland","Jönköping","Kronoberg","Kalmar","Gotland","Blekinge","Skåne"]
+
+hubtabell = [
+    "dhub1"    1.17169712272911  0.360429689158601 
+    "dhub2"    1.14437573861839  0.387684750757744 
+    "dhub3"    1.13605575407413  0.304254521853911 
+    "dhub4"    1.11472433995626  0.356274060209603 
+    "dhub5"    1.09039975144653  0.30244765456142  
+    "dhub6"    1.10275138128758  0.255690735417169 
+    "dhub7"    1.0826853308774   0.250409369100634 
+    "dhub8"    1.05780566239022  0.272847321964274 
+    "dhub9"    1.05910775498123  0.301476603107494 
+    "dhub10"   1.03648122958935  0.236841179495631 
+    "dhub11"   1.0346835404598   0.265586752275977 
+    "dhub12"   1.04000679467838  0.288223672674344 
+    "dhub13"   1.04463715318392  0.308481709302242 
+    "dhub14"   1.03422102820802  0.315230897519704 
+    "dhub15"   1.02411208118047  0.298775933331901 
+    "dhub16"   1.02345693728821  0.283816502161159 
+    "dhub17"   1.01899652114287  0.242340711968665 
+    "dhub18"   1.00756112388381  0.225653618990347 
+    "dhub19"   1.00761348376137  0.210364534742877 
+    "dhub20"   0.99297540732489  0.217890394477476 
+    "dhub21"   0.995926759090012 0.250233090846183 
+    "dhub22"   0.992516385731615 0.258605435268    
+    "dhub23"   0.99643509426317  0.288860565658611 
+    "dhub24"   1.00719111408238  0.328195203203518 
+    "dhub25"   0.980351440845215 0.258858508009539 
+    "dhub26"   0.977977793062503 0.22155209524816  
+]
+
+exceltabell = [
+    "Norrbotten_inland"	    "exhub1"	67.1333	20.6511	1.172	0.360
+    "Norrbotten_kust"	    "exhub2"	65.5679	22.2127	1.144	0.388
+    "Västerbotten_inland"	"exhub3"	65.0912	17.4325	1.136	0.304
+    "Västerbotten_kust"	    "exhub4"	63.869	20.413	1.115	0.356
+    "Västernorrland"	    "exhub5"	62.4753	17.3290	1.090	0.302
+    "Jämtland"	            "exhub6"	63.183	14.65	1.103	0.256
+    "Härjedalen"	        "exhub7"	62.0333	14.3474	1.083	0.250
+    "Dalarna_fjäll"	        "exhub8"	61.1589	13.2641	1.067	0.232
+    "Dalarna_kopparberg"	"exhub9"	60.6078	15.633	1.058	0.273
+    "Gävleborg"	            "exhub10"	60.6824	17.2733	1.059	0.301
+    "Värmland"	            "exhub11"	59.386	13.57	1.036	0.237
+    "Närke"	                "exhub12"	59.283	15.217	1.035	0.266
+    "Västmanland"	        "exhub13"	59.588	16.514	1.040	0.288
+    "Uppsala"	            "exhub14"	59.8533	17.6747	1.045	0.308
+    "Stockholm"	            "exhub15"	59.2565	18.0614	1.034	0.315
+    "Södermanland"	        "exhub16"	58.6773	17.1186	1.024	0.299
+    "Östergötland"	        "exhub17"	58.6398	16.2615	1.023	0.284
+    "Skaraborg"	            "exhub18"	58.3842	13.8851	1.019	0.242
+    "Älvsborg"	            "exhub19"	57.729	12.929	1.008	0.226
+    "Bohuslän/Dalsland"	    "exhub20"	57.732	12.053	1.008	0.210
+    "Halland"	            "exhub21"	56.8933	12.4842	0.993	0.218
+    "Jönköping"	            "exhub22"	57.0624	14.3373	0.996	0.250
+    "Kronoberg"	            "exhub23"	56.867	14.817	0.993	0.259
+    "Kalmar"	            "exhub24"	57.0915	16.5505	0.996	0.289
+    "Gotland"	            "exhub25"	57.7078	18.8042	1.007	0.328
+    "Blekinge"	            "exhub26"	56.17	14.8315	0.980	0.259
+    "Skåne"	                "exhub27"	56.034	12.694	0.978	0.222
+]
+
+function comparehubdata()
+    df_excel = DataFrame(exceltabell[:, [1,2,5,6]], [:region, :exhub, :lat, :lon])
+    df_hub = DataFrame(hubtabell, [:dhub, :lat, :lon])
+    # create aggregate table, use coords to match rows by closest distance
+    df_agg = DataFrame(region=String[], exhub=String[], dhub=String[], lat=Float64[], lon=Float64[])
+    for row in eachrow(df_excel)
+        lat, lon = row.lat, row.lon
+        dist = sqrt.((df_hub.lat .- lat).^2 .+ (df_hub.lon .- lon).^2)
+        ndx = argmin(dist)
+        push!(df_agg, (row.region, row.exhub, df_hub.dhub[ndx], row.lat, row.lon))
+    end
+    return df_agg
+end
+
+function mapping_voronoi_virke_elli()
+    # simonhubindex = [findfirst(==(hub), johanna_virkesområden[:,1]) for hub in simonhubs]
+    # saveregions("Virke26_Simon", johanna_virkesområden[simonhubindex, :]; autocrop=false, bbox=[53.8 3.5; 72.2 32.6])
+    vkregions, _, vkregionlist, lonrange, latrange = loadregions("Virke26_Simon")
+    ehregions, _, ehregionlist, _, _ = loadregions("ehub500")
+    nvk, neh = length(vkregionlist), length(ehregionlist)
+    pop = JLD.load(in_datafolder("population_ssp2_2020.jld"), "population")[lonrange,latrange]
+    vkpop = [round(Int, sum(pop[vkregions .== vk])) for vk in 1:nvk]
+    df_vk = DataFrame(region=vkregionlist, pop=vkpop) |> display
+
+    counts = Dict{Int16, Float32}[]
+    shares = Vector{Pair{Int16, Float32}}[]
+    for eh = 1:neh
+        mask = (ehregions .== eh .&& vkregions .!= NOREGION)
+        vkregs = unique(vkregions[mask])
+        popcount = Dict(vk => sum(pop[mask .&& vkregions .== vk]) for vk in vkregs)
+        popsum = sum(values(popcount))
+        popshares = Dict(k => v/popsum for (k,v) in popcount)
+        sortedpairs = sort(collect(popshares), by=x->x[2], rev=true)
+        push!(counts, popcount)
+        push!(shares, sortedpairs)
+    end
+
+    buses = CSV.read(in_datafolder("plotbuses.csv"), DataFrame, delim=';', decimal=',')
+    moredata = CSV.read(in_datafolder("ehub_gridGIS.csv"), DataFrame, delim=';', decimal=',')
+    buses = innerjoin(buses, moredata[:, [:bus_id, :munic, :region]], on=:bus_id)
+
+    open(in_datafolder("output", "mapping_voronoi_virke.inc"), "w") do f
+        for (eh, pairs) in enumerate(shares)
+            if !isempty(pairs)
+                for (vk, share) in pairs
+                    @printf(f, "%5s . %5s %.4f   // %s\n", ehregionlist[eh], "hub$vk", share, vkregionlist[vk])
+                end
+            end
+        end
+    end
+    open(in_datafolder("output", "populated_buses.inc"), "w") do f
+        for bus in buses.bus_id
+            println(f, bus)
+        end
+    end
+    invert_swe = Dict("SE1" => "SE4", "SE2" => "SE3", "SE3" => "SE2", "SE4" => "SE1")
+    open(in_datafolder("output", "mapping_buses_BZ_sweden.inc"), "w") do f
+        for row in eachrow(buses)
+            bus, bz, munic, reg = row.bus_id, row.bidding_zone, row.munic, row.region
+            if bz[1:2] == "SE"
+                @printf(f, "%5s . %3s   // %s, %s\n", bus, invert_swe[bz], munic, reg)
+            end
+        end
+    end
+end
+
 function swedish_capacity_diagnostic()
     df0 = CSV.File(in_datafolder("Windfarms_Europe_20240407_CLEANED.csv")) |> DataFrame
     df, invest = add_gisdata_to_farms(df0) 
