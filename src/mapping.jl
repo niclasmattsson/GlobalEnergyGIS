@@ -8,10 +8,9 @@ GDF = GeoDataFrames
 GI = GeoInterface
 GO = GDF.GeometryOps
 
-function createmap(gisregion, regions, regionlist, lons, lats, colors,
-                    landcenters, popcenters, connected, connectedoffshore; capacitymap=false,
-                    lines=false, labels=false, resolutionscale=1, textscale=1, dotscale=1.5,
-                    legend=false, dots=nothing, proj="moll", fixoffset=false)
+function createmap(gisregion, regions, regionlist, lons, lats, colors, landcenters, popcenters,
+                    connected, connectedoffshore; capacitymap=false, lines=false, labels=false,
+                    resolutionscale=1, textscale=1, dotscale=1.5, legend=false, dots=nothing, proj="moll")
     nreg = length(regionlist)
     scale = maximum(size(regions))/6500
 
@@ -19,27 +18,31 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors,
 
     xmin, xmax = extrema(lons)
     ymin, ymax = extrema(lats)
-    lims = ((floor(xmin)-0.1, ceil(xmax)+0.5), (floor(ymin)-0.1, ceil(ymax)+0.1))
+    lims = ((floor(xmin)-0.1, ceil(xmax)+0.1), (floor(ymin)-0.1, ceil(ymax)+0.1))
+    # lims = (xmin-0.05*(xmax-xmin), xmax+0.05*(xmax-xmin), ymin-0.05*(ymax-ymin), ymax+0.05*(ymax-ymin))
     aspect_ratio = (ymax - ymin) / (xmax - xmin)
     pngwidth = max(1200, round(Int, resolutionscale*1.02*size(regions,1))) # allow for margins (+1% on both sides)
     pngsize = pngwidth, round(Int, pngwidth * aspect_ratio)     # use aspect ratio after projection transformation
 
     println("...constructing map ($proj)...")
     fig = Figure(size=pngsize)
-    ga = GeoAxis(fig[1, 1]; dest = "+proj=$proj +lon_0=$(mean(lons))", limits=lims)  # use proj = moll or longlat in general, or tmerc for Sweden
+    dest = "+proj=$proj +lon_0=$(mean(lons))"   # use proj = moll or longlat in general, or tmerc for Sweden
 
     cmap = [RGBA(0.7,0.7,0.7,1.0); [cgrad(:linear_bgy_10_95_c74_n256)[x] for x in 0.0:0.01:1.0]]
     if capacitymap
         regions[regions.==0] .= -1
+        ga = GeoAxis(fig[1, 1]; dest, limits=lims)  # moll or tmerc for Sweden
         hm = heatmap!(ga, lons, lats, regions; colormap=cmap)
         Colorbar(fig[1, 2], hm)
     else
         if proj == "longlat"
             # heatmap! disables color interpolation but doesn't work in GLMakie, only CairoMakie
             # check if this can be deleted - exact same result with longlat as using surface! in CairoMakie
-            heatmap!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), colorrange=(0, nreg+1+fixoffset))
+            ga = Makie.Axis(fig[1, 1], limits=lims, aspect=AxisAspect(1.0))
+            heatmap!(ga, lons, lats, regions; colormap=colors, colorrange=(0, nreg+1))
         else
-            surface!(ga, lons, lats, regions; colormap=cgrad(colors, categorical=true), colorrange=(0, nreg+1+fixoffset), shading=NoShading)
+            ga = GeoAxis(fig[1, 1]; dest, limits=lims)
+            surface!(ga, lons, lats, regions; colormap=colors, colorrange=(0, nreg+1), shading=NoShading)
         end
     end
 
@@ -58,7 +61,7 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors,
     end
     if labels
         for reg = 1:nreg
-            text!(string(regionlist[reg]); position=lonlatpoint(popcenters[reg,:]), align=(:center,:center),
+            text!(Tuple(popcenters[reg,:]); text=string(regionlist[reg]), align=(:center,:center),
                     fontsize=textscale*scale*resolutionscale*100, overdraw=true)
         end
     end
@@ -91,7 +94,7 @@ function createmap(gisregion, regions, regionlist, lons, lats, colors,
 end
 
 function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true, resolutionscale=1, textscale=1,
-                    randseed=1, downsample=1, proj="moll", fixoffset=false)
+                    randseed=1, downsample=1, proj="moll")
     regions, offshoreregions, regionlist, lonrange, latrange = loadregions(gisregion)
     regions = regions[1:downsample:end, 1:downsample:end]
     offshoreregions = offshoreregions[1:downsample:end, 1:downsample:end]
@@ -125,10 +128,10 @@ function createmaps(gisregion; scenarioyear="ssp2_2050", lines=true, labels=true
 
     println("\nOnshore map...")
     createmap(gisregion, regions, regionlist, lons, lats, onshorecolors,
-        landcenters, popcenters, connected, connectedoffshore; lines, labels, resolutionscale, textscale, proj, fixoffset)
+        landcenters, popcenters, connected, connectedoffshore; lines, labels, resolutionscale, textscale, proj)
     println("\nOffshore map...")
     createmap("$(gisregion)_offshore", offshoreregions, regionlist, lons, lats, offshorecolors,
-        landcenters, popcenters, connected, connectedoffshore; lines=false, labels=false, resolutionscale, textscale, proj, fixoffset)
+        landcenters, popcenters, connected, connectedoffshore; lines=false, labels=false, resolutionscale, textscale, proj)
     # exit()
     return nothing
 end
