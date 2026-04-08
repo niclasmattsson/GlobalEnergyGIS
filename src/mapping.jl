@@ -417,7 +417,7 @@ function create_ehub_data(; plotmasks=true, exclude_croplands_PV=false)
 end
 
 function ehub500()
-    buses = CSV.read(in_datafolder("Bus_and_line_data_EHUB400_future_data_v1_6 - buses.csv"), DataFrame)
+    buses = CSV.read(in_datafolder("Bus_and_line_data_EHUB400_future_data_v1_12 - buses.csv"), DataFrame)
     # buses = buses[.!(buses.type .== "TRAFO" .&& buses[!, "Voltage [kV]"] .> 220), :]
     unique!(buses, ["x-coordinate", "y-coordinate"])    # assumes voltages are in ascending order for each location
     xy = Matrix(buses[:, ["x-coordinate", "y-coordinate"]])
@@ -427,9 +427,9 @@ function ehub500()
 
     cc = first.(buses.bidding_zone, 2)  # country code
 
-    country = "SE"  # for in ["SE", "NO", "DK", "FI"]
-
-    tri = triangulate(xy[cc .== country, :]')
+    # country = "SE"  # for in ["SE", "NO", "DK", "FI"]
+    # tri = triangulate(xy[cc .== country, :]')
+    tri = triangulate(xy')
     vorn = voronoi(tri)
 
     # fig = Figure()
