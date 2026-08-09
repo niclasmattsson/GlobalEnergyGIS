@@ -432,7 +432,7 @@ function rasterize_MIUU()
 end
 
 function readfarms()
-    df = DataFrame(CSV.File(in_datafolder("Windfarms_World_20240407.csv"); quotechar='\'', missingstring=["#ND", ""]))
+    df = DataFrame(CSV.File(in_datafolder("Windfarms_World_20250407.csv"); quotechar='\'', missingstring=["#ND", ""]))
     # ["ID (#ND = no data)", "Continent", "ISO code (Code ISO 3166.1)", "Country", "State code", "Area", "City", "Name", "2nd name",
     #     "Latitude (WGS84)", "Longitude (WGS84)", "Altitude/Depth (m)", "Location accuracy (Yes = accurate location)", "Offshore - Shore distance (km)",
     #     "Manufacturer", "Turbine", "Hub height (m)", "Number of turbines", "Total power (kW)", "Developer", "Operator", "Owner",
@@ -507,9 +507,9 @@ function add_gisdata_to_farms(df; optionlist...)
     return df, invest_onoffshore_per_region_class_yearcode
 end
 
-function get_europe_datasets()
+function get_europe_datasets(regname="Europe54_SEfix")
     println("\nEUROPE 56!!!!!")
-    regions, _, regionlist, lonrange, latrange = loadregions("Europe54_SEfix")
+    regions, _, regionlist, lonrange, latrange = loadregions(regname)
     res = 0.01
     res2 = res/2
     lons = (-180+res/2:res:180-res/2)[lonrange]         # longitude values (pixel center)
@@ -526,10 +526,14 @@ end
 
 # run time 1.5-2 minutes
 function guess_locations(df; skipguess=false)
-    regions, regionsEU, regionlist, gadm, subregionnames, lons, lats, res, lonlim, latlim, lonrange, latrange = get_europe_datasets()
+    regions, regionsEU, regionlist, gadm, subregionnames, lons, lats, res, lonlim, latlim, _, _ = get_europe_datasets("Europe54_SEfix")
+    _, ehregions, ehregionlist, _, _, _, _, _, ehlonlim, ehlatlim, _, _ = get_europe_datasets("ehub500")
+    ehnodes = parse.(Int, string.(ehregionlist))
 
     df.reg54 .= 232323
     df.reg54_guess .= 232323
+    df.ehreg .= 232323
+    df.ehnode .= 232323
     if !skipguess
         df.lon_guess .= 232323.0
         df.lat_guess .= 232323.0
@@ -543,6 +547,13 @@ function guess_locations(df; skipguess=false)
         if !ismissing(lon) && lon >= lonlim[1] && lon <= lonlim[2] && lat >= latlim[1] && lat <= latlim[2]
             rasterindex = lonlat_index(regionsEU, lon, lat)
             row.reg54 = regionsEU[rasterindex]
+        end
+        if !ismissing(lon) && lon >= ehlonlim[1] && lon <= ehlonlim[2] && lat >= ehlatlim[1] && lat <= ehlatlim[2]
+            rasterindex = lonlat_index(ehregions, lon, lat)
+            row.ehreg = ehregions[rasterindex]
+            if row.ehreg < NOREGION
+                row.ehnode = ehnodes[row.ehreg]
+            end
         end
         skipguess && continue
         lon, lat = guess_lonlat_from_windfarm_regions(row, gadm, subregionnames, lons, lats, regioncache)
@@ -673,8 +684,30 @@ function clean_windfarm_database()
     df1.dist = sqrt.((df1.lon - df1.lon_guess).^2 .+ (df1.lat - df1.lat_guess).^2)
     df1.dist[df1.lon_guess .> 1000] .= 232323
 
-    CSV.write(in_datafolder("Windfarms_Europe_20240407_CLEANED.csv"), df1)
+    CSV.write(in_datafolder("Windfarms_Europe_20250407_CLEANED.csv"), df1)
     return nothing
+end
+
+function wind_capacities_for_ehub()
+    df0 = CSV.File(in_datafolder("Windfarms_Europe_20250407_CLEANED.csv")) |> DataFrame
+    select!(df0, [:country, :lat, :lon, :onshore, :capac, :year, :reg54, :reg54_guess, :ehnode])
+    dfvb = read_vindbrukskollen()
+    guess_locations(dfvb, skipguess=true)   # adds reg54 to dataframe
+    select!(dfvb, [:country, :lat, :lon, :onshore, :capac, :year, :reg54, :reg54_guess, :ehnode])
+    delete!(df0, df0.country .== "Sweden" .&& df0.onshore)
+
+    df = vcat(df0, dfvb)
+    filter!(row -> row.ehnode < 232323 && !ismissing(row.capac) && row.onshore && row.capac > 0, df)     # remove farms with missing or zero capacity 
+    df.year5 .= round_year5.(df.year)
+
+    sort!(df, [:ehnode, :year5])
+    df.capac .*= 1000
+    gdf = groupby(df, :ehnode)
+    gdf_year = groupby(df, [:ehnode, :year5])
+    gdf_sum = combine(gdf, :capac => sum)
+    gdf_sumyear = combine(gdf_year, :capac => sum)
+    CSV.write(in_datafolder("EHUB onshore wind capacity.csv"), gdf_sum)
+    CSV.write(in_datafolder("EHUB onshore wind capacity per year.csv"), gdf_sumyear)
 end
 
 function GISdata_for_ELLI_model(; plotmasks=true)
@@ -788,6 +821,9 @@ function mapping_voronoi_virke_elli()
 
     open(in_datafolder("output", "mapping_voronoi_virke.inc"), "w") do f
         for (eh, pairs) in enumerate(shares)
+            hub = parse(Int, string(ehregionlist[eh]))
+            bz = buses.bidding_zone[buses.bus_id .== hub][1]
+            !startswith(bz, "SE") && continue
             if !isempty(pairs)
                 for (vk, share) in pairs
                     @printf(f, "%5s . %5s %.4f   // %s\n", ehregionlist[eh], "hub$vk", share, vkregionlist[vk])
@@ -1163,7 +1199,8 @@ end
 
 function read_vindbrukskollen()
     # Länsstyrelsen: Vindbrukskollen, https://vbk.lansstyrelsen.se/  (click "Excel-export")
-    df = DataFrame(CSV.File(in_datafolder("Vindbrukskollen land 2025-01-28.csv")))
+    # df = DataFrame(CSV.File(in_datafolder("Vindbrukskollen land 2025-01-28.csv")))
+    df = DataFrame(CSV.File(in_datafolder("Vindbrukskollen land 2026-04-27.csv")))
     select!(df, ["Status", "Placering", "E-Koordinat", "N-Koordinat", "Navhöjd (m)", "Rotordiameter (m)", "Maxeffekt (MW)", "Uppfört", "Fabrikat", "Modell"])
     rename!(df, [:status, :type, :lon, :lat, :hubheight, :rotordiam, :capac, :year, :brand, :model])
     delete!(df, df.status .!= "Uppfört")
@@ -1179,6 +1216,7 @@ function read_vindbrukskollen()
     select!(df, Not(:brand))
 
     # df2 = DataFrame(CSV.File(in_datafolder("Vindbrukskollen hav 2025-01-28.csv")))
+    # df2 = DataFrame(CSV.File(in_datafolder("Vindbrukskollen hav 2026-04-27.csv")))
     # select!(df2, ["Projektstatus", "Parken uppförd", "Uppfört antal verk", "Installerad effekt (MW)", "Elområde", "Län", "Kommun"])
     # rename!(df2, [:status, :year, :nturbines, :capac, :zone, :region, :munic])
     # delete!(df2, df2.status .!= "Uppförd")

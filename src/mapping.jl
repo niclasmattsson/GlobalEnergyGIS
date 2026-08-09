@@ -215,13 +215,10 @@ function capacitymaps(regionname; resolutionscale=1, downsample=1, proj="moll")
         vrestot[country .== cty] .+= wintot[reg] + pvtot[reg]
     end
 
-    println("\nProjecting coordinates (Mollweide)...")
     res = 0.01
     res2 = res/2
     lons = (-180+res2:res:180-res2)[lonrange]         # longitude values (pixel center)
     lats = (90-res2:-res:-90+res2)[latrange]          # latitude values (pixel center)
-    source = "+proj=longlat +datum=WGS84"
-    dest = "+proj=moll +lon_0=$(mean(lons)) +ellps=WGS84"
 
     println("\nOnshore map...")
     createmap("vres_energy_$regionname", vrestot, regionlist, lons, lats, RGB[], [], [], Bool[], Bool[];
