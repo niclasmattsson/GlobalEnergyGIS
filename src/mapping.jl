@@ -831,7 +831,7 @@ function ehub_gridGIS()
     sort!(df_ehub, :FID)
     select!(df_ehub, [:FID, :bus_id, :vor_area, :land_area, :pop, :popdens, :cars, :popDH, :energibrunnar, :gridarea, :munic, :region, :ncells])
 
-    allbuses = CSV.read(in_datafolder("Bus_and_line_data_EHUB400_future_data_v1_6 - buses.csv"), DataFrame)[!, :bus_id]
+    allbuses = CSV.read(in_datafolder("Bus_and_line_data_EHUB400_future_data_v1_12 - buses.csv"), DataFrame)[!, :bus_id]
     df_all = outerjoin(df_ehub, DataFrame(bus_id = allbuses), on=:bus_id)
     sort!(df_all, :bus_id)
 
