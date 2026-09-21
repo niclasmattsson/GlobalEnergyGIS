@@ -42,7 +42,7 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
 
         for segment in linesegments
             (; cell, mean_bearing) = segment    # NM: don't we need len anywhere???
-            get_cell_weather!(cell_weather, cell, mean_bearing, line.diameter, line_params.height, weatherdata)
+            get_cell_weather!(cell_weather, cell, mean_bearing, line_params.height, weatherdata)
             mean_bearings[i] += mean_bearing
 
             Threads.@threads for hour in 1:nhours

@@ -184,7 +184,7 @@ function interpolate_wind(u10, v10, u100, v100, height)
     return speed * cosd(dir), speed * sind(dir)
 end
 
-function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, line_height, weatherdata)
+function get_cell_weather!(cell_weather, cell, line_azimuth, line_height, weatherdata)
     lon, lat = cell
     (; geo, u10, v10, u100, v100, t2m, ssrd, fdir, year) = weatherdata   # u is eastward, v is northward
     (; temp_air, wind_speed, wind_angle, insolation, wind_u, wind_v, SSRD, FDIR) = cell_weather
@@ -229,7 +229,7 @@ function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, line
         Δaz = azimuth - line_azimuth
         cosθ = sind(zenith) * cosd(Δaz)
         sinθ = sqrt(1 - cosθ^2)
-        insolation[i] = GNI * line_diameter*1e-3 * sinθ   # direct component only [W/m] (per unit length of line)
+        insolation[i] = GNI * sinθ      # effective insolation on the conductor [W/m2] (IEEE 738: qs = α * Q * sinθ * D)
     end
 end
 
