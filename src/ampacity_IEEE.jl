@@ -70,6 +70,8 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
         thermal_capacity[:, i] .= thermal_capacity_limit(line.voltage, ampacity[:, i])  # [MW]
     end
 
+    println("\nWriting line ratings and weather data to CSV files...")
+
     calculate_static_line_ratings!(lines; max_power_angle=30)       # Static line rating capacities (MW)
     lines.mean_bearing .= mean_bearings
     CSV.write(in_datafolder("DLR", "line_data.csv"), lines)
