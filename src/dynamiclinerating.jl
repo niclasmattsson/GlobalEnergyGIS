@@ -13,21 +13,56 @@ getlinecoords(line) = (line.start_lon, line.start_lat), (line.end_lon, line.end_
 
 """
 Finds all grid cells intersected by a great circle path between two points (lon, lat) on a regular
-lon-lat grid with specified resolution (in degrees). Returns path length and bearings within each cell.
+lon-lat grid with specified resolution (in degrees). Returns path length and bearings within each cell,
+ordered from point1 to point2.
+
+Crossings of the path with grid meridians and parallels are calculated analytically, so no cells are
+missed even when the path only clips the corner of a cell. A path that passes (numerically) exactly
+through a grid corner continues directly into the diagonally opposite cell. Assumes that the path
+doesn't cross the antimeridian or pass over a pole.
 """
-function greatcircle_waypoints(point1::Tuple, point2::Tuple, grid_resolution::Float64; step=0.0001)
+function greatcircle_waypoints(point1::Tuple, point2::Tuple, grid_resolution::Float64)
+    waypoints = @NamedTuple{cell::Tuple{Float64, Float64}, len::Float64, mean_bearing::Float64, bearing_error::Float64}[]
     angular_dist = calc_angular_distance(point1, point2)
+    angular_dist == 0 && return waypoints
 
-    # Determine number of steps for interpolation.
-    # Step size is roughly half the grid resolution to ensure no grid cells are missed.
-    num_steps = ceil(Int, angular_dist / step)
+    # Parametrize the path as p(t) = cosd(t)*a + sind(t)*b for t in [0, angular_dist], with a, b orthonormal.
+    a, p2 = lonlat2xyz(point1), lonlat2xyz(point2)
+    b = normalize3(p2 .- dot3(a, p2) .* a)
+    pathpoint(t) = xyz2lonlat(cosd(t) .* a .+ sind(t) .* b)
 
-    path_points = interpolate_greatcircle_path(point1, point2, angular_dist, num_steps)
-    cell_segments = group_segments_by_cell(path_points, grid_resolution)
-    waypoints = calculate_lengths_and_bearings(cell_segments, point1)
+    crossings = gridline_crossings(point1, point2, a, b, angular_dist, grid_resolution)
+    ts = sort!([0.0; crossings; angular_dist])
 
-    if !all_cells_adjacent(waypoints)
-        @warn "Cells not adjacent, try a finer step size."
+    # Each segment between consecutive crossings lies within a single cell, so look up the cell of its midpoint.
+    min_segment = 1e-9      # [degrees] skip zero length segments, e.g. when the path hits a grid corner exactly
+    cells, t_entry, t_exit = Tuple{Float64, Float64}[], Float64[], Float64[]
+    for i in 1:length(ts)-1
+        t1, t2 = ts[i], ts[i+1]
+        t2 - t1 < min_segment && continue
+        lon, lat = pathpoint((t1 + t2) / 2)
+        cell = (round_res(lon, grid_resolution), round_res(lat, grid_resolution))
+        if !isempty(cells) && cell == cells[end]
+            t_exit[end] = t2    # still in the same cell (e.g. after skipping a zero length segment)
+        else
+            push!(cells, cell); push!(t_entry, t1); push!(t_exit, t2)
+        end
+    end
+
+    for (cell, t1, t2) in zip(cells, t_entry, t_exit)
+        entry_point, exit_point = pathpoint(t1), pathpoint(t2)
+
+        len = greatcircledistance(entry_point, exit_point)
+        bearings = greatcirclebearings(entry_point, exit_point)
+
+        mean_bearing = mean(bearings)
+        bearing_error = maximum(abs.(bearings .- mean_bearing))
+
+        push!(waypoints, (; cell, len, mean_bearing, bearing_error))
+    end
+
+    if !all_cells_adjacent(waypoints, grid_resolution)
+        @warn "Consecutive cells along line path are not adjacent (this shouldn't happen)." point1 point2
     end
 
     return waypoints
@@ -46,29 +81,51 @@ function calc_angular_distance(point1::Tuple, point2::Tuple)
     return angular_dist
 end
 
-"Interpolate points along the great circle path"
-function interpolate_greatcircle_path(point1, point2, angular_dist, num_steps)
-    lon1, lat1 = point1
-    lon2, lat2 = point2
-    path_points = Vector{Tuple{Float64, Float64}}(undef, num_steps + 1)
-    path_points[1] = point1
+"Convert (lon, lat) in degrees to a unit vector (x, y, z)."
+lonlat2xyz((lon, lat)) = (cosd(lat) * cosd(lon), cosd(lat) * sind(lon), sind(lat))
 
-    for i in 1:num_steps
-        f = i / num_steps
-        
-        A = sind((1 - f) * angular_dist) / sind(angular_dist)
-        B = sind(f * angular_dist) / sind(angular_dist)
+"Convert a vector (x, y, z) to (lon, lat) in degrees."
+xyz2lonlat((x, y, z)) = (atand(y, x), atand(z, hypot(x, y)))
 
-        x = A * cosd(lat1) * cosd(lon1) + B * cosd(lat2) * cosd(lon2)
-        y = A * cosd(lat1) * sind(lon1) + B * cosd(lat2) * sind(lon2)
-        z = A * sind(lat1) + B * sind(lat2)
+dot3(u, v) = u[1]*v[1] + u[2]*v[2] + u[3]*v[3]
+normalize3(u) = u ./ sqrt(dot3(u, u))
 
-        lon = atand(y, x)
-        lat = atand(z, sqrt(x^2 + y^2))
+"""
+Find the parameters t (degrees, 0 < t < tmax) where the great circle arc p(t) = cosd(t)*a + sind(t)*b
+crosses a grid meridian or parallel (at multiples of grid_resolution).
+"""
+function gridline_crossings(point1, point2, a, b, tmax, grid_resolution)
+    (lon1, lat1), (lon2, lat2) = point1, point2
+    res = grid_resolution
+    ts = Float64[]
 
-        path_points[i+1] = (lon, lat)
+    # Longitude changes monotonically along the arc, so each grid meridian strictly between the endpoints
+    # is crossed exactly once. The meridian at longitude λ lies in the plane with normal (-sind(λ), cosd(λ), 0).
+    lonmin, lonmax = minmax(lon1, lon2)
+    for k in (floor(Int, lonmin / res) + 1):(ceil(Int, lonmax / res) - 1)
+        λ = k * res
+        append!(ts, arc_crossings(a[2]*cosd(λ) - a[1]*sind(λ), b[2]*cosd(λ) - b[1]*sind(λ), 0.0, tmax))
     end
-    return path_points
+
+    # The parallel at latitude φ is where z = sind(φ). Latitude isn't monotonic along the arc (it can bulge
+    # poleward of both endpoints), so first find its latitude range. Along the arc z(t) = R*cosd(t - δ).
+    R, δ = hypot(a[3], b[3]), atand(b[3], a[3])
+    latmin, latmax = minmax(lat1, lat2)
+    mod(δ, 360) < tmax && (latmax = asind(min(R, 1.0)))          # northernmost point of great circle is on the arc
+    mod(δ + 180, 360) < tmax && (latmin = -asind(min(R, 1.0)))   # southernmost point of great circle is on the arc
+    for k in ceil(Int, latmin / res):floor(Int, latmax / res)
+        append!(ts, arc_crossings(a[3], b[3], sind(k * res), tmax))
+    end
+
+    return ts
+end
+
+"Solve α*cosd(t) + β*sind(t) = γ for t (degrees) in the open interval (0, tmax)."
+function arc_crossings(α, β, γ, tmax)
+    R = hypot(α, β)
+    abs(γ) >= R && return Float64[]     # no crossing (or just touching the grid line)
+    δ, Δ = atand(β, α), acosd(γ / R)
+    return filter(t -> 0 < t < tmax, unique(mod.([δ - Δ, δ + Δ], 360)))
 end
 
 # Round a value to the nearest multiple of the given resolution, offset by resolution/2, treating -0.0 as 0.0.
@@ -78,66 +135,9 @@ function round_res(value, resolution)
     return rounded == -0.0 ? 0.0 : rounded
 end
 
-"Group the path into segments belonging to each grid cell"
-function group_segments_by_cell(path_points, grid_resolution)
-    num_segments = length(path_points) - 1
-    cell_segments = Dict{Tuple{Float64, Float64}, Vector{Tuple{Float64, Float64}}}()
-
-    for i in 1:num_segments
-        p_start = path_points[i]
-        p_end = path_points[i+1]
-        
-        # Determine grid cell for the midpoint of the segment
-        mid_lon = (p_start[1] + p_end[1]) / 2
-        mid_lat = (p_start[2] + p_end[2]) / 2
-
-        cell_key = (round_res(mid_lon, grid_resolution), round_res(mid_lat, grid_resolution))
-        if !haskey(cell_segments, cell_key)
-            cell_segments[cell_key] = []
-        end
-        # Store the start and end points of the small segment
-        push!(cell_segments[cell_key], p_start, p_end)
-    end
-    return cell_segments
-end
-
-"Calculate length and bearings for the path within each cell"
-function calculate_lengths_and_bearings(cell_segments, start_point)
-    results = @NamedTuple{cell::Tuple{Float64, Float64}, len::Float64, mean_bearing::Float64, bearing_error::Float64}[]
-    for (cell, segments) in cell_segments
-        entry_point, exit_point = segments[1], segments[end]
-
-        len = greatcircledistance(entry_point, exit_point)
-        bearings = greatcirclebearings(entry_point, exit_point)
-
-        mean_bearing = mean(bearings)
-        bearing_error = maximum(abs.(bearings .- mean_bearing))
-
-        push!(results, (; cell, len, mean_bearing, bearing_error))
-    end
-    sort!(results, by=x->greatcircledistance(start_point, cell_segments[x.cell][1]))
-    return results
-end
-
-"Calculate length and bearings for the path within each cell"
-function calculate_lengths_and_bearings_alt(cell_segments)
-    results = map(collect(cell_segments)) do (cell, segments)
-        entry_point, exit_point = segments[1], segments[end]
-
-        len = greatcircledistance(entry_point, exit_point)
-        bearings = greatcirclebearings(entry_point, exit_point)
-
-        mean_bearing = mean(bearings)
-        bearing_error = maximum(abs.(bearings .- mean_bearing))
-
-        (; cell, len, mean_bearing, bearing_error)
-    end
-    sort!(results, by=x->greatcircledistance(start_point, cell_segments[x.cell][1]))
-    return results
-end
-
-adjacentcells(cell1, cell2) = xor(cell1[1] == cell2[1], cell1[2] == cell2[2])
-all_cells_adjacent(waypoints) = all(adjacentcells(waypoints[i].cell, waypoints[i+1].cell) for i = 1:length(waypoints)-1)
+# Cells sharing an edge or a corner (a path through a grid corner goes directly to the diagonal cell).
+adjacentcells(cell1, cell2, res) = cell1 != cell2 && all(abs.(cell1 .- cell2) .< 1.5 * res)
+all_cells_adjacent(waypoints, res) = all(adjacentcells(waypoints[i].cell, waypoints[i+1].cell, res) for i = 1:length(waypoints)-1)
 
 function download_era5_DLR(year)
     date1, date2 = "$year-01-01", "$year-12-31"
