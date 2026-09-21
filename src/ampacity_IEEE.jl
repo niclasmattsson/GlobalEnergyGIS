@@ -12,7 +12,7 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
         absorptivity = 0.5
     )
 
-    nhours, nlines = 8760, nrow(lines)
+    nhours, nlines = size(weatherdata.t2m, 1), nrow(lines)     # 8784 hours in leap years
     mean_bearings = zeros(nlines)
     min_line_ampacity = zeros(nhours)
     segment_ampacities = zeros(nhours)
@@ -98,9 +98,10 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
     write_csv("dimensioning_wind_angle", dimensioning_line_weather.wind_angle, line_ids)
     write_csv("dimensioning_insolation", dimensioning_line_weather.insolation, line_ids)
 
+    lines_angle = select(lines, :voltage, :c_rating, :reactance)   # copy, so lines keeps the 30° static ratings
     for angle in (20, 40, 50, 60, 70, 80)
-        calculate_static_line_ratings!(lines; max_power_angle=angle)
-        thermal_ratio_angle = calculate_thermal_ratio(thermal_capacity, lines)
+        calculate_static_line_ratings!(lines_angle; max_power_angle=angle)
+        thermal_ratio_angle = calculate_thermal_ratio(thermal_capacity, lines_angle)
         write_csv("thermal_ratio_$(angle)", thermal_ratio_angle, line_ids)
     end
 

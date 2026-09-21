@@ -204,7 +204,7 @@ function get_cell_weather!(cell_weather, cell, line_azimuth, line_height, weathe
     # Source: ERA5 "accumulations are over the hour ending at the forecast step"
     # https://confluence.ecmwf.int//display/CKB/ERA5+data+documentation#ERA5datadocumentation-Meanratesandaccumulations
     datetime = DateTime(year,1,1) - Minute(30):Hour(1):DateTime(year,12,31,23) - Minute(30)
-    time = 1:8760
+    time = axes(t2m, 1)     # all hours of the year (8784 in leap years, same as length(datetime))
     index = lonlat_index(geo, lon, lat)
     temp_air .= t2m[time, index] .- 273.15   # [°C]
     for i in time
@@ -232,7 +232,8 @@ function get_cell_weather!(cell_weather, cell, line_azimuth, line_height, weathe
         # Also, we'll use SSRD instead of FDIR to capture total insolation, so we have GNI instead of DNI.
         GNI = clamp(SSRD[i] / (cos_zen + horizoncorrection(zen)), 0, TSI)  # Global Normal Irradiance [W/m2]
 
-        zenith, azimuth = rad2deg(zen), rad2deg(az)
+        # zenith_azimuth() has azimuth 0 = south, positive westward. Convert to clockwise from North like line_azimuth.
+        zenith, azimuth = rad2deg(zen), rad2deg(az) + 180
         zenith > 90 && continue                         # sun below horizon
 
         Δaz = azimuth - line_azimuth
