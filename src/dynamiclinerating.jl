@@ -217,8 +217,7 @@ function get_cell_weather!(cell_weather, cell, line_azimuth, line_height, weathe
 
     # ERA5 radiations are in J/m2/period, so for hourly data divide by 3600 to get W/m2
     SSRD .= ssrd[time, index] ./ 3600  # total (global) horizontal insolation [W/m2]
-    # FDIR .= fdir[time, index] ./ 3600  # direct insolation on a horizontal surface [W/m2]
-    insolation .= 0.0
+    FDIR .= fdir[time, index] ./ 3600  # direct insolation on a horizontal surface [W/m2]
     for (i, dt) in enumerate(datetime)
         TSI = solarinsolation(dt)                       # Total Solar Irradiance (top of atmosphere, perpendicular to sun) [W/m2]
         δ, H = solarposition(dt, lon)                   # absolute solar position (declination, hour angle)
@@ -229,17 +228,24 @@ function get_cell_weather!(cell_weather, cell, line_azimuth, line_height, weathe
         # When the solar elevation is close to 0, both FDIR and cos(zenith) will also be near 0, and
         # calculated DNI will approach "0/0". So we'll clamp DNI to avoid artifacts.
         # That wasn't enough, so we'll add an artificial term to increase the denominator near the horizon.
-        # Also, we'll use SSRD instead of FDIR to capture total insolation, so we have GNI instead of DNI.
-        GNI = clamp(SSRD[i] / (cos_zen + horizoncorrection(zen)), 0, TSI)  # Global Normal Irradiance [W/m2]
+        DNI = clamp(FDIR[i] / (cos_zen + horizoncorrection(zen)), 0, TSI)  # Direct Normal Irradiance [W/m2]
+        DHI = max(0, SSRD[i] - FDIR[i])                                     # Diffuse Horizontal Irradiance [W/m2]
+
+        # Effective insolation on the conductor [W/m2], i.e. per unit of conductor diameter (qs = α * insolation * D).
+        # Diffuse radiation from an isotropic sky on a horizontal cylinder is π/2 * DHI regardless of the sun's
+        # direction, so it counts even when the sun is below the horizon at the midpoint of the hour.
+        # Ground reflections are ignored.
+        insolation[i] = π/2 * DHI
 
         # zenith_azimuth() has azimuth 0 = south, positive westward. Convert to clockwise from North like line_azimuth.
         zenith, azimuth = rad2deg(zen), rad2deg(az) + 180
-        zenith > 90 && continue                         # sun below horizon
+        zenith > 90 && continue                         # sun below horizon, so no direct component
 
+        # Direct radiation on the conductor is DNI * sinθ, where θ is the angle between the sun's rays and the conductor axis.
         Δaz = azimuth - line_azimuth
         cosθ = sind(zenith) * cosd(Δaz)
         sinθ = sqrt(1 - cosθ^2)
-        insolation[i] = GNI * sinθ      # effective insolation on the conductor [W/m2] (IEEE 738: qs = α * Q * sinθ * D)
+        insolation[i] += DNI * sinθ
     end
 end
 
