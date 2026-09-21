@@ -16,6 +16,7 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
     mean_bearings = zeros(nlines)
     min_line_ampacity = zeros(nhours)
     segment_ampacities = zeros(nhours)
+    line_wind_u, line_wind_v = zeros(nhours), zeros(nhours)    # to accumulate wind vectors along the line
     ampacity = zeros(nhours, nlines)                # max current carrying capacity [A]
     thermal_capacity = zeros(nhours, nlines)        # dynamic thermal capacity [MW]
 
@@ -28,6 +29,7 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
         wind_angle=zeros(nhours, nlines), insolation=zeros(nhours, nlines)
     )
     dimensioning_line_weather = deepcopy(mean_line_weather)     # to store weather of the dimensioning segment for each hour
+    averaged_weather = (:temp_air, :wind_speed, :insolation)    # wind_angle is taken from the mean wind vector instead
 
     updateprogress = Progress(nlines, 1)
     for (i, line) in enumerate(eachrow(lines))
@@ -39,11 +41,12 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
 
         min_line_ampacity .= Inf
         segment_ampacities .= 0.0
+        line_wind_u .= 0.0
+        line_wind_v .= 0.0
 
         for segment in linesegments
             (; cell, mean_bearing) = segment    # NM: don't we need len anywhere???
             get_cell_weather!(cell_weather, cell, mean_bearing, line_params.height, weatherdata)
-            mean_bearings[i] += mean_bearing
 
             Threads.@threads for hour in 1:nhours
                 weather = hourly_weather(hour, cell_weather)
@@ -56,15 +59,18 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
                 dimensioning_line_weather[k][new_minimum, i] .= cell_weather[k][new_minimum]
             end
 
-            for k in keys(mean_line_weather)
+            for k in averaged_weather
                 mean_line_weather[k][:, i] .+= cell_weather[k]      # accumulate weather along the line
             end
+            line_wind_u .+= cell_weather.wind_u     # wind angles can't be averaged directly (350° & 10° ≠ 180°)
+            line_wind_v .+= cell_weather.wind_v
         end
 
-        mean_bearings[i] /= length(linesegments)
-        for k in keys(mean_line_weather)
+        mean_bearings[i] = circular_mean(segment.mean_bearing for segment in linesegments)
+        for k in averaged_weather
             mean_line_weather[k][:, i] ./= length(linesegments)     # average hourly weather along the line
         end
+        mean_line_weather.wind_angle[:, i] .= mod.(atand.(line_wind_u, line_wind_v), 360)   # direction of mean wind vector
 
         ampacity[:, i] .= line.circuits * min_line_ampacity                             # [A]
         thermal_capacity[:, i] .= thermal_capacity_limit(line.voltage, ampacity[:, i])  # [MW]

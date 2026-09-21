@@ -55,8 +55,8 @@ function greatcircle_waypoints(point1::Tuple, point2::Tuple, grid_resolution::Fl
         len = greatcircledistance(entry_point, exit_point)
         bearings = greatcirclebearings(entry_point, exit_point)
 
-        mean_bearing = mean(bearings)
-        bearing_error = maximum(abs.(bearings .- mean_bearing))
+        mean_bearing = circular_mean(bearings)
+        bearing_error = maximum(angle_difference(b, mean_bearing) for b in bearings)
 
         push!(waypoints, (; cell, len, mean_bearing, bearing_error))
     end
@@ -134,6 +134,15 @@ function round_res(value, resolution)
     rounded = round((value - res2) / resolution) * resolution + res2
     return rounded == -0.0 ? 0.0 : rounded
 end
+
+"Circular mean of angles in degrees, normalized to 0-360 (e.g. 350° and 10° average to 0°, not 180°). NaN if empty."
+function circular_mean(angles)
+    isempty(angles) && return NaN
+    return mod(atand(sum(sind, angles), sum(cosd, angles)), 360)
+end
+
+"Absolute difference between two angles in degrees, in [0, 180]."
+angle_difference(a, b) = abs(mod(a - b + 180, 360) - 180)
 
 # Cells sharing an edge or a corner (a path through a grid corner goes directly to the diagonal cell).
 adjacentcells(cell1, cell2, res) = cell1 != cell2 && all(abs.(cell1 .- cell2) .< 1.5 * res)
