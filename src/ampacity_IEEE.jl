@@ -3,14 +3,14 @@ using DataFrames, XLSX
 "Calculate static and dynamic line ratings according to the IEEE 738 standard for overhead conductors."
 function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
     # units of lines columns: diameter [mm], dc_resistance [ohm/km], c_rating [A], voltage [kV], reactance [p.u.]
-    # weatherdata fields: (; u100, v100, t2m, ssrd, fdir, lons, lats, res)
+    # weatherdata fields: (; u10, v10, u100, v100, t2m, ssrd, fdir, lons, lats, res)
     line_params = (
         temp_line = 50.0,       # Max conductor surface temperature [°C]
         elevation = 0.0,        # Elevation above sea level [m]
+        height = 30.0,          # Height of conductor above ground [m] (10m - 100m)
         emissivity = 0.9,
         absorptivity = 0.5
     )
-    (; temp_line, elevation, emissivity, absorptivity) = line_params
 
     nhours, nlines = 8760, nrow(lines)
     mean_bearings = zeros(nlines)
@@ -42,7 +42,7 @@ function calculate_line_ratings(lines::DataFrame, weatherdata::NamedTuple)
 
         for segment in linesegments
             (; cell, mean_bearing) = segment    # NM: don't we need len anywhere???
-            get_cell_weather!(cell_weather, cell, mean_bearing, line.diameter, weatherdata)
+            get_cell_weather!(cell_weather, cell, mean_bearing, line.diameter, line_params.height, weatherdata)
             mean_bearings[i] += mean_bearing
 
             Threads.@threads for hour in 1:nhours

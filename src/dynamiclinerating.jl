@@ -144,7 +144,7 @@ function download_era5_DLR(year)
 
     # Split into two requests, one for instantaneous variables (wind/temp)
     # and one for accumulated (solar) (otherwise Copernicus returns a zip file)
-    windvars = ["100m_u_component_of_wind", "100m_v_component_of_wind", "2m_temperature"]
+    windvars = ["100m_u_component_of_wind", "100m_v_component_of_wind", "10m_u_component_of_wind", "10m_v_component_of_wind", "2m_temperature"]
     outfile = in_datafolder("DLR", "ehubDLR_windtemp_$year.nc")
     request_era5_vars(outfile, windvars, date1, date2; res=0.25, bbox=(3.5, 33.0, 53.5, 72.5))
 
@@ -162,6 +162,8 @@ function read_weatherdata_DLR(year)
     bbox = (3.5, 33.0, 53.5, 72.5)
 
     geo = GeoArray(zeros(sz[1:2]), res, bbox)
+    u10 = permutedims(nc_wt["u10"][:,:,:], [3,1,2])     # instantaneous, eastward [m/s]
+    v10 = permutedims(nc_wt["v10"][:,:,:], [3,1,2])     # instantaneous, northward [m/s]
     u100 = permutedims(nc_wt["u100"][:,:,:], [3,1,2])   # instantaneous, eastward [m/s]
     v100 = permutedims(nc_wt["v100"][:,:,:], [3,1,2])   # instantaneous, northward [m/s]
     t2m = permutedims(nc_wt["t2m"][:,:,:], [3,1,2])     # instantaneous [K]
@@ -170,12 +172,21 @@ function read_weatherdata_DLR(year)
 
     lons = bbox[1] + res/2 : res : bbox[2] - res/2
     lats = bbox[4] - res/2 : -res : bbox[3] + res/2     # lats in descending order
-    return (; geo, u100, v100, t2m, ssrd, fdir, lons, lats, res, year)
+    return (; geo, u10, v10, u100, v100, t2m, ssrd, fdir, lons, lats, res, year)
 end
 
-function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, weatherdata)
+"Interpolate wind between 10 m and 100 m: speed by power law (hourly shear), direction along the shortest arc."
+function interpolate_wind(u10, v10, u100, v100, height)
+    w = log(height / 10) / log(10)
+    speed = hypot(u10, v10)^(1 - w) * hypot(u100, v100)^w
+    dir10, dir100 = atand(v10, u10), atand(v100, u100)
+    dir = dir10 + w * (mod(dir100 - dir10 + 180, 360) - 180)
+    return speed * cosd(dir), speed * sind(dir)
+end
+
+function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, line_height, weatherdata)
     lon, lat = cell
-    (; geo, u100, v100, t2m, ssrd, fdir, year) = weatherdata   # u is eastward, v is northward
+    (; geo, u10, v10, u100, v100, t2m, ssrd, fdir, year) = weatherdata   # u is eastward, v is northward
     (; temp_air, wind_speed, wind_angle, insolation, wind_u, wind_v, SSRD, FDIR) = cell_weather
 
     # Note that while the solar position calculations are instantaneous positions, ERA5 radiation variables
@@ -187,8 +198,9 @@ function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, weat
     time = 1:8760
     index = lonlat_index(geo, lon, lat)
     temp_air .= t2m[time, index] .- 273.15   # [°C]
-    wind_u .= u100[time, index]
-    wind_v .= v100[time, index]
+    for i in time
+        wind_u[i], wind_v[i] = interpolate_wind(u10[i, index], v10[i, index], u100[i, index], v100[i, index], line_height)
+    end
     wind_speed .= sqrt.(wind_u.^2 + wind_v.^2)           # [m/s]
     wind_angle .= mod.(atand.(wind_u, wind_v), 360)      # direction wind blows toward, clockwise from North
 
