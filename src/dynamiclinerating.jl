@@ -190,7 +190,7 @@ function get_cell_weather!(cell_weather, cell, line_azimuth, line_diameter, weat
     wind_u .= u100[time, index]
     wind_v .= v100[time, index]
     wind_speed .= sqrt.(wind_u.^2 + wind_v.^2)           # [m/s]
-    wind_angle .= mod.(atand.(wind_v, wind_u), 360)      # angle from North, clockwise
+    wind_angle .= mod.(atand.(wind_u, wind_v), 360)      # direction wind blows toward, clockwise from North
 
     almostzero = eps(Float32)
 
