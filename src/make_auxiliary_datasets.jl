@@ -1079,19 +1079,36 @@ function winddata_40years(; wind=true, onshore=true)
     # end
     # CSV.write(in_datafolder("output", "syntheticdemand_40years.csv"), df)
 
-    cols = ["CF_Mareld"]
-    dftime = DataFrame(zeros(Int, 0, 2), ["year", "hour"])
-    df = [dftime DataFrame(zeros(0, 1), cols)]
-    for yr=1980:2019
-        println(yr)
-        ww = matread(in_datafolder("output", "GISdata_$(windsolar)$(yr)_Mareld4.mat"))
-        w0 = round.(ww[var][:,:,5], digits=6)
+    # cols = ["CF_Mareld"]
+    # dftime = DataFrame(zeros(Int, 0, 2), ["year", "hour"])
+    # df = [dftime DataFrame(zeros(0, 1), cols)]
+    # for yr=1980:2019
+    #     println(yr)
+    #     ww = matread(in_datafolder("output", "GISdata_$(windsolar)$(yr)_Mareld4.mat"))
+    #     w0 = round.(ww[var][:,:,5], digits=6)
+    #     nh = size(w0, 1)
+    #     dftime = DataFrame(year=fill(yr, nh), hour=1:nh)
+    #     dfyr = DataFrame([w0[:,4]], cols)
+    #     df = vcat(df, [dftime dfyr])
+    # end
+    # CSV.write(in_datafolder("output", "$(windsolar)data_Mareld$suffix.csv"), df)
+
+    # for yr=1980:2025
+    #     println(yr)
+    #     GISwind(; gisregion="Gbg7", era_year=yr, grid_everywhere=true, area_onshore=1.0, area_offshore=1.0, plotmasks=false,
+    #         onshoreclasses_min=[6], onshoreclasses_max=[99], offshoreclasses_min=[7], offshoreclasses_max=[99])
+    #     GISsolar(; gisregion="Gbg7", era_year=yr, grid_everywhere=true, plant_area=1.0, pvroof_area=1.0, plotmasks=false,
+    #         pvclasses_min=[0.08], pvclasses_max=[1.0], cspclasses_min=[0.10], cspclasses_max=[1.0])
+    # end
+
+    df = DataFrame(zeros(8784, 46), Symbol.(1980:2025))
+    for (i,yr) in enumerate(1980:2025)
+        ww = matread(in_datafolder("output", "GISdata_$(windsolar)$(yr)_Gbg7.mat"))
+        w0 = round.(abs.(ww[var]), digits=6)    # abs() to drop -0.0
         nh = size(w0, 1)
-        dftime = DataFrame(year=fill(yr, nh), hour=1:nh)
-        dfyr = DataFrame([w0[:,4]], cols)
-        df = vcat(df, [dftime dfyr])
+        df[1:nh, i] .= w0
     end
-    CSV.write(in_datafolder("output", "$(windsolar)data_Mareld$suffix.csv"), df)
+    CSV.write(in_datafolder("output", "Gbg7_$(windsolar)$suffix.csv"), df)
 end
 
 function getcompanydata()
