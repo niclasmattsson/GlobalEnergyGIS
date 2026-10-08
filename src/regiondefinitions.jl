@@ -573,6 +573,8 @@ const sweden_kommuner = Dict(munic => reg for reg in sweden_län for munic in su
 const swe_gadm_helper = [GADM(["Sweden", reg], munic) for (munic, reg) in sweden_kommuner]
 const sweden290 = [collect(keys(sweden_kommuner)) swe_gadm_helper]
 
+const gbg7 = ["storgbg" GADM(["Sweden", "Västra Götaland"], "Göteborg", "Mölndal", "Partille", "Härryda", "Lerum", "Öckerö", "Kungälv")]
+
 const global7 = [
     "Africa"        GADM("Algeria","Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon","Cape Verde",
                          "Central African Republic","Chad","Comoros","Côte d'Ivoire","Democratic Republic of the Congo",
